@@ -9,8 +9,24 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Svg, { Path } from "react-native-svg";
 
 import { colors } from "../theme/colors";
+
+/* ─── Shared typography style helper ─── */
+const font = (
+  weight: "Ubuntu_400Regular" | "Ubuntu_500Medium" | "Ubuntu_700Bold" = "Ubuntu_400Regular",
+  size: number = 16,
+  color: string = "#0C0C0C"
+) => ({
+  fontFamily: weight,
+  fontSize: size,
+  lineHeight: Math.round(size * 1.125),
+  letterSpacing: size * -0.02,
+  color,
+});
+
+/* ─── Layout ─── */
 
 type AuthLayoutProps = {
   children: ReactNode;
@@ -18,9 +34,9 @@ type AuthLayoutProps = {
 
 export function AuthLayout({ children }: AuthLayoutProps) {
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <KeyboardAvoidingView
-        className="flex-1"
+        style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <ScrollView
@@ -28,12 +44,16 @@ export function AuthLayout({ children }: AuthLayoutProps) {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View className="flex-1 px-6 pb-10 pt-4">{children}</View>
+          <View style={{ flex: 1, paddingHorizontal: 24, paddingBottom: 10, paddingTop: 16 }}>
+            {children}
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
+
+/* ─── Screen Header ─── */
 
 type ScreenHeaderProps = {
   eyebrow?: string;
@@ -53,38 +73,35 @@ export function ScreenHeader({
   rightAction,
 }: ScreenHeaderProps) {
   return (
-    <View className={showBack ? "mt-1" : "mt-8"}>
+    <View style={{ marginTop: showBack ? 4 : 20 }}>
       {showBack ? (
-        <View className="mb-8 flex-row items-center justify-between">
+        <View style={{ marginBottom: 24, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <Pressable
-            className="h-10 w-10 items-start justify-center"
+            style={{ height: 40, width: 40, alignItems: "flex-start", justifyContent: "center" }}
             onPress={onBackPress}
           >
-            <Text className="text-[24px] text-ink">{`<`}</Text>
+            <Text style={font("Ubuntu_400Regular", 24, "#0C0C0C")}>{`<`}</Text>
           </Pressable>
-          {rightAction ?? <View className="w-10" />}
+          {rightAction ?? <View style={{ width: 40 }} />}
         </View>
       ) : null}
 
       {eyebrow ? (
-        <Text className="text-[15px]" style={{ color: colors.muted }}>
-          {eyebrow}
-        </Text>
+        <Text style={font("Ubuntu_400Regular", 13, "#838383")}>{eyebrow}</Text>
       ) : null}
-      <Text className="mt-2 text-[36px] font-semibold leading-[42px] text-ink">
+      <Text style={{ ...font("Ubuntu_500Medium", 20, "#0C0C0C"), marginTop: 5 }}>
         {title}
       </Text>
       {subtitle ? (
-        <Text
-          className="mt-2 text-[16px] leading-[24px]"
-          style={{ color: colors.muted }}
-        >
+        <Text style={{ ...font("Ubuntu_400Regular", 15, "#838383"), marginTop: 5 }}>
           {subtitle}
         </Text>
       ) : null}
     </View>
   );
 }
+
+/* ─── Input Field ─── */
 
 type InputFieldProps = {
   label: string;
@@ -104,30 +121,75 @@ export function InputField({
   multiline,
 }: InputFieldProps) {
   return (
-    <View className="mt-5">
-      <Text className="mb-3 text-[16px] font-medium text-ink">{label}</Text>
+    <View style={{ marginTop: 20 }}>
+      <Text style={{ ...font("Ubuntu_400Regular", 16, "#0C0C0C"), marginBottom: 8 }}>
+        {label}
+      </Text>
       <View
-        className={`flex-row rounded-pill bg-input px-5 ${multiline ? "min-h-[100px] rounded-[24px] py-4" : "min-h-[56px] items-center"}`}
+        style={{
+          flexDirection: "row",
+          alignItems: multiline ? "flex-start" : "center",
+          justifyContent: secureTextEntry ? "space-between" : "flex-start",
+          backgroundColor: "#F2F2F2",
+          borderRadius: 30,
+          paddingHorizontal: 14,
+          paddingVertical: 10,
+          minHeight: multiline ? 100 : 45,
+          ...(multiline ? { borderRadius: 24 } : {}),
+        }}
       >
         <TextInput
-          className="flex-1 text-[16px] text-ink"
+          style={{
+            flex: 1,
+            ...font("Ubuntu_400Regular", 13, "#0C0C0C"),
+          }}
           multiline={multiline}
           placeholder={placeholder}
-          placeholderTextColor={colors.subtle}
+          placeholderTextColor="#838383"
           secureTextEntry={secureTextEntry}
           textAlignVertical={multiline ? "top" : "center"}
           value={value}
           onChangeText={onChangeText}
         />
         {secureTextEntry ? (
-          <Text className="ml-3 text-[16px]" style={{ color: colors.muted }}>
-            oo
-          </Text>
+          <EyeClosedIcon />
         ) : null}
       </View>
     </View>
   );
 }
+
+/* ─── Eye Closed Icon (18x18) ─── */
+
+function EyeClosedIcon() {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M2 12C2 12 5 5 12 5C19 5 22 12 22 12C22 12 19 19 12 19C5 19 2 12 2 12Z"
+        stroke="#262525"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z"
+        stroke="#262525"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M3 21L21 3"
+        stroke="#262525"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+/* ─── Primary Button ─── */
 
 type PrimaryButtonProps = {
   label: string;
@@ -137,14 +199,23 @@ type PrimaryButtonProps = {
 export function PrimaryButton({ label, onPress }: PrimaryButtonProps) {
   return (
     <Pressable
-      className="mt-6 min-h-[56px] items-center justify-center rounded-pill"
       onPress={onPress}
-      style={{ backgroundColor: colors.primary }}
+      style={{
+        marginTop: 13,
+        height: 50,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#1B17B3",
+        borderRadius: 30,
+        paddingVertical: 9,
+      }}
     >
-      <Text className="text-[20px] font-medium text-white">{label}</Text>
+      <Text style={font("Ubuntu_400Regular", 16, "#FFFFFF")}>{label}</Text>
     </Pressable>
   );
 }
+
+/* ─── Link Text ─── */
 
 type LinkTextProps = {
   label: string;
@@ -154,41 +225,90 @@ type LinkTextProps = {
 
 export function LinkText({ label, onPress, center }: LinkTextProps) {
   return (
-    <Pressable className={center ? "mt-5 self-center" : undefined} onPress={onPress}>
-      <Text className="text-[16px] font-medium" style={{ color: colors.primary }}>
-        {label}
-      </Text>
+    <Pressable
+      style={center ? { height: 50, alignItems: "center", justifyContent: "center" } : undefined}
+      onPress={onPress}
+    >
+      <Text style={font("Ubuntu_400Regular", 16, "#1B17B3")}>{label}</Text>
     </Pressable>
   );
 }
 
+/* ─── Divider ─── */
+
 export function Divider() {
   return (
-    <View className="mt-8 flex-row items-center">
-      <View className="h-px flex-1 bg-line" />
-      <Text className="mx-4 text-[16px]" style={{ color: colors.muted }}>
+    <View style={{ flexDirection: "row", alignItems: "center" }}>
+      <View style={{ flex: 1, height: 1, backgroundColor: "#D2D2D2" }} />
+      <Text style={{ ...font("Ubuntu_400Regular", 16, "#838383"), marginHorizontal: 16 }}>
         or
       </Text>
-      <View className="h-px flex-1 bg-line" />
+      <View style={{ flex: 1, height: 1, backgroundColor: "#D2D2D2" }} />
     </View>
   );
 }
 
+/* ─── Social Button ─── */
+
 type SocialButtonProps = {
   label: string;
-  badge: string;
+  badge: "google" | "apple" | string;
 };
 
 export function SocialButton({ label, badge }: SocialButtonProps) {
   return (
-    <Pressable className="mt-4 min-h-[54px] flex-row items-center justify-center rounded-pill border border-line bg-white px-5">
-      <View className="mr-3 h-7 w-7 items-center justify-center rounded-full bg-input">
-        <Text className="text-[14px] font-semibold text-ink">{badge}</Text>
-      </View>
-      <Text className="text-[18px] font-medium text-ink">{label}</Text>
+    <Pressable
+      style={{
+        marginTop: 12,
+        height: 50,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: 30,
+        borderWidth: 1,
+        borderColor: "#D2D2D2",
+        backgroundColor: "#FFFFFF",
+        paddingVertical: 9,
+        gap: 8,
+      }}
+    >
+      {badge === "google" ? <GoogleIcon /> : badge === "apple" ? <AppleIcon /> : (
+        <View style={{ width: 24, height: 24, alignItems: "center", justifyContent: "center", borderRadius: 12, backgroundColor: "#F2F2F2" }}>
+          <Text style={font("Ubuntu_700Bold", 14, "#0C0C0C")}>{badge}</Text>
+        </View>
+      )}
+      <Text style={font("Ubuntu_400Regular", 16, "#262525")}>{label}</Text>
     </Pressable>
   );
 }
+
+/* ─── Google Icon (24x24) ─── */
+
+function GoogleIcon() {
+  return (
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+      <Path d="M21.8055 10.0415H21V10H12V14H17.6515C16.827 16.3285 14.6115 18 12 18C8.6865 18 6 15.3135 6 12C6 8.6865 8.6865 6 12 6C13.5295 6 14.921 6.577 15.9805 7.5195L18.809 4.691C17.023 3.0265 14.634 2 12 2C6.4775 2 2 6.4775 2 12C2 17.5225 6.4775 22 12 22C17.5225 22 22 17.5225 22 12C22 11.3295 21.931 10.675 21.8055 10.0415Z" fill="#FFC107" />
+      <Path d="M3.15283 7.3455L6.43833 9.755C7.32733 7.554 9.48033 6 12.0003 6C13.5298 6 14.9213 6.577 15.9808 7.5195L18.8093 4.691C17.0233 3.0265 14.6343 2 12.0003 2C8.15883 2 4.82783 4.1685 3.15283 7.3455Z" fill="#FF3D00" />
+      <Path d="M12.0002 22C14.5832 22 16.9302 21.0115 18.7047 19.404L15.6097 16.785C14.5719 17.5742 13.3039 18.001 12.0002 18C9.39916 18 7.19066 16.3415 6.35866 14.027L3.09766 16.5395C4.75266 19.778 8.11366 22 12.0002 22Z" fill="#4CAF50" />
+      <Path d="M21.8055 10.0415H21V10H12V14H17.6515C17.2571 15.1082 16.5467 16.0766 15.608 16.7855L15.6095 16.7845L18.7045 19.4035C18.4855 19.6025 22 17 22 12C22 11.3295 21.931 10.675 21.8055 10.0415Z" fill="#1976D2" />
+    </Svg>
+  );
+}
+
+/* ─── Apple Icon (24x24) ─── */
+
+function AppleIcon() {
+  return (
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M17.05 20.28C16.07 21.23 15 21.08 13.97 20.63C12.88 20.17 11.88 20.15 10.73 20.63C9.29 21.25 8.53 21.07 7.67 20.28C2.79 15.25 3.51 7.59 9.05 7.31C10.4 7.38 11.34 8.05 12.13 8.11C13.31 7.87 14.44 7.18 15.71 7.27C17.22 7.39 18.36 7.99 19.12 9.07C15.98 10.94 16.68 15.05 19.55 16.2C18.96 17.83 18.19 19.45 17.04 20.29L17.05 20.28ZM12.03 7.25C11.88 5.02 13.69 3.18 15.77 3C16.06 5.58 13.43 7.5 12.03 7.25Z"
+        fill="#000000"
+      />
+    </Svg>
+  );
+}
+
+/* ─── Footer Prompt ─── */
 
 type FooterPromptProps = {
   prompt: string;
@@ -198,12 +318,47 @@ type FooterPromptProps = {
 
 export function FooterPrompt({ prompt, action, onPress }: FooterPromptProps) {
   return (
-    <View className="mt-auto flex-row items-center justify-center pb-2 pt-16">
-      <Text className="text-[16px] text-ink">{prompt} </Text>
-      <LinkText label={action} onPress={onPress} />
+    <View
+      style={{
+        marginTop: "auto",
+        height: 50,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: 30,
+        paddingVertical: 9,
+        gap: 8,
+      }}
+    >
+      <Text
+        style={{
+          fontFamily: "Ubuntu_400Regular",
+          fontSize: 16,
+          lineHeight: 18,
+          letterSpacing: 16 * -0.02,
+          color: "#0C0C0C",
+        }}
+      >
+        {prompt}
+      </Text>
+      <Pressable onPress={onPress}>
+        <Text
+          style={{
+            fontFamily: "Ubuntu_400Regular",
+            fontSize: 16,
+            lineHeight: 18,
+            letterSpacing: 16 * -0.02,
+            color: "#1B17B3",
+          }}
+        >
+          {action}
+        </Text>
+      </Pressable>
     </View>
   );
 }
+
+/* ─── Segment Control ─── */
 
 type SegmentControlProps = {
   options: string[];
@@ -217,20 +372,18 @@ export function SegmentControl({
   onSelect,
 }: SegmentControlProps) {
   return (
-    <View className="mt-8 flex-row rounded-pill bg-input p-1">
+    <View style={{ marginTop: 24, flexDirection: "row", borderRadius: 30, backgroundColor: "#F2F2F2", padding: 4 }}>
       {options.map((option) => {
         const active = option === selected;
 
         return (
           <Pressable
             key={option}
-            className="flex-1 rounded-pill py-3"
+            style={{ flex: 1, borderRadius: 30, paddingVertical: 12, backgroundColor: active ? "#FFFFFF" : "transparent" }}
             onPress={() => onSelect(option)}
-            style={{ backgroundColor: active ? colors.background : "transparent" }}
           >
             <Text
-              className="text-center text-[15px] font-medium"
-              style={{ color: active ? colors.primary : colors.muted }}
+              style={{ ...font("Ubuntu_500Medium", 15, active ? "#1B17B3" : "#838383"), textAlign: "center" }}
             >
               {option}
             </Text>
@@ -241,6 +394,8 @@ export function SegmentControl({
   );
 }
 
+/* ─── Step Dots ─── */
+
 type StepDotsProps = {
   total: number;
   active: number;
@@ -248,13 +403,15 @@ type StepDotsProps = {
 
 export function StepDots({ total, active }: StepDotsProps) {
   return (
-    <View className="flex-row gap-2">
+    <View style={{ flexDirection: "row", gap: 8 }}>
       {Array.from({ length: total }).map((_, index) => (
         <View
           key={index}
-          className="h-1.5 w-8 rounded-full"
           style={{
-            backgroundColor: index < active ? colors.primary : colors.line,
+            height: 6,
+            width: 32,
+            borderRadius: 3,
+            backgroundColor: index < active ? "#1B17B3" : "#E7E7E7",
           }}
         />
       ))}
