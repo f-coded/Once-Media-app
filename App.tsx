@@ -15,6 +15,8 @@ import { ForgotPasswordScreen } from "./src/screens/ForgotPasswordScreen";
 import { LoginScreen } from "./src/screens/LoginScreen";
 import { SignUpScreen } from "./src/screens/SignUpScreen";
 import { OTPVerificationScreen } from "./src/screens/OTPVerificationScreen";
+import { CreatePasswordScreen } from "./src/screens/CreatePasswordScreen";
+import { ConfirmPasswordScreen } from "./src/screens/ConfirmPasswordScreen";
 import { AnimatedSplashScreen } from "./src/components/AnimatedSplashScreen";
 
 type Route =
@@ -22,6 +24,8 @@ type Route =
   | "signup"
   | "forgot-password"
   | "otp-verification"
+  | "create-password"
+  | "confirm-password"
   | "choose-role"
   | "complete-profile"
   | "account-success";
@@ -73,8 +77,22 @@ export default function App() {
       {route === "otp-verification" ? (
         <OTPVerificationScreen 
           onBackPress={() => setRoute("forgot-password")}
-          onVerifyPress={() => console.log("Verified")}
+          onVerifyPress={() => setRoute("create-password")}
           onTryAnotherMethod={() => setRoute("forgot-password")}
+        />
+      ) : null}
+
+      {route === "create-password" ? (
+        <CreatePasswordScreen 
+          onBackPress={() => setRoute("otp-verification")}
+          onCreatePasswordPress={() => setRoute("confirm-password")}
+        />
+      ) : null}
+
+      {route === "confirm-password" ? (
+        <ConfirmPasswordScreen 
+          onBackPress={() => setRoute("create-password")}
+          onConfirmPasswordPress={() => setRoute("login")}
         />
       ) : null}
 

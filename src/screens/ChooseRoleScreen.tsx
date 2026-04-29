@@ -1,12 +1,18 @@
 import { Pressable, Text, View } from "react-native";
+import Svg, { Circle, Path } from "react-native-svg";
 
 import {
   AuthLayout,
   PrimaryButton,
   ScreenHeader,
-  StepDots,
+  font,
 } from "../components/AuthUI";
-import { colors } from "../theme/colors";
+import {
+  HouseHunterIcon,
+  PropertyOwnerIcon,
+  ProfessionalIcon,
+  ContentCreatorIcon,
+} from "../components/RoleIcons";
 
 type ChooseRoleScreenProps = {
   selectedRole: string;
@@ -18,25 +24,40 @@ type ChooseRoleScreenProps = {
 const roles = [
   {
     key: "House Hunter",
-    icon: "HH",
+    icon: <HouseHunterIcon />,
     description: "People looking for their next home or a cool community.",
   },
   {
     key: "Property Owner",
-    icon: "PO",
+    icon: <PropertyOwnerIcon />,
     description: "Individual landlords or homeowners.",
   },
   {
     key: "Professional",
-    icon: "PR",
+    icon: <ProfessionalIcon />,
     description: "Agents, Realtors, and Property Managers.",
   },
   {
     key: "Content Creators",
-    icon: "CC",
+    icon: <ContentCreatorIcon />,
     description: "Share posts, grow your audience, and earn from your activity.",
   },
 ];
+
+function CheckCircleIcon() {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 18 18" fill="none">
+      <Circle cx={9} cy={9} r={9} fill="#1B17B3" />
+      <Path
+        d="M5.5 9.5L8 12L13 6"
+        stroke="#FFFFFF"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
 
 export function ChooseRoleScreen({
   selectedRole,
@@ -48,53 +69,58 @@ export function ChooseRoleScreen({
     <AuthLayout>
       <ScreenHeader
         showBack
+        largeTitle
         title="Choose Who You Are"
         subtitle="Choose how you'd like to use the platform. You can always switch later."
         onBackPress={onBackPress}
-        rightAction={<StepDots total={4} active={2} />}
       />
 
-      <View className="mt-6 gap-3">
+      <View style={{ marginTop: 24, gap: 12, flexDirection: "column" }}>
         {roles.map((role) => {
           const active = role.key === selectedRole;
 
           return (
             <Pressable
               key={role.key}
-              className="rounded-[24px] border p-4"
               onPress={() => onSelectRole(role.key)}
               style={{
-                backgroundColor: active ? "#EEF2FF" : colors.background,
-                borderColor: active ? colors.primary : colors.line,
+                width: "100%",
+                minHeight: 97,
+                backgroundColor: active ? "#e7f1ff" : "#F2F2F2",
+                borderColor: active ? "#1b17b3" : "transparent",
+                borderWidth: 1,
+                borderRadius: 20,
+                padding: 16,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 16,
               }}
             >
-              <View className="flex-row items-start">
-                <View className="mr-4 h-12 w-12 items-center justify-center rounded-full bg-input">
-                  <Text className="text-[12px] font-semibold text-ink">{role.icon}</Text>
-                </View>
-                <View className="flex-1 pr-3">
-                  <Text className="text-[16px] font-semibold text-ink">{role.key}</Text>
-                  <Text
-                    className="mt-1 text-[15px] leading-[22px]"
-                    style={{ color: colors.muted }}
-                  >
-                    {role.description}
-                  </Text>
-                </View>
-                <View
-                  className="mt-1 h-5 w-5 rounded-full border"
+              <View style={{ width: 36, height: 36, alignItems: "center", justifyContent: "center" }}>
+                {role.icon}
+              </View>
+              <View style={{ flex: 1, gap: 4 }}>
+                <Text style={{ ...font("Ubuntu_500Medium", 16, "#0c0c0c"), letterSpacing: -0.32 }}>
+                  {role.key}
+                </Text>
+                <Text
                   style={{
-                    backgroundColor: active ? colors.primary : colors.background,
-                    borderColor: active ? colors.primary : colors.line,
+                    ...font("Ubuntu_400Regular", 14, "#4a4a4a", 21),
+                    letterSpacing: -0.28,
                   }}
-                />
+                >
+                  {role.description}
+                </Text>
+              </View>
+              <View style={{ width: 18, height: 18, alignSelf: "flex-start" }}>
+                {active && <CheckCircleIcon />}
               </View>
             </Pressable>
           );
         })}
       </View>
 
-      <View className="mt-auto pt-10">
+      <View style={{ flex: 1, justifyContent: "flex-end", marginTop: 40, marginBottom: 20 }}>
         <PrimaryButton label="Continue" onPress={onContinuePress} />
       </View>
     </AuthLayout>

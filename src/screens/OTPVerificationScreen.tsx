@@ -30,6 +30,7 @@ export function OTPVerificationScreen({
         onBackPress={onBackPress}
         totalSteps={4}
         activeStep={2}
+        largeTitle
         title="OTP Verification"
         subtitle={
           <Text style={{ fontFamily: "Ubuntu_400Regular", fontSize: 14, color: "#838383", lineHeight: 21, letterSpacing: -0.28 }}>

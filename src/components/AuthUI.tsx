@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, useRef } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -14,7 +14,7 @@ import Svg, { Path } from "react-native-svg";
 import { colors } from "../theme/colors";
 
 /* ─── Shared typography style helper ─── */
-const font = (
+export const font = (
   weight: "Ubuntu_400Regular" | "Ubuntu_500Medium" | "Ubuntu_700Bold" = "Ubuntu_400Regular",
   size: number = 16,
   color: string = "#0C0C0C",
@@ -63,6 +63,7 @@ type ScreenHeaderProps = {
   showBack?: boolean;
   onBackPress?: () => void;
   rightAction?: ReactNode;
+  largeTitle?: boolean;
 };
 
 export function ScreenHeader({
@@ -74,6 +75,8 @@ export function ScreenHeader({
   totalSteps,
   activeStep,
   centered,
+  largeTitle,
+  rightAction,
 }: ScreenHeaderProps & { totalSteps?: number; activeStep?: number; centered?: boolean }) {
   return (
     <View style={{ marginTop: showBack ? 12 : 22, width: "100%" }}>
@@ -82,7 +85,7 @@ export function ScreenHeader({
           <Pressable onPress={onBackPress} style={{ width: 24, height: 24, justifyContent: "center" }}>
             <BackArrowIcon />
           </Pressable>
-          {totalSteps && <StepDots total={totalSteps} active={activeStep || 0} />}
+          {totalSteps ? <StepDots total={totalSteps} active={activeStep || 0} /> : rightAction}
         </View>
       )}
       {eyebrow && (
@@ -90,9 +93,9 @@ export function ScreenHeader({
       )}
       <Text 
         style={{ 
-          ...font(title === "OTP Verification" ? "Ubuntu_700Bold" : "Ubuntu_500Medium", title === "OTP Verification" ? 22 : 20, "#0C0C0C"), 
+          ...font(largeTitle ? "Ubuntu_700Bold" : "Ubuntu_500Medium", largeTitle ? 22 : 20, "#0C0C0C"), 
           marginTop: eyebrow ? 5 : 0,
-          letterSpacing: title === "OTP Verification" ? -0.44 : -2,
+          letterSpacing: largeTitle ? -0.44 : -2,
           textAlign: centered ? "center" : "left"
         }}
       >
@@ -100,11 +103,11 @@ export function ScreenHeader({
       </Text>
       {subtitle && (
         typeof subtitle === "string" ? (
-          <Text style={{ ...font("Ubuntu_400Regular", title === "OTP Verification" ? 14 : 13, "#838383", title === "OTP Verification" ? 21 : 15.6), marginTop: title === "OTP Verification" ? 4 : 8, letterSpacing: title === "OTP Verification" ? -0.28 : -0.26, textAlign: centered ? "center" : "left" }}>
+          <Text style={{ ...font("Ubuntu_400Regular", largeTitle ? 14 : 13, largeTitle ? "#4A4A4A" : "#838383", largeTitle ? 21 : 15.6), marginTop: largeTitle ? 4 : 8, letterSpacing: largeTitle ? -0.28 : -0.26, textAlign: centered ? "center" : "left" }}>
             {subtitle}
           </Text>
         ) : (
-          <View style={{ marginTop: title === "OTP Verification" ? 4 : 8 }}>
+          <View style={{ marginTop: largeTitle ? 4 : 8 }}>
             {subtitle}
           </View>
         )
@@ -238,6 +241,8 @@ type InputFieldProps = {
   onChangeText: (value: string) => void;
   multiline?: boolean;
   marginTop?: number;
+  rightIcon?: React.ReactNode;
+  helperText?: string;
 };
 
 export function InputField({
@@ -248,6 +253,8 @@ export function InputField({
   onChangeText,
   multiline,
   marginTop = 12,
+  rightIcon,
+  helperText,
 }: InputFieldProps) {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const isSecure = secureTextEntry && !isPasswordVisible;
@@ -261,7 +268,7 @@ export function InputField({
         style={{
           flexDirection: "row",
           alignItems: multiline ? "flex-start" : "center",
-          justifyContent: secureTextEntry ? "space-between" : "flex-start",
+          justifyContent: (secureTextEntry || rightIcon) ? "space-between" : "flex-start",
           backgroundColor: "#F2F2F2",
           borderRadius: 30,
           paddingHorizontal: 14,
@@ -289,8 +296,15 @@ export function InputField({
           <Pressable onPress={() => setIsPasswordVisible(!isPasswordVisible)}>
             {isPasswordVisible ? <EyeOpenIcon /> : <EyeClosedIcon />}
           </Pressable>
+        ) : rightIcon ? (
+          rightIcon
         ) : null}
       </View>
+      {helperText && (
+        <Text style={{ ...font("Ubuntu_400Regular", 13, "#434343", 15), marginTop: 8, letterSpacing: -0.26 }}>
+          {helperText}
+        </Text>
+      )}
     </View>
   );
 }
@@ -308,47 +322,65 @@ export function OTPInput({
   length?: number;
   error?: boolean;
 }) {
+  const inputRef = useRef<TextInput>(null);
+
   return (
     <View style={{ width: "100%" }}>
       <Text style={{ ...font("Ubuntu_500Medium", 14, "#0C0C0C", 21), marginBottom: 6, letterSpacing: -0.28 }}>
         {label}
       </Text>
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          backgroundColor: "#F2F2F2",
-          borderRadius: 20,
-          paddingHorizontal: 8,
-          paddingVertical: 4.5,
-          width: 184,
-          height: 45,
-          gap: 8,
-        }}
-      >
-        {Array.from({ length }).map((_, index) => {
-          const digit = code[index] || "";
-          return (
-            <View
-              key={index}
-              style={{
-                width: 36,
-                height: 36,
-                backgroundColor: "#FCFCFC",
-                borderRadius: 12,
-                alignItems: "center",
-                justifyContent: "center",
-                borderWidth: error ? 1 : 0,
-                borderColor: "red",
-              }}
-            >
-              <Text style={font("Ubuntu_400Regular", 18, "#4A4A4A")}>
-                {digit ? "*" : ""}
-              </Text>
-            </View>
-          );
-        })}
-      </View>
+      <Pressable onPress={() => inputRef.current?.focus()}>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            backgroundColor: "#F2F2F2",
+            borderRadius: 20,
+            paddingHorizontal: 8,
+            paddingVertical: 4.5,
+            width: 184,
+            height: 45,
+            gap: 8,
+          }}
+        >
+          {Array.from({ length }).map((_, index) => {
+            const digit = code[index] || "";
+            return (
+              <View
+                key={index}
+                style={{
+                  width: 36,
+                  height: 36,
+                  backgroundColor: "#FCFCFC",
+                  borderRadius: 12,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderWidth: error ? 1 : 0,
+                  borderColor: "red",
+                }}
+              >
+                <Text style={font("Ubuntu_400Regular", 18, "#4A4A4A")}>
+                  {digit ? "*" : ""}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+        <TextInput
+          ref={inputRef}
+          value={code}
+          onChangeText={(text) => onCodeChange(text.slice(0, length))}
+          keyboardType="number-pad"
+          textContentType="oneTimeCode"
+          maxLength={length}
+          style={{
+            position: "absolute",
+            width: 184,
+            height: 45,
+            opacity: 0,
+          }}
+        />
+      </Pressable>
       {error && (
         <Text style={{ ...font("Ubuntu_400Regular", 12, "red"), marginTop: 8 }}>
           Invalid code
