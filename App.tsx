@@ -47,7 +47,7 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar style="dark" />
+      <StatusBar style={showSplash ? "light" : "dark"} />
 
       {showSplash && (
         <AnimatedSplashScreen onAnimationFinish={() => setShowSplash(false)} />

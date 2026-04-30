@@ -1,8 +1,10 @@
-import { ReactNode, useState, useRef } from "react";
+import { ReactNode, useState, useRef, useCallback } from "react";
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   Text,
   TextInput,
@@ -10,6 +12,15 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withSequence,
+  withTiming,
+  FadeInUp,
+} from "react-native-reanimated";
+import * as Haptics from "expo-haptics";
 
 import { colors } from "../theme/colors";
 
@@ -27,6 +38,21 @@ export const font = (
   color,
 });
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+/* ─── Animated Screen Wrapper ─── */
+
+export function AnimatedScreenWrapper({ children }: { children: ReactNode }) {
+  return (
+    <Animated.View
+      entering={FadeInUp.duration(350).damping(20).stiffness(90)}
+      style={{ flex: 1 }}
+    >
+      {children}
+    </Animated.View>
+  );
+}
+
 /* ─── Layout ─── */
 
 type AuthLayoutProps = {
@@ -34,6 +60,13 @@ type AuthLayoutProps = {
 };
 
 export function AuthLayout({ children }: AuthLayoutProps) {
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 600);
+  }, []);
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <KeyboardAvoidingView
@@ -44,10 +77,23 @@ export function AuthLayout({ children }: AuthLayoutProps) {
           contentContainerStyle={{ flexGrow: 1 }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          bounces={true}
+          overScrollMode="always"
+          alwaysBounceVertical={true}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#1B17B3"
+              colors={["#1B17B3"]}
+            />
+          }
         >
-          <View style={{ flex: 1, paddingHorizontal: 20, paddingBottom: 10, paddingTop: 16 }}>
-            {children}
-          </View>
+          <AnimatedScreenWrapper>
+            <View style={{ flex: 1, paddingHorizontal: 20, paddingBottom: 10, paddingTop: 16 }}>
+              {children}
+            </View>
+          </AnimatedScreenWrapper>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -82,7 +128,7 @@ export function ScreenHeader({
     <View style={{ marginTop: showBack ? 12 : 22, width: "100%" }}>
       {showBack && (
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-          <Pressable onPress={onBackPress} style={{ width: 24, height: 24, justifyContent: "center" }}>
+          <Pressable onPress={onBackPress} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ width: 24, height: 24, justifyContent: "center" }}>
             <BackArrowIcon />
           </Pressable>
           {totalSteps ? <StepDots total={totalSteps} active={activeStep || 0} /> : rightAction}
@@ -243,6 +289,7 @@ type InputFieldProps = {
   marginTop?: number;
   rightIcon?: React.ReactNode;
   helperText?: string;
+  error?: boolean;
 };
 
 export function InputField({
@@ -255,51 +302,110 @@ export function InputField({
   marginTop = 12,
   rightIcon,
   helperText,
+  error,
 }: InputFieldProps) {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const isSecure = secureTextEntry && !isPasswordVisible;
+  const inputRef = useRef<TextInput>(null);
+
+  // Focus glow animation
+  const borderProgress = useSharedValue(0);
+  const shakeX = useSharedValue(0);
+  const eyeScale = useSharedValue(1);
+
+  const containerStyle = useAnimatedStyle(() => ({
+    borderWidth: borderProgress.value * 1.5,
+    borderColor: error ? "#FF3B30" : `rgba(27, 23, 179, ${borderProgress.value})`,
+    transform: [{ translateX: shakeX.value }],
+  }));
+
+  const handleFocus = useCallback(() => {
+    borderProgress.value = withSpring(1, { damping: 15, stiffness: 150 });
+  }, [borderProgress]);
+
+  const handleBlur = useCallback(() => {
+    borderProgress.value = withSpring(0, { damping: 15, stiffness: 150 });
+  }, [borderProgress]);
+
+  // Trigger shake when error changes to true
+  const triggerShake = useCallback(() => {
+    shakeX.value = withSequence(
+      withTiming(-8, { duration: 50 }),
+      withTiming(8, { duration: 50 }),
+      withTiming(-6, { duration: 50 }),
+      withTiming(6, { duration: 50 }),
+      withTiming(0, { duration: 50 })
+    );
+  }, [shakeX]);
+
+  // Eye toggle animation
+  const togglePasswordVisibility = useCallback(() => {
+    eyeScale.value = withSequence(
+      withSpring(0.7, { damping: 10, stiffness: 300 }),
+      withSpring(1, { damping: 8, stiffness: 200 })
+    );
+    setIsPasswordVisible((prev) => !prev);
+  }, [eyeScale]);
+
+  const eyeAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: eyeScale.value }],
+  }));
+
+  // Trigger shake on error
+  if (error) {
+    triggerShake();
+  }
 
   return (
     <View style={{ marginTop }}>
       <Text style={{ ...font("Ubuntu_500Medium", 14, "#0C0C0C", 21), marginBottom: 6, letterSpacing: -0.28 }}>
         {label}
       </Text>
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: multiline ? "flex-start" : "center",
-          justifyContent: (secureTextEntry || rightIcon) ? "space-between" : "flex-start",
-          backgroundColor: "#F2F2F2",
-          borderRadius: 30,
-          paddingHorizontal: 14,
-          paddingVertical: 10,
-          height: multiline ? undefined : 45,
-          minHeight: multiline ? 100 : 45,
-          ...(multiline ? { borderRadius: 24 } : {}),
-        }}
-      >
-        <TextInput
-          style={{
-            flex: 1,
-            ...font("Ubuntu_400Regular", 13, "#0C0C0C", 15),
-            padding: 0,
-          }}
-          multiline={multiline}
-          placeholder={placeholder}
-          placeholderTextColor="#838383"
-          secureTextEntry={isSecure}
-          textAlignVertical={multiline ? "top" : "center"}
-          value={value}
-          onChangeText={onChangeText}
-        />
-        {secureTextEntry ? (
-          <Pressable onPress={() => setIsPasswordVisible(!isPasswordVisible)}>
-            {isPasswordVisible ? <EyeOpenIcon /> : <EyeClosedIcon />}
-          </Pressable>
-        ) : rightIcon ? (
-          rightIcon
-        ) : null}
-      </View>
+      <Pressable onPress={() => inputRef.current?.focus()}>
+        <Animated.View
+          style={[
+            {
+              flexDirection: "row",
+              alignItems: multiline ? "flex-start" : "center",
+              justifyContent: (secureTextEntry || rightIcon) ? "space-between" : "flex-start",
+              backgroundColor: "#F2F2F2",
+              borderRadius: multiline ? 24 : 30,
+              paddingHorizontal: 14,
+              paddingVertical: 10,
+              height: multiline ? undefined : 45,
+              minHeight: multiline ? 100 : 45,
+            },
+            containerStyle,
+          ]}
+        >
+          <TextInput
+            ref={inputRef}
+            style={{
+              flex: 1,
+              ...font("Ubuntu_400Regular", 13, "#0C0C0C", 15),
+              padding: 0,
+            }}
+            multiline={multiline}
+            placeholder={placeholder}
+            placeholderTextColor="#838383"
+            secureTextEntry={isSecure}
+            textAlignVertical={multiline ? "top" : "center"}
+            value={value}
+            onChangeText={onChangeText}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+          />
+          {secureTextEntry ? (
+            <Pressable onPress={togglePasswordVisibility} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+              <Animated.View style={eyeAnimatedStyle}>
+                {isPasswordVisible ? <EyeOpenIcon /> : <EyeClosedIcon />}
+              </Animated.View>
+            </Pressable>
+          ) : rightIcon ? (
+            rightIcon
+          ) : null}
+        </Animated.View>
+      </Pressable>
       {helperText && (
         <Text style={{ ...font("Ubuntu_400Regular", 13, "#434343", 15), marginTop: 8, letterSpacing: -0.26 }}>
           {helperText}
@@ -435,23 +541,55 @@ function EyeClosedIcon() {
 type PrimaryButtonProps = {
   label: string;
   onPress?: () => void;
+  loading?: boolean;
 };
 
-export function PrimaryButton({ label, onPress }: PrimaryButtonProps) {
+export function PrimaryButton({ label, onPress, loading }: PrimaryButtonProps) {
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = useCallback(() => {
+    scale.value = withSpring(0.97, { damping: 15, stiffness: 300 });
+  }, [scale]);
+
+  const handlePressOut = useCallback(() => {
+    scale.value = withSpring(1, { damping: 10, stiffness: 200 });
+  }, [scale]);
+
+  const handlePress = useCallback(() => {
+    if (loading) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onPress?.();
+  }, [loading, onPress]);
+
   return (
-    <Pressable
-      onPress={onPress}
-      style={{
-        height: 50,
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: "#1B17B3",
-        borderRadius: 30,
-        paddingVertical: 9,
-      }}
+    <AnimatedPressable
+      onPress={handlePress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+      disabled={loading}
+      style={[
+        {
+          height: 50,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: loading ? "#3530C9" : "#1B17B3",
+          borderRadius: 30,
+          paddingVertical: 9,
+        },
+        animatedStyle,
+      ]}
     >
-      <Text style={font("Ubuntu_400Regular", 16, "#FFFFFF", 18)}>{label}</Text>
-    </Pressable>
+      {loading ? (
+        <ActivityIndicator color="#FFFFFF" size="small" />
+      ) : (
+        <Text style={font("Ubuntu_400Regular", 16, "#FFFFFF", 18)}>{label}</Text>
+      )}
+    </AnimatedPressable>
   );
 }
 
@@ -468,6 +606,7 @@ export function LinkText({ label, onPress, center }: LinkTextProps) {
     <Pressable
       style={center ? { height: 50, alignItems: "center", justifyContent: "center" } : undefined}
       onPress={onPress}
+      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
     >
       <Text style={font("Ubuntu_400Regular", 16, "#1B17B3", 18)}>{label}</Text>
     </Pressable>
@@ -496,20 +635,32 @@ type SocialButtonProps = {
 };
 
 export function SocialButton({ label, badge }: SocialButtonProps) {
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
   return (
-    <Pressable
-      style={{
-        height: 50,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        borderRadius: 30,
-        borderWidth: 1,
-        borderColor: "#D2D2D2",
-        backgroundColor: "#FFFFFF",
-        paddingVertical: 9,
-        gap: 8,
-      }}
+    <AnimatedPressable
+      onPressIn={() => { scale.value = withSpring(0.97, { damping: 15, stiffness: 300 }); }}
+      onPressOut={() => { scale.value = withSpring(1, { damping: 10, stiffness: 200 }); }}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      style={[
+        {
+          height: 50,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+          borderRadius: 30,
+          borderWidth: 1,
+          borderColor: "#D2D2D2",
+          backgroundColor: "#FFFFFF",
+          paddingVertical: 9,
+          gap: 8,
+        },
+        animatedStyle,
+      ]}
     >
       {badge === "google" ? <GoogleIcon /> : badge === "apple" ? <AppleIcon /> : (
         <View style={{ width: 24, height: 24, alignItems: "center", justifyContent: "center", borderRadius: 12, backgroundColor: "#F2F2F2" }}>
@@ -517,7 +668,7 @@ export function SocialButton({ label, badge }: SocialButtonProps) {
         </View>
       )}
       <Text style={font("Ubuntu_400Regular", 16, "#262525")}>{label}</Text>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -580,7 +731,7 @@ export function FooterPrompt({ prompt, action, onPress }: FooterPromptProps) {
       >
         {prompt}
       </Text>
-      <Pressable onPress={onPress}>
+      <Pressable onPress={onPress} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
         <Text
           style={{
             fontFamily: "Ubuntu_400Regular",
