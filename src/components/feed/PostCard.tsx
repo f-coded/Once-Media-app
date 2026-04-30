@@ -1,6 +1,8 @@
-import React, { useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { View, Text, Pressable, Dimensions, StyleSheet } from "react-native";
+import { useEvent } from "expo";
 import { Image } from "expo-image";
+import { useVideoPlayer, VideoView } from "expo-video";
 import { LinearGradient } from "expo-linear-gradient";
 import Svg, { Path } from "react-native-svg";
 import { font } from "../AuthUI";
@@ -26,6 +28,23 @@ function MapPinIcon({ size = 16, color = "rgba(255,255,255,0.6)" }: { size?: num
   );
 }
 
+function PlayIcon({ size = 34, color = "#FFFFFF" }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M8 5.14V18.86C8 19.62 8.84 20.08 9.48 19.67L19.99 12.81C20.57 12.43 20.57 11.57 19.99 11.19L9.48 4.33C8.84 3.92 8 4.38 8 5.14Z" fill={color} />
+    </Svg>
+  );
+}
+
+function PauseIcon({ size = 34, color = "#FFFFFF" }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M7 5.75C7 5.34 7.34 5 7.75 5H9.75C10.16 5 10.5 5.34 10.5 5.75V18.25C10.5 18.66 10.16 19 9.75 19H7.75C7.34 19 7 18.66 7 18.25V5.75Z" fill={color} />
+      <Path d="M13.5 5.75C13.5 5.34 13.84 5 14.25 5H16.25C16.66 5 17 5.34 17 5.75V18.25C17 18.66 16.66 19 16.25 19H14.25C13.84 19 13.5 18.66 13.5 18.25V5.75Z" fill={color} />
+    </Svg>
+  );
+}
+
 export type PostData = {
   id: string;
   user: {
@@ -33,6 +52,7 @@ export type PostData = {
     avatar: string;
   };
   image: string | number;
+  video?: string | number;
   caption: string;
   time: string;
   likes: number;
@@ -50,32 +70,129 @@ export type PostData = {
 type PostCardProps = {
   post: PostData;
   height: number;
+  isActive?: boolean;
   onCommentPress?: () => void;
+  onVideoLoadingChange?: (postId: string, isLoading: boolean) => void;
 };
 
-export function PostCard({ post, height, onCommentPress }: PostCardProps) {
+export function PostCard({
+  post,
+  height,
+  isActive = false,
+  onCommentPress,
+  onVideoLoadingChange,
+}: PostCardProps) {
   const [liked, setLiked] = useState(post.isLiked ?? false);
   const [bookmarked, setBookmarked] = useState(post.isBookmarked ?? false);
   const [likeCount, setLikeCount] = useState(post.likes);
   const [showHeart, setShowHeart] = useState(false);
   const [captionExpanded, setCaptionExpanded] = useState(false);
+  const [isManuallyPaused, setIsManuallyPaused] = useState(false);
+  const [showPlaybackCue, setShowPlaybackCue] = useState(false);
+  const [hasRenderedFrame, setHasRenderedFrame] = useState(false);
   const layout = post.layout ?? "vertical";
 
-  const lastTap = useRef<number>(0);
+  const player = useVideoPlayer(post.video || null, (player) => {
+    player.loop = true;
+  });
+  const statusEvent = useEvent(player, "statusChange", { status: player.status });
+
+  const singleTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const playbackCueTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showTimedPlaybackCue = useCallback((keepVisible = false) => {
+    if (playbackCueTimer.current) {
+      clearTimeout(playbackCueTimer.current);
+      playbackCueTimer.current = null;
+    }
+
+    setShowPlaybackCue(true);
+
+    if (!keepVisible) {
+      playbackCueTimer.current = setTimeout(() => {
+        setShowPlaybackCue(false);
+        playbackCueTimer.current = null;
+      }, 520);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!post.video) return;
+
+    if (isActive && !isManuallyPaused) {
+      player.play();
+    } else {
+      player.pause();
+    }
+  }, [isActive, isManuallyPaused, player, post.video]);
+
+  useEffect(() => {
+    if (isActive || !post.video) return;
+    setIsManuallyPaused(false);
+    setShowPlaybackCue(false);
+  }, [isActive, post.video]);
+
+  useEffect(() => {
+    setHasRenderedFrame(false);
+    setIsManuallyPaused(false);
+    setShowPlaybackCue(false);
+  }, [post.video]);
+
+  useEffect(() => {
+    if (!post.video) return;
+
+    const status = statusEvent?.status;
+    const isLoading = isActive && (!hasRenderedFrame || status === "loading");
+    onVideoLoadingChange?.(post.id, isLoading);
+
+    return () => onVideoLoadingChange?.(post.id, false);
+  }, [hasRenderedFrame, isActive, onVideoLoadingChange, post.id, post.video, statusEvent?.status]);
+
+  useEffect(() => {
+    return () => {
+      if (singleTapTimer.current) clearTimeout(singleTapTimer.current);
+      if (playbackCueTimer.current) clearTimeout(playbackCueTimer.current);
+    };
+  }, []);
+
+  const handleVideoToggle = useCallback(() => {
+    if (!post.video) return;
+
+    setIsManuallyPaused((paused) => {
+      const nextPaused = !paused;
+
+      if (nextPaused) {
+        player.pause();
+        showTimedPlaybackCue(true);
+      } else {
+        if (isActive) {
+          player.play();
+        }
+        showTimedPlaybackCue(false);
+      }
+
+      return nextPaused;
+    });
+  }, [isActive, player, post.video, showTimedPlaybackCue]);
 
   const handleTap = useCallback(() => {
-    const now = Date.now();
-    if (now - lastTap.current < 300) {
+    if (singleTapTimer.current) {
+      clearTimeout(singleTapTimer.current);
+      singleTapTimer.current = null;
+
       if (!liked) {
         setLiked(true);
         setLikeCount((c) => c + 1);
       }
       setShowHeart(true);
-      lastTap.current = 0;
-    } else {
-      lastTap.current = now;
+      return;
     }
-  }, [liked]);
+
+    singleTapTimer.current = setTimeout(() => {
+      handleVideoToggle();
+      singleTapTimer.current = null;
+    }, 260);
+  }, [handleVideoToggle, liked]);
 
   const handleLikePress = useCallback(() => {
     setLiked((prev) => {
@@ -90,18 +207,42 @@ export function PostCard({ post, height, onCommentPress }: PostCardProps) {
 
   return (
     <View style={[styles.container, { height }]}>
-      {/* Background Image — tappable for double-tap */}
+      {/* Background Media — tappable for double-tap */}
       <Pressable onPress={handleTap} style={StyleSheet.absoluteFill}>
-        <Image
-          source={typeof post.image === "string" ? { uri: post.image } : post.image}
-          style={StyleSheet.absoluteFill}
-          contentFit="cover"
-          transition={300}
-        />
+        {post.video ? (
+          <>
+            <Image
+              source={typeof post.image === "string" ? { uri: post.image } : post.image}
+              style={StyleSheet.absoluteFill}
+              contentFit="cover"
+              transition={200}
+            />
+            <VideoView
+              player={player}
+              style={StyleSheet.absoluteFill}
+              nativeControls={false}
+              contentFit="cover"
+              onFirstFrameRender={() => setHasRenderedFrame(true)}
+            />
+          </>
+        ) : (
+          <Image
+            source={typeof post.image === "string" ? { uri: post.image } : post.image}
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+            transition={300}
+          />
+        )}
       </Pressable>
 
       {/* Heart burst overlay */}
       <HeartBurst visible={showHeart} onFinish={() => setShowHeart(false)} />
+
+      {post.video && (isManuallyPaused || showPlaybackCue) && (
+        <View style={styles.playbackCue} pointerEvents="none">
+          {isManuallyPaused ? <PlayIcon /> : <PauseIcon />}
+        </View>
+      )}
 
       {/* Gradient overlays — pointerEvents none so they don't block touches */}
       <LinearGradient
@@ -121,10 +262,14 @@ export function PostCard({ post, height, onCommentPress }: PostCardProps) {
       <View style={[styles.bottomContent, { width: 264 }]} pointerEvents="box-none">
         {/* User row */}
         <View style={styles.userRow}>
-          <View style={[styles.avatar, { width: layout === "vertical" ? 34 : 28, height: layout === "vertical" ? 34 : 28 }]} />
-          <View style={{ flex: 1 }}>
+          <Image 
+            source={{ uri: post.user.avatar }} 
+            style={[styles.avatar, { width: layout === "vertical" ? 34 : 28, height: layout === "vertical" ? 34 : 28 }]} 
+            contentFit="cover" 
+          />
+          <View style={{ flexShrink: 1 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
-              <Text style={styles.username}>{post.user.name}</Text>
+              <Text style={[styles.username, { flexShrink: 1 }]} numberOfLines={1}>{post.user.name}</Text>
               <View style={styles.dot} />
               <Text style={styles.time}>{post.time}</Text>
             </View>
@@ -144,10 +289,10 @@ export function PostCard({ post, height, onCommentPress }: PostCardProps) {
         </View>
 
         {/* Caption */}
-        <Text style={styles.caption} numberOfLines={captionExpanded ? undefined : 2}>
-          {post.caption}
-          {!captionExpanded && post.caption.length > 60 && (
-            <Text style={styles.seeMoreInline}> See more</Text>
+        <Text style={styles.caption}>
+          {captionExpanded ? post.caption : (post.caption.length > 65 ? `${post.caption.substring(0, 65)}... ` : post.caption)}
+          {!captionExpanded && post.caption.length > 65 && (
+            <Text style={styles.seeMoreInline} onPress={() => setCaptionExpanded(true)}>See more</Text>
           )}
         </Text>
 
@@ -236,9 +381,29 @@ const styles = StyleSheet.create({
     right: 0,
     height: "50%",
   },
+  playbackCue: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    width: 76,
+    height: 76,
+    marginLeft: -38,
+    marginTop: -38,
+    borderRadius: 38,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.42)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.18)",
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 18,
+    elevation: 8,
+  },
   bottomContent: {
     position: "absolute",
-    bottom: 98, /* 18 + 80 (NAV_HEIGHT) so it sits above the navbar */
+    bottom: 18, /* 18px from the bottom of the PostCard (which now stops at the top of the navbar) */
     left: 18,
     gap: 6,
   },
@@ -323,9 +488,9 @@ const styles = StyleSheet.create({
   verticalActions: {
     position: "absolute",
     right: 14,
-    bottom: 98, /* 18 + 80 (NAV_HEIGHT) so it sits above the navbar */
+    bottom: 18,
     alignItems: "flex-end",
-    gap: 10,
+    gap: 15,
   },
   actionGroup: {
     alignItems: "center",
