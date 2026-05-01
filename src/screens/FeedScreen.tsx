@@ -2,10 +2,10 @@ import React, { useState, useRef, useCallback } from "react";
 import {
   NativeScrollEvent,
   NativeSyntheticEvent,
+  RefreshControl,
   View,
   StyleSheet,
   useWindowDimensions,
-  ActivityIndicator,
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -139,13 +139,15 @@ export function FeedScreen() {
   const [containerHeight, setContainerHeight] = useState(windowHeight);
   const POST_HEIGHT = containerHeight - NAV_HEIGHT;
 
+  const [posts, setPosts] = useState(MOCK_POSTS);
   const [activeTab, setActiveTab] = useState<"home" | "market" | "chat" | "wallet">("home");
   const [activePostId, setActivePostId] = useState(MOCK_POSTS[0]?.id ?? "");
   const [loadingPostId, setLoadingPostId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const commentSheetRef = useRef<BottomSheet>(null);
 
-  const activePost = MOCK_POSTS.find((post) => post.id === activePostId);
+  const activePost = posts.find((post) => post.id === activePostId);
   const isActiveVideoLoading = Boolean(activePost?.video && loadingPostId === activePostId);
 
   const handleCommentPress = useCallback(() => {
@@ -161,12 +163,30 @@ export function FeedScreen() {
 
   const handleScrollEnd = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const nextIndex = Math.round(event.nativeEvent.contentOffset.y / POST_HEIGHT);
-    const nextPost = MOCK_POSTS[nextIndex];
+    const nextPost = posts[nextIndex];
 
     if (nextPost) {
       setActivePostId(nextPost.id);
     }
-  }, [POST_HEIGHT]);
+  }, [POST_HEIGHT, posts]);
+
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    setPosts(MOCK_POSTS);
+    setActivePostId(MOCK_POSTS[0]?.id ?? "");
+    setTimeout(() => setRefreshing(false), 600);
+  }, []);
+
+  const handleEndReached = useCallback(() => {
+    setPosts((currentPosts) => {
+      const nextPage = MOCK_POSTS.map((post, index) => ({
+        ...post,
+        id: `${post.id}-${Math.floor(currentPosts.length / MOCK_POSTS.length)}-${index}`,
+      }));
+
+      return [...currentPosts, ...nextPage];
+    });
+  }, []);
 
   const handleVideoLoadingChange = useCallback((postId: string, isLoading: boolean) => {
     setLoadingPostId((currentPostId) => {
@@ -199,20 +219,29 @@ export function FeedScreen() {
           onLayout={(e) => setContainerHeight(e.nativeEvent.layout.height)}
         >
           <FlashList
-            data={MOCK_POSTS}
+            data={posts}
             renderItem={renderPost}
             keyExtractor={(item) => item.id}
             pagingEnabled
+            bounces
+            alwaysBounceVertical
+            overScrollMode="always"
             showsVerticalScrollIndicator={false}
             decelerationRate="fast"
             snapToInterval={POST_HEIGHT}
             snapToAlignment="start"
+            onEndReached={handleEndReached}
+            onEndReachedThreshold={0.8}
             onMomentumScrollEnd={handleScrollEnd}
             onScrollEndDrag={handleScrollEnd}
-            ListFooterComponent={
-              <View style={{ height: NAV_HEIGHT, justifyContent: "center", alignItems: "center" }}>
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              </View>
+            ListFooterComponent={<View style={{ height: NAV_HEIGHT }} />}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+                tintColor="#1B17B3"
+                colors={["#1B17B3"]}
+              />
             }
           />
         </View>
