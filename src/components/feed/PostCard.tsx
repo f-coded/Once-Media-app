@@ -4,7 +4,7 @@ import { useEvent } from "expo";
 import { Image } from "expo-image";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { LinearGradient } from "expo-linear-gradient";
-import Svg, { Path } from "react-native-svg";
+import Svg, { Path, Circle } from "react-native-svg";
 import { font } from "../AuthUI";
 import { ActionButton } from "./ActionButton";
 import { HeartBurst } from "./HeartBurst";
@@ -28,19 +28,22 @@ function MapPinIcon({ size = 16, color = "rgba(255,255,255,0.6)" }: { size?: num
   );
 }
 
-function PlayIcon({ size = 34, color = "#FFFFFF" }: { size?: number; color?: string }) {
+function PlayIcon({ size = 76 }: { size?: number }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M8 5.14V18.86C8 19.62 8.84 20.08 9.48 19.67L19.99 12.81C20.57 12.43 20.57 11.57 19.99 11.19L9.48 4.33C8.84 3.92 8 4.38 8 5.14Z" fill={color} />
+    <Svg width={size} height={size} viewBox="0 0 76 76" fill="none">
+      <Circle cx="38" cy="38" r="38" fill="rgba(0,0,0,0.3)" />
+      <Path d="M31 22 L 45 22 L 54 31 L 54 45 L 45 54 L 31 54 L 22 45 L 22 31 Z" fill="rgba(255,255,255,0.2)" />
+      <Path d="M34 29 L 46 38 L 34 47 Z" fill="#FFFFFF" />
     </Svg>
   );
 }
 
-function PauseIcon({ size = 34, color = "#FFFFFF" }: { size?: number; color?: string }) {
+function PauseIcon({ size = 76 }: { size?: number }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M7 5.75C7 5.34 7.34 5 7.75 5H9.75C10.16 5 10.5 5.34 10.5 5.75V18.25C10.5 18.66 10.16 19 9.75 19H7.75C7.34 19 7 18.66 7 18.25V5.75Z" fill={color} />
-      <Path d="M13.5 5.75C13.5 5.34 13.84 5 14.25 5H16.25C16.66 5 17 5.34 17 5.75V18.25C17 18.66 16.66 19 16.25 19H14.25C13.84 19 13.5 18.66 13.5 18.25V5.75Z" fill={color} />
+    <Svg width={size} height={size} viewBox="0 0 76 76" fill="none">
+      <Circle cx="38" cy="38" r="38" fill="rgba(0,0,0,0.3)" />
+      <Path d="M31 22 L 45 22 L 54 31 L 54 45 L 45 54 L 31 54 L 22 45 L 22 31 Z" fill="rgba(255,255,255,0.2)" />
+      <Path d="M32 30 H 36 V 46 H 32 Z M 40 30 H 44 V 46 H 40 Z" fill="#FFFFFF" />
     </Svg>
   );
 }
@@ -90,6 +93,7 @@ export function PostCard({
   const [isManuallyPaused, setIsManuallyPaused] = useState(false);
   const [showPlaybackCue, setShowPlaybackCue] = useState(false);
   const [hasRenderedFrame, setHasRenderedFrame] = useState(false);
+  const [mediaFit, setMediaFit] = useState<"cover" | "contain">("cover");
   const layout = post.layout ?? "vertical";
 
   const player = useVideoPlayer(post.video || null, (player) => {
@@ -177,6 +181,7 @@ export function PostCard({
 
   const handleTap = useCallback(() => {
     if (singleTapTimer.current) {
+      // Double tap!
       clearTimeout(singleTapTimer.current);
       singleTapTimer.current = null;
 
@@ -185,14 +190,26 @@ export function PostCard({
         setLikeCount((c) => c + 1);
       }
       setShowHeart(true);
+      
+      // Smart recovery: undo the pause from the first tap
+      if (post.video) {
+        setIsManuallyPaused(false);
+        if (isActive) player.play();
+        setShowPlaybackCue(false);
+      }
       return;
     }
 
-    singleTapTimer.current = setTimeout(() => {
+    // First tap. Act immediately for a "very fast" response.
+    if (post.video) {
       handleVideoToggle();
+    }
+
+    // Start 300ms window to wait for a potential second tap
+    singleTapTimer.current = setTimeout(() => {
       singleTapTimer.current = null;
-    }, 260);
-  }, [handleVideoToggle, liked]);
+    }, 300);
+  }, [handleVideoToggle, liked, post.video, isActive, player]);
 
   const handleLikePress = useCallback(() => {
     setLiked((prev) => {
@@ -211,26 +228,48 @@ export function PostCard({
       <Pressable onPress={handleTap} style={StyleSheet.absoluteFill}>
         {post.video ? (
           <>
-            <Image
-              source={typeof post.image === "string" ? { uri: post.image } : post.image}
-              style={StyleSheet.absoluteFill}
-              contentFit="cover"
-              transition={200}
-            />
+            {!hasRenderedFrame && (
+              <Image
+                source={typeof post.image === "string" ? { uri: post.image } : post.image}
+                style={StyleSheet.absoluteFill}
+                contentFit={mediaFit}
+                transition={200}
+                onLoad={(e) => {
+                  if (e.source.width > e.source.height) {
+                    setMediaFit("contain");
+                  } else {
+                    setMediaFit("cover");
+                  }
+                }}
+              />
+            )}
             <VideoView
               player={player}
               style={StyleSheet.absoluteFill}
               nativeControls={false}
-              contentFit="cover"
-              onFirstFrameRender={() => setHasRenderedFrame(true)}
+              contentFit={mediaFit}
+              onFirstFrameRender={() => {
+                setHasRenderedFrame(true);
+                const track = player.videoTrack;
+                if (track && track.size) {
+                  setMediaFit(track.size.width > track.size.height ? "contain" : "cover");
+                }
+              }}
             />
           </>
         ) : (
           <Image
             source={typeof post.image === "string" ? { uri: post.image } : post.image}
             style={StyleSheet.absoluteFill}
-            contentFit="cover"
+            contentFit={mediaFit}
             transition={300}
+            onLoad={(e) => {
+              if (e.source.width > e.source.height) {
+                setMediaFit("contain");
+              } else {
+                setMediaFit("cover");
+              }
+            }}
           />
         )}
       </Pressable>
@@ -365,7 +404,7 @@ const styles = StyleSheet.create({
   container: {
     width: SCREEN_W,
     position: "relative",
-    backgroundColor: "#0C0C0C",
+    backgroundColor: "#000000",
   },
   topGradient: {
     position: "absolute",
@@ -389,17 +428,8 @@ const styles = StyleSheet.create({
     height: 76,
     marginLeft: -38,
     marginTop: -38,
-    borderRadius: 38,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(0,0,0,0.42)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.18)",
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 18,
-    elevation: 8,
   },
   bottomContent: {
     position: "absolute",
