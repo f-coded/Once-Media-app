@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { BlurView } from "expo-blur";
+import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PlusIcon } from "./FeedIcons";
 
@@ -9,7 +10,14 @@ export function FeedHeader() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 9 }]}>
-      <Text style={styles.title}>Posts</Text>
+      <View style={styles.leftGroup}>
+        <Image 
+          source={{ uri: "https://i.pravatar.cc/100?img=9" }} 
+          style={styles.profileAvatar} 
+          contentFit="cover"
+        />
+        <Text style={styles.title}>Posts</Text>
+      </View>
       <Pressable style={styles.newPostBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
         <BlurView
           intensity={20}
@@ -46,6 +54,17 @@ const styles = StyleSheet.create({
     fontSize: 22,
     color: "#FFFFFF",
     letterSpacing: -0.44,
+  },
+  leftGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
+  profileAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#1B17B3",
   },
   newPostBtn: {
     overflow: "hidden",
