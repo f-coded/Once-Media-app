@@ -6,4 +6,6 @@ export const colors = {
   subtle: "#BEBEBE",
   input: "#F3F3F3",
   line: "#E7E7E7",
+  like: "#FF3B30",
+  overlay: "rgba(0,0,0,0.4)",
 };

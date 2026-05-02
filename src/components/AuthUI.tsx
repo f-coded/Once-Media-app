@@ -552,11 +552,11 @@ export function PrimaryButton({ label, onPress, loading }: PrimaryButtonProps) {
   }));
 
   const handlePressIn = useCallback(() => {
-    scale.value = withSpring(0.97, { damping: 15, stiffness: 300 });
+    scale.value = withTiming(0.97, { duration: 100 });
   }, [scale]);
 
   const handlePressOut = useCallback(() => {
-    scale.value = withSpring(1, { damping: 10, stiffness: 200 });
+    scale.value = withTiming(1, { duration: 150 });
   }, [scale]);
 
   const handlePress = useCallback(() => {
@@ -643,8 +643,8 @@ export function SocialButton({ label, badge }: SocialButtonProps) {
 
   return (
     <AnimatedPressable
-      onPressIn={() => { scale.value = withSpring(0.97, { damping: 15, stiffness: 300 }); }}
-      onPressOut={() => { scale.value = withSpring(1, { damping: 10, stiffness: 200 }); }}
+      onPressIn={() => { scale.value = withTiming(0.97, { duration: 100 }); }}
+      onPressOut={() => { scale.value = withTiming(1, { duration: 150 }); }}
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       style={[
         {

@@ -17,6 +17,7 @@ import { SignUpScreen } from "./src/screens/SignUpScreen";
 import { OTPVerificationScreen } from "./src/screens/OTPVerificationScreen";
 import { CreatePasswordScreen } from "./src/screens/CreatePasswordScreen";
 import { ConfirmPasswordScreen } from "./src/screens/ConfirmPasswordScreen";
+import { FeedScreen } from "./src/screens/FeedScreen";
 import { AnimatedSplashScreen } from "./src/components/AnimatedSplashScreen";
 
 type Route =
@@ -28,7 +29,8 @@ type Route =
   | "confirm-password"
   | "choose-role"
   | "complete-profile"
-  | "account-success";
+  | "account-success"
+  | "feed";
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -37,7 +39,7 @@ export default function App() {
     Ubuntu_700Bold,
   });
 
-  const [route, setRoute] = useState<Route>("login");
+  const [route, setRoute] = useState<Route>("feed");
   const [selectedRole, setSelectedRole] = useState("House Hunter");
   const [showSplash, setShowSplash] = useState(true);
 
@@ -47,7 +49,7 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar style={showSplash ? "light" : "dark"} />
+      <StatusBar style={showSplash || route === "feed" ? "light" : "dark"} />
 
       {showSplash && (
         <AnimatedSplashScreen onAnimationFinish={() => setShowSplash(false)} />
@@ -114,7 +116,11 @@ export default function App() {
       ) : null}
 
       {route === "account-success" ? (
-        <AccountSuccessScreen onDashboardPress={() => setRoute("login")} />
+        <AccountSuccessScreen onDashboardPress={() => setRoute("feed")} />
+      ) : null}
+
+      {route === "feed" ? (
+        <FeedScreen />
       ) : null}
     </SafeAreaProvider>
   );
