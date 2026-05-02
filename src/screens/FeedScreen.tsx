@@ -10,6 +10,7 @@ import {
 import { FlashList } from "@shopify/flash-list";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import BottomSheet from "@gorhom/bottom-sheet";
+import { BlurView } from "expo-blur";
 
 import { PostCard, PostData } from "../components/feed/PostCard";
 import { FeedHeader } from "../components/feed/FeedHeader";
@@ -152,7 +153,6 @@ export function FeedScreen() {
 
   const handleCommentPress = useCallback(() => {
     setShowComments(true);
-    // Small delay to let sheet mount before snapping
     setTimeout(() => commentSheetRef.current?.snapToIndex(0), 50);
   }, []);
 
@@ -247,6 +247,17 @@ export function FeedScreen() {
         </View>
 
         {/* Bottom nav — hidden when comment sheet is active */}
+        {showComments && (
+          <BlurView
+            intensity={16}
+            tint="dark"
+            experimentalBlurMethod="dimezisBlurView"
+            blurReductionFactor={1}
+            pointerEvents="none"
+            style={StyleSheet.absoluteFill}
+          />
+        )}
+
         {!showComments && (
           <BottomNav
             activeTab={activeTab}
