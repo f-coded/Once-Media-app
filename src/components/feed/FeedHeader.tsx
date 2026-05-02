@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
+import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PlusIcon } from "./FeedIcons";
 
@@ -10,8 +11,18 @@ export function FeedHeader() {
     <View style={[styles.container, { paddingTop: insets.top + 9 }]}>
       <Text style={styles.title}>Posts</Text>
       <Pressable style={styles.newPostBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-        <PlusIcon size={16} color="#FFFFFF" />
-        <Text style={styles.newPostText}>New Post</Text>
+        <BlurView
+          intensity={20}
+          tint="dark"
+          experimentalBlurMethod="dimezisBlurView"
+          blurReductionFactor={1}
+          style={StyleSheet.absoluteFill}
+        />
+        <View pointerEvents="none" style={styles.newPostTint} />
+        <View style={styles.newPostContent}>
+          <PlusIcon size={16} color="#FFFFFF" />
+          <Text style={styles.newPostText}>New Post</Text>
+        </View>
       </Pressable>
     </View>
   );
@@ -37,20 +48,27 @@ const styles = StyleSheet.create({
     letterSpacing: -0.44,
   },
   newPostBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 6,
-    backgroundColor: "rgba(241,241,241,0.1)",
+    overflow: "hidden",
     borderWidth: 1,
     borderColor: "rgba(241,241,241,0.3)",
     borderRadius: 20,
+    backgroundColor: "rgba(0,0,0,0.18)",
     shadowColor: "#000000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.09,
     shadowRadius: 10,
     elevation: 3,
+  },
+  newPostTint: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.18)",
+  },
+  newPostContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
   },
   newPostText: {
     fontFamily: "Ubuntu_400Regular",

@@ -28,22 +28,21 @@ function MapPinIcon({ size = 16, color = "rgba(255,255,255,0.6)" }: { size?: num
   );
 }
 
-function PlayIcon({ size = 76 }: { size?: number }) {
+function PlayIcon({ size = 64 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 76 76" fill="none">
-      <Circle cx="38" cy="38" r="38" fill="rgba(0,0,0,0.3)" />
-      <Path d="M31 22 L 45 22 L 54 31 L 54 45 L 45 54 L 31 54 L 22 45 L 22 31 Z" fill="rgba(255,255,255,0.2)" />
-      <Path d="M34 29 L 46 38 L 34 47 Z" fill="#FFFFFF" />
+      <Circle cx="38" cy="38" r="38" fill="rgba(0,0,0,0.36)" />
+      <Path d="M34 27.5L50 38L34 48.5V27.5Z" fill="#FFFFFF" />
     </Svg>
   );
 }
 
-function PauseIcon({ size = 76 }: { size?: number }) {
+function PauseIcon({ size = 64 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 76 76" fill="none">
-      <Circle cx="38" cy="38" r="38" fill="rgba(0,0,0,0.3)" />
-      <Path d="M31 22 L 45 22 L 54 31 L 54 45 L 45 54 L 31 54 L 22 45 L 22 31 Z" fill="rgba(255,255,255,0.2)" />
-      <Path d="M32 30 H 36 V 46 H 32 Z M 40 30 H 44 V 46 H 40 Z" fill="#FFFFFF" />
+      <Circle cx="38" cy="38" r="38" fill="rgba(0,0,0,0.36)" />
+      <Path d="M31 28H36.5V48H31V28Z" fill="#FFFFFF" />
+      <Path d="M39.5 28H45V48H39.5V28Z" fill="#FFFFFF" />
     </Svg>
   );
 }
@@ -73,6 +72,7 @@ export type PostData = {
 type PostCardProps = {
   post: PostData;
   height: number;
+  bottomInset?: number;
   isActive?: boolean;
   onCommentPress?: () => void;
   onVideoLoadingChange?: (postId: string, isLoading: boolean) => void;
@@ -81,6 +81,7 @@ type PostCardProps = {
 export function PostCard({
   post,
   height,
+  bottomInset = 0,
   isActive = false,
   onCommentPress,
   onVideoLoadingChange,
@@ -98,8 +99,19 @@ export function PostCard({
 
   const player = useVideoPlayer(post.video || null, (player) => {
     player.loop = true;
+    player.timeUpdateEventInterval = 0.25;
   });
   const statusEvent = useEvent(player, "statusChange", { status: player.status });
+  const timeUpdateEvent = useEvent(player, "timeUpdate", {
+    currentTime: player.currentTime,
+    currentLiveTimestamp: null,
+    currentOffsetFromLive: null,
+    bufferedPosition: 0,
+  });
+  const duration = post.video ? player.duration : 0;
+  const progress = post.video && duration > 0
+    ? Math.min(timeUpdateEvent.currentTime / duration, 1)
+    : 0;
 
   const singleTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const playbackCueTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -248,6 +260,7 @@ export function PostCard({
               style={StyleSheet.absoluteFill}
               nativeControls={false}
               contentFit={mediaFit}
+              surfaceType="textureView"
               onFirstFrameRender={() => {
                 setHasRenderedFrame(true);
                 const track = player.videoTrack;
@@ -283,6 +296,13 @@ export function PostCard({
         </View>
       )}
 
+      {post.video && isActive && (
+        <View style={styles.videoProgressTrack} pointerEvents="none">
+          <View style={[styles.videoProgressFill, { width: `${progress * 100}%` }]} />
+          {progress > 0 && <View style={[styles.videoProgressThumb, { left: `${progress * 100}%` }]} />}
+        </View>
+      )}
+
       {/* Gradient overlays — pointerEvents none so they don't block touches */}
       <LinearGradient
         colors={["rgba(0,0,0,0.51)", "transparent"]}
@@ -298,7 +318,10 @@ export function PostCard({
       />
 
       {/* Bottom content area — 264px wide per Figma */}
-      <View style={[styles.bottomContent, { width: 264 }]} pointerEvents="box-none">
+      <View
+        style={[styles.bottomContent, { width: 264, bottom: bottomInset + 18 }]}
+        pointerEvents="box-none"
+      >
         {/* User row */}
         <View style={styles.userRow}>
           <Image 
@@ -366,7 +389,10 @@ export function PostCard({
 
       {/* Right-side vertical actions — aligned right, not centered */}
       {layout === "vertical" && (
-        <View style={styles.verticalActions} pointerEvents="box-none">
+        <View
+          style={[styles.verticalActions, { bottom: bottomInset + 18 }]}
+          pointerEvents="box-none"
+        >
           {/* Grouped: Heart, Comment, Bookmark, Share */}
           <View style={styles.actionGroup}>
             <ActionButton
@@ -424,12 +450,34 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: "50%",
     left: "50%",
-    width: 76,
-    height: 76,
-    marginLeft: -38,
-    marginTop: -38,
+    width: 64,
+    height: 64,
+    marginLeft: -32,
+    marginTop: -32,
     alignItems: "center",
     justifyContent: "center",
+  },
+  videoProgressTrack: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 3,
+    backgroundColor: "rgba(255,255,255,0.35)",
+    zIndex: 12,
+  },
+  videoProgressFill: {
+    height: 3,
+    backgroundColor: "#1B17B3",
+  },
+  videoProgressThumb: {
+    position: "absolute",
+    top: -4,
+    width: 11,
+    height: 11,
+    marginLeft: -5.5,
+    borderRadius: 5.5,
+    backgroundColor: "#1B17B3",
   },
   bottomContent: {
     position: "absolute",

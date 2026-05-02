@@ -92,13 +92,13 @@ export function BottomNav({ activeTab, isLoading = false, onTabPress }: BottomNa
 
   return (
     <BlurView 
-      intensity={100} 
+      intensity={18} 
       tint="dark" 
-      style={[
-        styles.container, 
-        { backgroundColor: 'rgba(0, 0, 0, 0.92)' }
-      ]}
+      experimentalBlurMethod="dimezisBlurView"
+      blurReductionFactor={1}
+      style={styles.container}
     >
+      <View pointerEvents="none" style={styles.topHighlight} />
       {isLoading && (
         <Animated.View
           pointerEvents="none"
@@ -142,6 +142,16 @@ const styles = StyleSheet.create({
     borderTopColor: "#262525",
     overflow: "hidden",
     zIndex: 20,
+    backgroundColor: "rgba(0,0,0,0.989)",
+  },
+  topHighlight: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.14)",
   },
   loadingStroke: {
     position: "absolute",
