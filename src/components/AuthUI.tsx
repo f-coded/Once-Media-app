@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -45,7 +45,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={{ flex: 1, paddingHorizontal: 18, paddingBottom: 10, paddingTop: 16 }}>
+          <View style={{ flex: 1, paddingHorizontal: 20, paddingBottom: 10, paddingTop: 16 }}>
             {children}
           </View>
         </ScrollView>
@@ -59,7 +59,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
 type ScreenHeaderProps = {
   eyebrow?: string;
   title: string;
-  subtitle?: string;
+  subtitle?: React.ReactNode;
   showBack?: boolean;
   onBackPress?: () => void;
   rightAction?: ReactNode;
@@ -71,38 +71,164 @@ export function ScreenHeader({
   subtitle,
   showBack,
   onBackPress,
-  rightAction,
-}: ScreenHeaderProps) {
+  totalSteps,
+  activeStep,
+  centered,
+}: ScreenHeaderProps & { totalSteps?: number; activeStep?: number; centered?: boolean }) {
   return (
-    <View style={{ marginTop: showBack ? 4 : 20 }}>
-      {showBack ? (
-        <View style={{ marginBottom: 24, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <Pressable
-            style={{ height: 40, width: 40, alignItems: "flex-start", justifyContent: "center" }}
-            onPress={onBackPress}
-          >
-            <Text style={font("Ubuntu_400Regular", 24, "#0C0C0C")}>{`<`}</Text>
+    <View style={{ marginTop: showBack ? 12 : 22, width: "100%" }}>
+      {showBack && (
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+          <Pressable onPress={onBackPress} style={{ width: 24, height: 24, justifyContent: "center" }}>
+            <BackArrowIcon />
           </Pressable>
-          {rightAction ?? <View style={{ width: 40 }} />}
+          {totalSteps && <StepDots total={totalSteps} active={activeStep || 0} />}
         </View>
-      ) : null}
-
-      {eyebrow ? (
-        <Text style={font("Ubuntu_400Regular", 13, "#838383")}>{eyebrow}</Text>
-      ) : null}
-      <Text style={{ ...font("Ubuntu_500Medium", 20, "#0C0C0C"), marginTop: 5 }}>
+      )}
+      {eyebrow && (
+        <Text style={{ ...font("Ubuntu_400Regular", 13, "#838383", 15), textAlign: centered ? "center" : "left" }}>{eyebrow}</Text>
+      )}
+      <Text 
+        style={{ 
+          ...font(title === "OTP Verification" ? "Ubuntu_700Bold" : "Ubuntu_500Medium", title === "OTP Verification" ? 22 : 20, "#0C0C0C"), 
+          marginTop: eyebrow ? 5 : 0,
+          letterSpacing: title === "OTP Verification" ? -0.44 : -2,
+          textAlign: centered ? "center" : "left"
+        }}
+      >
         {title}
       </Text>
-      {subtitle ? (
-        <Text style={{ ...font("Ubuntu_400Regular", 15, "#838383"), marginTop: 5 }}>
-          {subtitle}
-        </Text>
-      ) : null}
+      {subtitle && (
+        typeof subtitle === "string" ? (
+          <Text style={{ ...font("Ubuntu_400Regular", title === "OTP Verification" ? 14 : 13, "#838383", title === "OTP Verification" ? 21 : 15.6), marginTop: title === "OTP Verification" ? 4 : 8, letterSpacing: title === "OTP Verification" ? -0.28 : -0.26, textAlign: centered ? "center" : "left" }}>
+            {subtitle}
+          </Text>
+        ) : (
+          <View style={{ marginTop: title === "OTP Verification" ? 4 : 8 }}>
+            {subtitle}
+          </View>
+        )
+      )}
     </View>
   );
 }
 
-/* ─── Input Field ─── */
+export function TabSelector({
+  options,
+  activeOption,
+  onSelect,
+  marginTop = 20,
+}: {
+  options: string[];
+  activeOption: string;
+  onSelect: (option: string) => void;
+  marginTop?: number;
+}) {
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        backgroundColor: "#F2F2F2",
+        borderRadius: 20,
+        paddingHorizontal: 6,
+        paddingVertical: 4,
+        marginTop,
+        height: 48,
+        width: "100%",
+        gap: 8,
+        alignItems: "center",
+      }}
+    >
+      {options.map((option) => {
+        const active = option === activeOption;
+        return (
+          <Pressable
+            key={option}
+            style={{
+              flex: 1,
+              height: 40,
+              borderRadius: 16,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: active ? "#FFFFFF" : "transparent",
+            }}
+            onPress={() => onSelect(option)}
+          >
+            <Text
+              style={font("Ubuntu_400Regular", 14, active ? "#1B17B3" : "#4A4A4A", 18)}
+            >
+              {option}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+export function PhoneInputField({
+  label,
+  placeholder,
+  value,
+  onChangeText,
+  marginTop = 12,
+}: {
+  label: string;
+  placeholder: string;
+  value: string;
+  onChangeText: (text: string) => void;
+  marginTop?: number;
+}) {
+  return (
+    <View style={{ marginTop, width: "100%" }}>
+      <Text style={{ ...font("Ubuntu_500Medium", 14, "#0C0C0C", 21), marginBottom: 6, letterSpacing: -0.28 }}>
+        {label}
+      </Text>
+      <View style={{ flexDirection: "row", gap: 6, width: "100%", height: 45 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            backgroundColor: "#FFFFFF",
+            borderWidth: 1,
+            borderColor: "#E7E7E7",
+            borderRadius: 30,
+            paddingHorizontal: 12,
+            paddingVertical: 7,
+            width: 79,
+            height: 45,
+            gap: 8,
+          }}
+        >
+          <Text style={{ fontSize: 16 }}>🇳🇬</Text>
+          <Text style={font("Ubuntu_400Regular", 14, "#4A4A4A", 19)}>+234</Text>
+        </View>
+        <View
+          style={{
+            flex: 1,
+            flexDirection: "row",
+            alignItems: "center",
+            backgroundColor: "#F2F2F2",
+            borderRadius: 30,
+            paddingHorizontal: 12,
+            paddingVertical: 7,
+            height: 45,
+            gap: 16,
+          }}
+        >
+          <TextInput
+            style={{ flex: 1, ...font("Ubuntu_400Regular", 13, "#4A4A4A", 19), padding: 0 }}
+            placeholder={placeholder}
+            placeholderTextColor="#838383"
+            keyboardType="phone-pad"
+            value={value}
+            onChangeText={onChangeText}
+          />
+        </View>
+      </View>
+    </View>
+  );
+}
 
 type InputFieldProps = {
   label: string;
@@ -128,7 +254,7 @@ export function InputField({
 
   return (
     <View style={{ marginTop }}>
-      <Text style={{ ...font("Ubuntu_400Regular", 16, "#0C0C0C", 14.4), marginBottom: 8 }}>
+      <Text style={{ ...font("Ubuntu_500Medium", 14, "#0C0C0C", 21), marginBottom: 6, letterSpacing: -0.28 }}>
         {label}
       </Text>
       <View
@@ -165,6 +291,69 @@ export function InputField({
           </Pressable>
         ) : null}
       </View>
+    </View>
+  );
+}
+
+export function OTPInput({
+  label,
+  code,
+  onCodeChange,
+  length = 4,
+  error,
+}: {
+  label: string;
+  code: string;
+  onCodeChange: (code: string) => void;
+  length?: number;
+  error?: boolean;
+}) {
+  return (
+    <View style={{ width: "100%" }}>
+      <Text style={{ ...font("Ubuntu_500Medium", 14, "#0C0C0C", 21), marginBottom: 6, letterSpacing: -0.28 }}>
+        {label}
+      </Text>
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          backgroundColor: "#F2F2F2",
+          borderRadius: 20,
+          paddingHorizontal: 8,
+          paddingVertical: 4.5,
+          width: 184,
+          height: 45,
+          gap: 8,
+        }}
+      >
+        {Array.from({ length }).map((_, index) => {
+          const digit = code[index] || "";
+          return (
+            <View
+              key={index}
+              style={{
+                width: 36,
+                height: 36,
+                backgroundColor: "#FCFCFC",
+                borderRadius: 12,
+                alignItems: "center",
+                justifyContent: "center",
+                borderWidth: error ? 1 : 0,
+                borderColor: "red",
+              }}
+            >
+              <Text style={font("Ubuntu_400Regular", 18, "#4A4A4A")}>
+                {digit ? "*" : ""}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+      {error && (
+        <Text style={{ ...font("Ubuntu_400Regular", 12, "red"), marginTop: 8 }}>
+          Invalid code
+        </Text>
+      )}
     </View>
   );
 }
@@ -421,18 +610,32 @@ type StepDotsProps = {
 
 export function StepDots({ total, active }: StepDotsProps) {
   return (
-    <View style={{ flexDirection: "row", gap: 8 }}>
+    <View style={{ flexDirection: "row", gap: 4, width: 84, alignItems: "center" }}>
       {Array.from({ length: total }).map((_, index) => (
         <View
           key={index}
           style={{
             height: 6,
-            width: 32,
-            borderRadius: 3,
+            width: 18,
+            borderRadius: 40,
             backgroundColor: index < active ? "#1B17B3" : "#E7E7E7",
           }}
         />
       ))}
     </View>
+  );
+}
+
+export function BackArrowIcon() {
+  return (
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M20.75 12H3.25M3.25 12L10 5.25M3.25 12L10 18.75"
+        stroke="#363636"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
   );
 }

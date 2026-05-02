@@ -14,12 +14,14 @@ import { CompleteProfileScreen } from "./src/screens/CompleteProfileScreen";
 import { ForgotPasswordScreen } from "./src/screens/ForgotPasswordScreen";
 import { LoginScreen } from "./src/screens/LoginScreen";
 import { SignUpScreen } from "./src/screens/SignUpScreen";
+import { OTPVerificationScreen } from "./src/screens/OTPVerificationScreen";
 import { AnimatedSplashScreen } from "./src/components/AnimatedSplashScreen";
 
 type Route =
   | "login"
   | "signup"
   | "forgot-password"
+  | "otp-verification"
   | "choose-role"
   | "complete-profile"
   | "account-success";
@@ -62,7 +64,18 @@ export default function App() {
       ) : null}
 
       {route === "forgot-password" ? (
-        <ForgotPasswordScreen onBackPress={() => setRoute("login")} />
+        <ForgotPasswordScreen 
+          onBackPress={() => setRoute("login")} 
+          onContinuePress={() => setRoute("otp-verification")}
+        />
+      ) : null}
+
+      {route === "otp-verification" ? (
+        <OTPVerificationScreen 
+          onBackPress={() => setRoute("forgot-password")}
+          onVerifyPress={() => console.log("Verified")}
+          onTryAnotherMethod={() => setRoute("forgot-password")}
+        />
       ) : null}
 
       {route === "choose-role" ? (
