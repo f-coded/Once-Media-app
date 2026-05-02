@@ -17,11 +17,12 @@ import { colors } from "../theme/colors";
 const font = (
   weight: "Ubuntu_400Regular" | "Ubuntu_500Medium" | "Ubuntu_700Bold" = "Ubuntu_400Regular",
   size: number = 16,
-  color: string = "#0C0C0C"
+  color: string = "#0C0C0C",
+  lineHeight?: number
 ) => ({
   fontFamily: weight,
   fontSize: size,
-  lineHeight: Math.round(size * 1.125),
+  lineHeight: lineHeight ?? Math.round(size * 1.125),
   letterSpacing: size * -0.02,
   color,
 });
@@ -44,7 +45,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={{ flex: 1, paddingHorizontal: 24, paddingBottom: 10, paddingTop: 16 }}>
+          <View style={{ flex: 1, paddingHorizontal: 18, paddingBottom: 10, paddingTop: 16 }}>
             {children}
           </View>
         </ScrollView>
@@ -110,6 +111,7 @@ type InputFieldProps = {
   value: string;
   onChangeText: (value: string) => void;
   multiline?: boolean;
+  marginTop?: number;
 };
 
 export function InputField({
@@ -119,10 +121,14 @@ export function InputField({
   value,
   onChangeText,
   multiline,
+  marginTop = 12,
 }: InputFieldProps) {
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const isSecure = secureTextEntry && !isPasswordVisible;
+
   return (
-    <View style={{ marginTop: 20 }}>
-      <Text style={{ ...font("Ubuntu_400Regular", 16, "#0C0C0C"), marginBottom: 8 }}>
+    <View style={{ marginTop }}>
+      <Text style={{ ...font("Ubuntu_400Regular", 16, "#0C0C0C", 14.4), marginBottom: 8 }}>
         {label}
       </Text>
       <View
@@ -134,6 +140,7 @@ export function InputField({
           borderRadius: 30,
           paddingHorizontal: 14,
           paddingVertical: 10,
+          height: multiline ? undefined : 45,
           minHeight: multiline ? 100 : 45,
           ...(multiline ? { borderRadius: 24 } : {}),
         }}
@@ -141,50 +148,63 @@ export function InputField({
         <TextInput
           style={{
             flex: 1,
-            ...font("Ubuntu_400Regular", 13, "#0C0C0C"),
+            ...font("Ubuntu_400Regular", 13, "#0C0C0C", 15),
+            padding: 0,
           }}
           multiline={multiline}
           placeholder={placeholder}
           placeholderTextColor="#838383"
-          secureTextEntry={secureTextEntry}
+          secureTextEntry={isSecure}
           textAlignVertical={multiline ? "top" : "center"}
           value={value}
           onChangeText={onChangeText}
         />
         {secureTextEntry ? (
-          <EyeClosedIcon />
+          <Pressable onPress={() => setIsPasswordVisible(!isPasswordVisible)}>
+            {isPasswordVisible ? <EyeOpenIcon /> : <EyeClosedIcon />}
+          </Pressable>
         ) : null}
       </View>
     </View>
   );
 }
 
-/* ─── Eye Closed Icon (18x18) ─── */
+/* ─── Eye Icons ─── */
+
+function EyeOpenIcon() {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"
+        stroke="#262525"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M12 15a3 3 0 100-6 3 3 0 000 6z"
+        stroke="#262525"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
 
 function EyeClosedIcon() {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M2 12C2 12 5 5 12 5C19 5 22 12 22 12C22 12 19 19 12 19C5 19 2 12 2 12Z"
+        d="M17.5 11C17.5 11 16 15 12 15C8 15 6.5 11 6.5 11"
         stroke="#262525"
         strokeWidth={1.5}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <Path
-        d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z"
-        stroke="#262525"
-        strokeWidth={1.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M3 21L21 3"
-        stroke="#262525"
-        strokeWidth={1.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <Path d="M12 15V17.5" stroke="#262525" strokeWidth={1.5} strokeLinecap="round" />
+      <Path d="M9 14.5L7.5 16.5" stroke="#262525" strokeWidth={1.5} strokeLinecap="round" />
+      <Path d="M15 14.5L16.5 16.5" stroke="#262525" strokeWidth={1.5} strokeLinecap="round" />
     </Svg>
   );
 }
@@ -201,7 +221,6 @@ export function PrimaryButton({ label, onPress }: PrimaryButtonProps) {
     <Pressable
       onPress={onPress}
       style={{
-        marginTop: 13,
         height: 50,
         alignItems: "center",
         justifyContent: "center",
@@ -210,7 +229,7 @@ export function PrimaryButton({ label, onPress }: PrimaryButtonProps) {
         paddingVertical: 9,
       }}
     >
-      <Text style={font("Ubuntu_400Regular", 16, "#FFFFFF")}>{label}</Text>
+      <Text style={font("Ubuntu_400Regular", 16, "#FFFFFF", 18)}>{label}</Text>
     </Pressable>
   );
 }
@@ -229,7 +248,7 @@ export function LinkText({ label, onPress, center }: LinkTextProps) {
       style={center ? { height: 50, alignItems: "center", justifyContent: "center" } : undefined}
       onPress={onPress}
     >
-      <Text style={font("Ubuntu_400Regular", 16, "#1B17B3")}>{label}</Text>
+      <Text style={font("Ubuntu_400Regular", 16, "#1B17B3", 18)}>{label}</Text>
     </Pressable>
   );
 }
@@ -238,9 +257,9 @@ export function LinkText({ label, onPress, center }: LinkTextProps) {
 
 export function Divider() {
   return (
-    <View style={{ flexDirection: "row", alignItems: "center" }}>
+    <View style={{ flexDirection: "row", alignItems: "center", height: 18, gap: 8, justifyContent: "center" }}>
       <View style={{ flex: 1, height: 1, backgroundColor: "#D2D2D2" }} />
-      <Text style={{ ...font("Ubuntu_400Regular", 16, "#838383"), marginHorizontal: 16 }}>
+      <Text style={font("Ubuntu_400Regular", 16, "#838383", 18)}>
         or
       </Text>
       <View style={{ flex: 1, height: 1, backgroundColor: "#D2D2D2" }} />
@@ -259,7 +278,6 @@ export function SocialButton({ label, badge }: SocialButtonProps) {
   return (
     <Pressable
       style={{
-        marginTop: 12,
         height: 50,
         flexDirection: "row",
         alignItems: "center",
@@ -320,12 +338,12 @@ export function FooterPrompt({ prompt, action, onPress }: FooterPromptProps) {
   return (
     <View
       style={{
-        marginTop: "auto",
         height: 50,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
         borderRadius: 30,
+        paddingHorizontal: 9,
         paddingVertical: 9,
         gap: 8,
       }}
@@ -335,7 +353,7 @@ export function FooterPrompt({ prompt, action, onPress }: FooterPromptProps) {
           fontFamily: "Ubuntu_400Regular",
           fontSize: 16,
           lineHeight: 18,
-          letterSpacing: 16 * -0.02,
+          letterSpacing: -0.32,
           color: "#0C0C0C",
         }}
       >
@@ -347,7 +365,7 @@ export function FooterPrompt({ prompt, action, onPress }: FooterPromptProps) {
             fontFamily: "Ubuntu_400Regular",
             fontSize: 16,
             lineHeight: 18,
-            letterSpacing: 16 * -0.02,
+            letterSpacing: -0.32,
             color: "#1B17B3",
           }}
         >

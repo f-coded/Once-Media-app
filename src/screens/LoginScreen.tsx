@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Text } from "react-native";
+import { Text, View } from "react-native";
 
 import {
   AuthLayout,
@@ -37,6 +37,7 @@ export function LoginScreen({
         placeholder="Enter your email"
         value={email}
         onChangeText={setEmail}
+        marginTop={22}
       />
       <InputField
         label="Password"
@@ -44,26 +45,44 @@ export function LoginScreen({
         secureTextEntry
         value={password}
         onChangeText={setPassword}
+        marginTop={12}
       />
 
-      <Text className="mt-3 text-[13px] leading-[18px]" style={{ color: colors.muted, fontFamily: "Ubuntu_400Regular" }}>
+      <Text
+        style={{
+          fontFamily: "Ubuntu_400Regular",
+          fontSize: 13,
+          lineHeight: 15,
+          letterSpacing: -0.26,
+          color: "#838383",
+          marginTop: 8,
+          width: 339,
+        }}
+      >
         By signing in you are agreeing to our terms and services
       </Text>
 
-      <PrimaryButton label="Login" />
+      <View style={{ marginTop: 20 }}>
+        <PrimaryButton label="Login" onPress={() => { }} />
+        <LinkText center label="Forgot Password" onPress={onForgotPasswordPress} />
+      </View>
 
-      <LinkText center label="Forgot Password" onPress={onForgotPasswordPress} />
+      <View style={{ marginTop: 13 }}>
+        <Divider />
+      </View>
 
-      <Divider />
+      <View style={{ marginTop: 13, gap: 12 }}>
+        <SocialButton label="Continue with Google" badge="google" />
+        <SocialButton label="Continue with Apple" badge="apple" />
+      </View>
 
-      <SocialButton label="Continue with Google" badge="google" />
-      <SocialButton label="Continue with Apple" badge="apple" />
-
-      <FooterPrompt
-        prompt="Don't have an account?"
-        action="Sign up"
-        onPress={onSignUpPress}
-      />
+      <View style={{ marginTop: 22 }}>
+        <FooterPrompt
+          prompt="Don't have an account?"
+          action="Sign up"
+          onPress={onSignUpPress}
+        />
+      </View>
     </AuthLayout>
   );
 }
