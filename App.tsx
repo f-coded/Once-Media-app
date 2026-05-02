@@ -20,6 +20,14 @@ import { ConfirmPasswordScreen } from "./src/screens/ConfirmPasswordScreen";
 import { FeedScreen } from "./src/screens/FeedScreen";
 import { AnimatedSplashScreen } from "./src/components/AnimatedSplashScreen";
 
+import * as NavigationBar from "expo-navigation-bar";
+import { Platform } from "react-native";
+
+if (Platform.OS === "android") {
+  NavigationBar.setPositionAsync("absolute");
+  NavigationBar.setBackgroundColorAsync("#ffffff00"); // completely transparent
+}
+
 type Route =
   | "login"
   | "signup"

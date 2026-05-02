@@ -1,5 +1,12 @@
 import React, { useState, useRef, useCallback } from "react";
-import { View, FlatList, Dimensions, StyleSheet } from "react-native";
+import {
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  View,
+  StyleSheet,
+  useWindowDimensions,
+} from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import BottomSheet from "@gorhom/bottom-sheet";
 
@@ -8,13 +15,12 @@ import { FeedHeader } from "../components/feed/FeedHeader";
 import { BottomNav, NAV_HEIGHT } from "../components/feed/BottomNav";
 import { CommentSheet } from "../components/feed/CommentSheet";
 
-const { height: SCREEN_H } = Dimensions.get("window");
 
-/* Post height = full viewport */
-const POST_HEIGHT = SCREEN_H;
-
-/* Local property image */
+/* Local property images */
 const PROPERTY_IMG = require("../../assets/feed_property.jpg");
+const PROPERTY_IMG_2 = require("../../assets/feed_property_2.jpg");
+const PROPERTY_VIDEO_1 = require("../../assets/WhatsApp Video 2026-04-29 at 12.45.35 PM.mp4");
+const PROPERTY_VIDEO_2 = require("../../assets/WhatsApp Video 2026-04-30 at 8.44.46 PM.mp4");
 
 /* ─── Mock Data ─── */
 const MOCK_POSTS: PostData[] = [
@@ -36,20 +42,20 @@ const MOCK_POSTS: PostData[] = [
   {
     id: "2",
     user: { name: "Amara Eze", avatar: "https://i.pravatar.cc/100?img=5" },
-    image: PROPERTY_IMG,
+    image: PROPERTY_IMG_2,
     caption: "Just listed! This stunning 5-bedroom villa in Banana Island offers unparalleled luxury with private pool and lush gardens. Schedule a viewing today.",
     time: "2:30 PM",
-    likes: 12,
-    comments: 4,
-    bookmarks: 6,
-    shares: 2,
-    layout: "horizontal",
+    likes: 18200,
+    comments: 892,
+    bookmarks: 3100,
+    shares: 8400,
   },
   {
     id: "3",
-    user: { name: "Tunde Adebayo", avatar: "https://i.pravatar.cc/100?img=8" },
-    image: PROPERTY_IMG,
-    caption: "Contemporary living at its finest. This penthouse suite features floor-to-ceiling windows with panoramic city views, smart home integration, and designer finishes.",
+    user: { name: "David O", avatar: "https://i.pravatar.cc/100?img=8" },
+    image: PROPERTY_IMG, // fallback image if video doesn't load
+    video: PROPERTY_VIDEO_1,
+    caption: "Video tour preview: see how this property walkthrough feels directly inside the Once feed.",
     time: "4:15 PM",
     likes: 28,
     comments: 7,
@@ -76,7 +82,8 @@ const MOCK_POSTS: PostData[] = [
     id: "5",
     user: { name: "Emeka Okafor", avatar: "https://i.pravatar.cc/100?img=12" },
     image: PROPERTY_IMG,
-    caption: "Tour of this architectural masterpiece in Victoria Island. Every detail has been carefully crafted to blend elegance with functionality. Available for immediate viewing.",
+    video: PROPERTY_VIDEO_2,
+    caption: "A second feed video test with the same full-screen layout, actions, captions, and navbar loading stroke.",
     time: "8:10 PM",
     likes: 67,
     comments: 19,
@@ -87,9 +94,18 @@ const MOCK_POSTS: PostData[] = [
 ];
 
 export function FeedScreen() {
+  const { height: windowHeight } = useWindowDimensions();
+  const [containerHeight, setContainerHeight] = useState(windowHeight);
+  const POST_HEIGHT = containerHeight - NAV_HEIGHT;
+
   const [activeTab, setActiveTab] = useState<"home" | "market" | "chat" | "wallet">("home");
+  const [activePostId, setActivePostId] = useState(MOCK_POSTS[0]?.id ?? "");
+  const [loadingPostId, setLoadingPostId] = useState<string | null>(null);
   const [showComments, setShowComments] = useState(false);
   const commentSheetRef = useRef<BottomSheet>(null);
+
+  const activePost = MOCK_POSTS.find((post) => post.id === activePostId);
+  const isActiveVideoLoading = Boolean(activePost?.video && loadingPostId === activePostId);
 
   const handleCommentPress = useCallback(() => {
     setShowComments(true);
@@ -102,13 +118,33 @@ export function FeedScreen() {
     setShowComments(false);
   }, []);
 
+  const handleScrollEnd = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const nextIndex = Math.round(event.nativeEvent.contentOffset.y / POST_HEIGHT);
+    const nextPost = MOCK_POSTS[nextIndex];
+
+    if (nextPost) {
+      setActivePostId(nextPost.id);
+    }
+  }, [POST_HEIGHT]);
+
+  const handleVideoLoadingChange = useCallback((postId: string, isLoading: boolean) => {
+    setLoadingPostId((currentPostId) => {
+      if (isLoading) return postId;
+      return currentPostId === postId ? null : currentPostId;
+    });
+  }, []);
+
   const renderPost = useCallback(({ item }: { item: PostData }) => (
-    <PostCard
-      post={item}
-      height={POST_HEIGHT}
-      onCommentPress={handleCommentPress}
-    />
-  ), [handleCommentPress]);
+    <View style={{ height: POST_HEIGHT }}>
+      <PostCard
+        post={item}
+        height={POST_HEIGHT}
+        isActive={item.id === activePostId}
+        onCommentPress={handleCommentPress}
+        onVideoLoadingChange={handleVideoLoadingChange}
+      />
+    </View>
+  ), [activePostId, handleCommentPress, handleVideoLoadingChange, POST_HEIGHT]);
 
   return (
     <GestureHandlerRootView style={styles.root}>
@@ -117,8 +153,11 @@ export function FeedScreen() {
         <FeedHeader />
 
         {/* Posts feed */}
-        <View style={{ height: POST_HEIGHT, overflow: "hidden" }}>
-          <FlatList
+        <View 
+          style={{ flex: 1, overflow: "hidden" }}
+          onLayout={(e) => setContainerHeight(e.nativeEvent.layout.height)}
+        >
+          <FlashList
             data={MOCK_POSTS}
             renderItem={renderPost}
             keyExtractor={(item) => item.id}
@@ -127,16 +166,19 @@ export function FeedScreen() {
             decelerationRate="fast"
             snapToInterval={POST_HEIGHT}
             snapToAlignment="start"
-            getItemLayout={(_, index) => ({
-              length: POST_HEIGHT,
-              offset: POST_HEIGHT * index,
-              index,
-            })}
+            onMomentumScrollEnd={handleScrollEnd}
+            onScrollEndDrag={handleScrollEnd}
           />
         </View>
 
-        {/* Bottom nav */}
-        <BottomNav activeTab={activeTab} onTabPress={setActiveTab} />
+        {/* Bottom nav — hidden when comment sheet is active */}
+        {!showComments && (
+          <BottomNav
+            activeTab={activeTab}
+            isLoading={isActiveVideoLoading}
+            onTabPress={setActiveTab}
+          />
+        )}
 
         {/* Comment sheet — only mounted when active so it doesn't block touches */}
         {showComments && (

@@ -1,5 +1,5 @@
-import React from "react";
-import { View, Text, Pressable, StyleSheet, Platform } from "react-native";
+import React, { useEffect, useRef } from "react";
+import { Animated, View, Text, Pressable, StyleSheet, useWindowDimensions } from "react-native";
 import { BlurView } from "expo-blur";
 import Svg, { Path, Circle } from "react-native-svg";
 
@@ -57,20 +57,61 @@ const TABS: { key: Tab; label: string; icon: (color: string) => React.ReactNode 
 
 type BottomNavProps = {
   activeTab: Tab;
+  isLoading?: boolean;
   onTabPress: (tab: Tab) => void;
 };
 
-export function BottomNav({ activeTab, onTabPress }: BottomNavProps) {
+export function BottomNav({ activeTab, isLoading = false, onTabPress }: BottomNavProps) {
+  const { width } = useWindowDimensions();
+  const loadingProgress = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!isLoading) {
+      loadingProgress.stopAnimation();
+      loadingProgress.setValue(0);
+      return;
+    }
+
+    const animation = Animated.loop(
+      Animated.timing(loadingProgress, {
+        toValue: 1,
+        duration: 900,
+        useNativeDriver: true,
+      })
+    );
+
+    animation.start();
+
+    return () => animation.stop();
+  }, [isLoading, loadingProgress]);
+
+  const loadingTranslateX = loadingProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-110, width],
+  });
+
   return (
-    <View style={styles.container}>
-      <BlurView intensity={35} tint="dark" style={StyleSheet.absoluteFill}>
-        {/* Custom tint color, 0.4 opacity to ensure blur shows through */}
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(12, 12, 12, 0.4)" }]} />
-      </BlurView>
+    <BlurView 
+      intensity={100} 
+      tint="dark" 
+      style={[
+        styles.container, 
+        { backgroundColor: 'rgba(0, 0, 0, 0.92)' }
+      ]}
+    >
+      {isLoading && (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.loadingStroke,
+            { transform: [{ translateX: loadingTranslateX }] },
+          ]}
+        />
+      )}
       <View style={styles.tabRow}>
         {TABS.map((tab) => {
           const active = tab.key === activeTab;
-          const color = active ? "#1B17B3" : "#FFFFFF";
+          const color = active ? "#1B17B3" : "#FFFFFF"; 
           return (
             <Pressable
               key={tab.key}
@@ -84,7 +125,7 @@ export function BottomNav({ activeTab, onTabPress }: BottomNavProps) {
           );
         })}
       </View>
-    </View>
+    </BlurView>
   );
 }
 
@@ -101,6 +142,20 @@ const styles = StyleSheet.create({
     borderTopColor: "#262525",
     overflow: "hidden",
     zIndex: 20,
+  },
+  loadingStroke: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: 110,
+    height: 2,
+    borderRadius: 2,
+    backgroundColor: "#1B17B3",
+    shadowColor: "#1B17B3",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 8,
+    elevation: 4,
   },
   tabRow: {
     flexDirection: "row",

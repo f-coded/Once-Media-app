@@ -14,6 +14,13 @@ type ActionButtonProps = {
 };
 
 export function ActionButton({ icon, count, label, onPress }: ActionButtonProps) {
+  const formatCount = (num?: number) => {
+    if (num === undefined) return null;
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + "M";
+    if (num >= 1000) return (num / 1000).toFixed(1) + "K";
+    return num.toString();
+  };
+
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -47,7 +54,7 @@ export function ActionButton({ icon, count, label, onPress }: ActionButtonProps)
       {icon}
       {count !== undefined && (
         <Text style={{ ...font("Ubuntu_400Regular", 16, "#FFFFFF"), textShadowColor: "rgba(0,0,0,1)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 }}>
-          {count}
+          {formatCount(count)}
         </Text>
       )}
       {label && (
