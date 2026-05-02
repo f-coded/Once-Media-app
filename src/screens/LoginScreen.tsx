@@ -46,7 +46,7 @@ export function LoginScreen({
         onChangeText={setPassword}
       />
 
-      <Text className="mt-3 text-[13px] leading-[18px]" style={{ color: colors.muted }}>
+      <Text className="mt-3 text-[13px] leading-[18px]" style={{ color: colors.muted, fontFamily: "Ubuntu_400Regular" }}>
         By signing in you are agreeing to our terms and services
       </Text>
 
@@ -56,8 +56,8 @@ export function LoginScreen({
 
       <Divider />
 
-      <SocialButton label="Continue with Google" badge="G" />
-      <SocialButton label="Continue with Apple" badge="A" />
+      <SocialButton label="Continue with Google" badge="google" />
+      <SocialButton label="Continue with Apple" badge="apple" />
 
       <FooterPrompt
         prompt="Don't have an account?"

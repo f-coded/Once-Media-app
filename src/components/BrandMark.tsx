@@ -1,21 +1,18 @@
 import { Text, View } from "react-native";
-
-import { colors } from "../theme/colors";
+import { OnceLogoIcon } from "./OnceLogoIcon";
 
 export function BrandMark() {
   return (
-    <View className="flex-row items-center gap-3">
-      <View
-        className="h-10 w-10 items-center justify-center rounded-xl"
-        style={{ backgroundColor: colors.primary }}
-      >
-        <View className="h-5 w-5 items-center justify-center rounded-full border border-white">
-          <View className="h-2 w-2 rounded-full bg-white" />
-        </View>
-      </View>
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+      <OnceLogoIcon size={36} />
       <Text
-        className="text-[20px] font-medium"
-        style={{ color: colors.primary }}
+        style={{
+          fontFamily: "Ubuntu_400Regular",
+          fontSize: 24,
+          lineHeight: 28,
+          letterSpacing: 24 * -0.02,
+          color: "#1B17B3",
+        }}
       >
         Once Media
       </Text>
