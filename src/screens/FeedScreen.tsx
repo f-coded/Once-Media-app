@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import {
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -9,7 +9,6 @@ import {
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import BottomSheet from "@gorhom/bottom-sheet";
 import { BlurView } from "expo-blur";
 
 import { PostCard, PostData } from "../components/feed/PostCard";
@@ -146,18 +145,15 @@ export function FeedScreen() {
   const [loadingPostId, setLoadingPostId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [showComments, setShowComments] = useState(false);
-  const commentSheetRef = useRef<BottomSheet>(null);
 
   const activePost = posts.find((post) => post.id === activePostId);
   const isActiveVideoLoading = Boolean(activePost?.video && loadingPostId === activePostId);
 
   const handleCommentPress = useCallback(() => {
     setShowComments(true);
-    setTimeout(() => commentSheetRef.current?.snapToIndex(0), 50);
   }, []);
 
   const handleCommentClose = useCallback(() => {
-    commentSheetRef.current?.close();
     setShowComments(false);
   }, []);
 
@@ -249,7 +245,7 @@ export function FeedScreen() {
         {/* Bottom nav — hidden when comment sheet is active */}
         {showComments && (
           <BlurView
-            intensity={16}
+            intensity={12}
             tint="dark"
             experimentalBlurMethod="dimezisBlurView"
             blurReductionFactor={1}
@@ -268,7 +264,7 @@ export function FeedScreen() {
 
         {/* Comment sheet — only mounted when active so it doesn't block touches */}
         {showComments && (
-          <CommentSheet ref={commentSheetRef} onClose={handleCommentClose} />
+          <CommentSheet onClose={handleCommentClose} />
         )}
       </View>
     </GestureHandlerRootView>

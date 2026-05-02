@@ -1,6 +1,5 @@
 import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
-import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PlusIcon } from "./FeedIcons";
@@ -19,18 +18,10 @@ export function FeedHeader() {
         <Text style={styles.title}>Posts</Text>
       </View>
       <Pressable style={styles.newPostBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-        <BlurView
-          intensity={20}
-          tint="dark"
-          experimentalBlurMethod="dimezisBlurView"
-          blurReductionFactor={1}
-          style={StyleSheet.absoluteFill}
-        />
-        <View pointerEvents="none" style={styles.newPostTint} />
-        <View style={styles.newPostContent}>
-          <PlusIcon size={16} color="#FFFFFF" />
-          <Text style={styles.newPostText}>New Post</Text>
+        <View style={styles.addIconContainer}>
+          <PlusIcon size={12} color="#FFFFFF" strokeWidth={1.25} />
         </View>
+        <Text style={styles.newPostText}>New Post</Text>
       </Pressable>
     </View>
   );
@@ -58,7 +49,7 @@ const styles = StyleSheet.create({
   leftGroup: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 14,
+    gap: 10,
   },
   profileAvatar: {
     width: 36,
@@ -67,33 +58,34 @@ const styles = StyleSheet.create({
     backgroundColor: "#1B17B3",
   },
   newPostBtn: {
-    overflow: "hidden",
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 6,
+    gap: 4,
+    width: 97,
+    height: 32,
+    backgroundColor: "rgba(242, 242, 242, 0.1)",
     borderWidth: 1,
-    borderColor: "rgba(241,241,241,0.3)",
+    borderColor: "rgba(242, 242, 242, 0.3)",
     borderRadius: 20,
-    backgroundColor: "rgba(0,0,0,0.18)",
     shadowColor: "#000000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.09,
     shadowRadius: 10,
     elevation: 3,
   },
-  newPostTint: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.18)",
-  },
-  newPostContent: {
-    flexDirection: "row",
+  addIconContainer: {
+    width: 20,
+    height: 20,
     alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
+    justifyContent: "center",
   },
   newPostText: {
     fontFamily: "Ubuntu_400Regular",
     fontSize: 14,
-    color: "#FFFFFF",
+    lineHeight: 16,
     letterSpacing: -0.28,
+    color: "#FFFFFF",
     textShadowColor: "rgba(0,0,0,0.65)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 13,

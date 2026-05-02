@@ -71,10 +71,10 @@ export function ClipIcon({ size = 20, color = "#FFFFFF" }: { size?: number; colo
 }
 
 /* ── Utility icons ── */
-export function PlusIcon({ size = 16, color = "#FFFFFF" }: { size?: number; color?: string }) {
+export function PlusIcon({ size = 16, color = "#FFFFFF", strokeWidth = 2 }: { size?: number; color?: string; strokeWidth?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 5v14M5 12h14" stroke={color} strokeWidth={2} strokeLinecap="round"/>
+      <Path d="M12 5v14M5 12h14" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/>
     </Svg>
   );
 }
