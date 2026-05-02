@@ -5,6 +5,7 @@ import {
   View,
   StyleSheet,
   useWindowDimensions,
+  ActivityIndicator,
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -19,6 +20,10 @@ import { CommentSheet } from "../components/feed/CommentSheet";
 /* Local property images */
 const PROPERTY_IMG = require("../../assets/feed_property.jpg");
 const PROPERTY_IMG_2 = require("../../assets/feed_property_2.jpg");
+const PROPERTY_IMG_3 = require("../../assets/feed_property 01.jpg");
+const PROPERTY_IMG_4 = require("../../assets/feed_property 02.jpg");
+const PROPERTY_IMG_5 = require("../../assets/feed_property 03.jpg");
+const PROPERTY_IMG_6 = require("../../assets/feed_property 04.jpg");
 const PROPERTY_VIDEO_1 = require("../../assets/WhatsApp Video 2026-04-29 at 12.45.35 PM.mp4");
 const PROPERTY_VIDEO_2 = require("../../assets/WhatsApp Video 2026-04-30 at 8.44.46 PM.mp4");
 
@@ -27,7 +32,7 @@ const MOCK_POSTS: PostData[] = [
   {
     id: "1",
     user: { name: "Kelechi Obi", avatar: "https://i.pravatar.cc/100?img=3" },
-    image: PROPERTY_IMG,
+    image: PROPERTY_IMG_4,
     caption: "Sea Watch Mansion is a luxurious waterfront residence located in the serene neighborhood of Lekki Phase 1, featuring modern architecture and breathtaking views.",
     time: "12:58 PM",
     likes: 3,
@@ -81,7 +86,7 @@ const MOCK_POSTS: PostData[] = [
   {
     id: "5",
     user: { name: "Emeka Okafor", avatar: "https://i.pravatar.cc/100?img=12" },
-    image: PROPERTY_IMG,
+    image: PROPERTY_IMG_3,
     video: PROPERTY_VIDEO_2,
     caption: "A second feed video test with the same full-screen layout, actions, captions, and navbar loading stroke.",
     time: "8:10 PM",
@@ -90,6 +95,42 @@ const MOCK_POSTS: PostData[] = [
     bookmarks: 33,
     shares: 11,
     layout: "horizontal",
+  },
+  {
+    id: "6",
+    user: { name: "Sarah Jenkins", avatar: "https://i.pravatar.cc/100?img=15" },
+    image: PROPERTY_IMG,
+    caption: "Incredible modern interior design with minimalist aesthetics. Perfect for content creators looking for a spacious studio vibe.",
+    time: "Yesterday",
+    likes: 1204,
+    comments: 45,
+    bookmarks: 302,
+    shares: 88,
+  },
+  {
+    id: "7",
+    user: { name: "Tunde Ednut", avatar: "https://i.pravatar.cc/100?img=22" },
+    image: PROPERTY_IMG_5,
+    caption: "Beautiful evening skyline from the penthouse view. Nothing beats this golden hour lighting! ✨",
+    time: "Yesterday",
+    likes: 8500,
+    comments: 312,
+    bookmarks: 1400,
+    shares: 520,
+    layout: "vertical",
+    music: "Golden Hour",
+    musicArtist: "JVKE",
+  },
+  {
+    id: "8",
+    user: { name: "Linda Ikeji", avatar: "https://i.pravatar.cc/100?img=33" },
+    image: PROPERTY_IMG_6,
+    caption: "Exclusive look at the new residential development in Victoria Island. High-end amenities and 24/7 concierge service.",
+    time: "2 days ago",
+    likes: 420,
+    comments: 18,
+    bookmarks: 75,
+    shares: 12,
   },
 ];
 
@@ -168,6 +209,11 @@ export function FeedScreen() {
             snapToAlignment="start"
             onMomentumScrollEnd={handleScrollEnd}
             onScrollEndDrag={handleScrollEnd}
+            ListFooterComponent={
+              <View style={{ height: NAV_HEIGHT, justifyContent: "center", alignItems: "center" }}>
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              </View>
+            }
           />
         </View>
 
