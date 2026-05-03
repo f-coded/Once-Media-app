@@ -267,13 +267,19 @@ const styles = StyleSheet.create({
   },
   sheetContent: {
     flex: 1,
-    backgroundColor: "#FFFFFF", // Solid white for Android reliability
-    marginHorizontal: 8,
+    backgroundColor: Platform.select({
+      android: "#ffffff89",
+      default: "rgba(255, 255, 255, 0.71)",
+    }),
+    marginHorizontal: Platform.select({
+      android: 0,
+      default: 0,
+    }),
+    borderTopWidth: 0,
+
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "#F2F2F2",
   },
   header: {
     position: "absolute",
@@ -287,7 +293,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.96)",
     zIndex: 10,
     // Tiny shadow for header
-    shadowColor: "#000",
+    shadowColor: "#1f1e1eff",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
@@ -337,7 +343,7 @@ const styles = StyleSheet.create({
   },
   bubble: {
     alignSelf: "flex-start",
-    maxWidth: "94%",
+    maxWidth: "100%",
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 16,
