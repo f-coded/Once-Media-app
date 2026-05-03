@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { View, Text, Pressable, StyleSheet, Platform } from "react-native";
 import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -19,11 +19,11 @@ export function FeedHeader() {
         <Text style={styles.title}>Posts</Text>
       </View>
       <Pressable style={styles.newPostBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-        <BlurView 
-          intensity={45} 
-          tint="dark" 
-          experimentalBlurMethod="dimezisBlurView" 
-          blurReductionFactor={1} 
+        <BlurView
+          intensity={Platform.OS === "android" ? 2 : 10}
+          tint="dark"
+          experimentalBlurMethod="dimezisBlurView"
+          blurReductionFactor={1}
           style={styles.btnBlur}
         >
           <View style={styles.addIconContainer}>
@@ -83,7 +83,8 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    paddingLeft: 1, // Icon container (20px) center will be at 1 + 10 = 11px from left
+    paddingLeft: 5,
+    paddingRight: 6,
     gap: 4,
   },
   addIconContainer: {

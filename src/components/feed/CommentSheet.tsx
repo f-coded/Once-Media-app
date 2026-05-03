@@ -267,12 +267,13 @@ const styles = StyleSheet.create({
   },
   sheetContent: {
     flex: 1,
-    backgroundColor: "rgba(255,255,255,0.85)",
-    borderTopWidth: 1,
-    borderTopColor: "#F2F2F2",
+    backgroundColor: "#FFFFFF", // Solid white for Android reliability
+    marginHorizontal: 8,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#F2F2F2",
   },
   header: {
     position: "absolute",
