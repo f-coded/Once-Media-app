@@ -213,7 +213,7 @@ export function FeedScreen() {
         <View 
           style={[
             { flex: 1, overflow: "hidden" },
-            showComments && { filter: [{ blur: 7 }] } as any,
+            showComments && { filter: [{ blur: 3 }] } as any,
           ]}
           onLayout={(e) => setContainerHeight(e.nativeEvent.layout.height)}
         >

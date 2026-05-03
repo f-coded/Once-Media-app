@@ -199,7 +199,7 @@ export const CommentSheet = forwardRef<BottomSheet, CommentSheetProps>(({ onClos
       >
         <BottomSheetView style={styles.sheetContent}>
           <View style={styles.header}>
-            <Text style={styles.title}>Comment</Text>
+            <Text style={styles.title}>Comments</Text>
             <Pressable
               style={styles.close}
               onPress={onClose}
@@ -232,7 +232,10 @@ export const CommentSheet = forwardRef<BottomSheet, CommentSheetProps>(({ onClos
       >
         {isAdding && (
           <Text style={styles.replying}>
-            Replying to {replyType} ~{replyName}
+            Replying to 
+            <Text style={styles.replyName}>
+              ~ {replyName}
+            </Text>
           </Text>
         )}
 
@@ -268,7 +271,7 @@ const styles = StyleSheet.create({
   sheetContent: {
     flex: 1,
     backgroundColor: Platform.select({
-      android: "#ffffffa1",
+      android: "rgba(255, 255, 255, 0.78)",
       default: "rgba(255, 255, 255, 0.78)",
     }),
     marginHorizontal: Platform.select({
@@ -277,19 +280,21 @@ const styles = StyleSheet.create({
     }),
     borderTopWidth: 0,
 
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
+    borderTopLeftRadius: 35,
+    borderTopRightRadius: 35,
     overflow: "hidden",
   },
   header: {
     position: "absolute",
     top: 0,
+    paddingTop: 15,
     left: 0,
     right: 0,
-    height: 54,
+    height: 48,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
+    // paddingBottom: -10, 
     backgroundColor: "rgba(255, 255, 255, 0.81)",
     zIndex: 10,
     // Tiny shadow for header
@@ -301,7 +306,7 @@ const styles = StyleSheet.create({
     elevation: Platform.OS === 'android' ? 0 : 2,
   },
   title: {
-    ...font("Ubuntu_700Bold", 18, "#0C0C0C"),
+    ...font("Ubuntu_500Medium", 18, "#0C0C0C"), 
   },
   close: {
     marginLeft: "auto",
@@ -324,23 +329,23 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   avatar: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 24,
+    height: 24,
+    borderRadius: 60,
     backgroundColor: "#F2F2F2",
   },
   name: {
-    ...font("Ubuntu_500Medium", 16, "#555555"),
+    ...font("Ubuntu_500Medium", 16, "#434343"),
     maxWidth: 190,
   },
   metaDot: {
-    width: 3,
-    height: 3,
+    width: 4,
+    height: 4,
     borderRadius: 1.5,
-    backgroundColor: "#9A9A9A",
+    backgroundColor: "#353540ff",
   },
   time: {
-    ...font("Ubuntu_400Regular", 12, "#777777"),
+    ...font("Ubuntu_400Regular", 12, "#434343"),
   },
   bubble: {
     alignSelf: "flex-start",
@@ -360,13 +365,13 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   reply: {
-    ...font("Ubuntu_700Bold", 14, "#1B17B3"),
+    ...font("Ubuntu_500Medium", 14, "#1B17B3"),
   },
   replyDot: {
-    width: 3,
-    height: 3,
+    width: 4, 
+    height: 4,
     borderRadius: 1.5,
-    backgroundColor: "#777777",
+    backgroundColor: "#777777e7",
   },
   replyCount: {
     ...font("Ubuntu_400Regular", 12, "#555555"),
@@ -385,15 +390,25 @@ const styles = StyleSheet.create({
   replying: {
     ...font("Ubuntu_400Regular", 14, "#1B17B3"),
     marginBottom: 10,
+    marginLeft: 12,
   },
+  replyName: {
+      ...font("Ubuntu_400Regular", 14, "#0f0e0eff"),
+       marginBottom: 10,
+       marginLeft: 3,
+       
+    },
+
   inputPill: {
     minHeight: 45,
+    marginHorizontal: 12,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
     paddingHorizontal: 14,
-    borderRadius: 20,
-    backgroundColor: "#F0F0F0",
+    paddingVertical: 4,
+    borderRadius: 50,
+    backgroundColor: "#f2f2f2",
   },
   input: {
     flex: 1,
