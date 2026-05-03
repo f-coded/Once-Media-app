@@ -9,7 +9,6 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { BlurView } from "expo-blur";
 import { PostCard, PostData } from "../components/feed/PostCard";
 import { FeedHeader } from "../components/feed/FeedHeader";
@@ -204,7 +203,7 @@ export function FeedScreen() {
   ), [activePostId, handleCommentPress, handleVideoLoadingChange, POST_HEIGHT]);
 
   return (
-    <GestureHandlerRootView style={styles.root}>
+    <View style={styles.root}>
       <View style={styles.container}>
         {/* Feed header — floating */}
         <FeedHeader />
@@ -213,7 +212,13 @@ export function FeedScreen() {
         <View 
           style={[
             { flex: 1, overflow: "hidden" },
-            showComments && { filter: [{ blur: 3 }] } as any,
+            showComments && {
+              // Web (RN Web) needs CSS string; native needs the RN 0.76+ array format
+              filter: Platform.select({
+                web: "blur(3px)" as any,
+                native: [{ blur: 3 }] as any,
+              }),
+            } as any,
           ]}
           onLayout={(e) => setContainerHeight(e.nativeEvent.layout.height)}
         >
@@ -258,7 +263,7 @@ export function FeedScreen() {
           <CommentSheet onClose={handleCommentClose} />
         )}
       </View>
-    </GestureHandlerRootView>
+    </View>
   );
 }
 

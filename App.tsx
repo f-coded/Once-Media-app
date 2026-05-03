@@ -2,6 +2,7 @@ import "./global.css";
 
 import { useState } from "react";
 import { StatusBar } from "expo-status-bar";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useFonts } from "expo-font";
 import { Ubuntu_400Regular } from "@expo-google-fonts/ubuntu/400Regular";
@@ -56,80 +57,82 @@ export default function App() {
   }
 
   return (
-    <SafeAreaProvider>
-      <StatusBar style={showSplash || route === "feed" ? "light" : "dark"} />
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <StatusBar style={showSplash || route === "feed" ? "light" : "dark"} />
 
-      {showSplash && (
-        <AnimatedSplashScreen onAnimationFinish={() => setShowSplash(false)} />
-      )}
+        {showSplash && (
+          <AnimatedSplashScreen onAnimationFinish={() => setShowSplash(false)} />
+        )}
 
-      {route === "login" ? (
-        <LoginScreen
-          onForgotPasswordPress={() => setRoute("forgot-password")}
-          onSignUpPress={() => setRoute("signup")}
-        />
-      ) : null}
+        {route === "login" ? (
+          <LoginScreen
+            onForgotPasswordPress={() => setRoute("forgot-password")}
+            onSignUpPress={() => setRoute("signup")}
+          />
+        ) : null}
 
-      {route === "signup" ? (
-        <SignUpScreen
-          onContinuePress={() => setRoute("choose-role")}
-          onLoginPress={() => setRoute("login")}
-        />
-      ) : null}
+        {route === "signup" ? (
+          <SignUpScreen
+            onContinuePress={() => setRoute("choose-role")}
+            onLoginPress={() => setRoute("login")}
+          />
+        ) : null}
 
-      {route === "forgot-password" ? (
-        <ForgotPasswordScreen 
-          onBackPress={() => setRoute("login")} 
-          onContinuePress={() => setRoute("otp-verification")}
-        />
-      ) : null}
+        {route === "forgot-password" ? (
+          <ForgotPasswordScreen 
+            onBackPress={() => setRoute("login")} 
+            onContinuePress={() => setRoute("otp-verification")}
+          />
+        ) : null}
 
-      {route === "otp-verification" ? (
-        <OTPVerificationScreen 
-          onBackPress={() => setRoute("forgot-password")}
-          onVerifyPress={() => setRoute("create-password")}
-          onTryAnotherMethod={() => setRoute("forgot-password")}
-        />
-      ) : null}
+        {route === "otp-verification" ? (
+          <OTPVerificationScreen 
+            onBackPress={() => setRoute("forgot-password")}
+            onVerifyPress={() => setRoute("create-password")}
+            onTryAnotherMethod={() => setRoute("forgot-password")}
+          />
+        ) : null}
 
-      {route === "create-password" ? (
-        <CreatePasswordScreen 
-          onBackPress={() => setRoute("otp-verification")}
-          onCreatePasswordPress={() => setRoute("confirm-password")}
-        />
-      ) : null}
+        {route === "create-password" ? (
+          <CreatePasswordScreen 
+            onBackPress={() => setRoute("otp-verification")}
+            onCreatePasswordPress={() => setRoute("confirm-password")}
+          />
+        ) : null}
 
-      {route === "confirm-password" ? (
-        <ConfirmPasswordScreen 
-          onBackPress={() => setRoute("create-password")}
-          onConfirmPasswordPress={() => setRoute("login")}
-        />
-      ) : null}
+        {route === "confirm-password" ? (
+          <ConfirmPasswordScreen 
+            onBackPress={() => setRoute("create-password")}
+            onConfirmPasswordPress={() => setRoute("login")}
+          />
+        ) : null}
 
-      {route === "choose-role" ? (
-        <ChooseRoleScreen
-          selectedRole={selectedRole}
-          onSelectRole={setSelectedRole}
-          onBackPress={() => setRoute("signup")}
-          onContinuePress={() => setRoute("complete-profile")}
-        />
-      ) : null}
+        {route === "choose-role" ? (
+          <ChooseRoleScreen
+            selectedRole={selectedRole}
+            onSelectRole={setSelectedRole}
+            onBackPress={() => setRoute("signup")}
+            onContinuePress={() => setRoute("complete-profile")}
+          />
+        ) : null}
 
-      {route === "complete-profile" ? (
-        <CompleteProfileScreen
-          onBackPress={() => setRoute("choose-role")}
-          onSkipPress={() => setRoute("account-success")}
-          onFinishPress={() => setRoute("account-success")}
-        />
-      ) : null}
+        {route === "complete-profile" ? (
+          <CompleteProfileScreen
+            onBackPress={() => setRoute("choose-role")}
+            onSkipPress={() => setRoute("account-success")}
+            onFinishPress={() => setRoute("account-success")}
+          />
+        ) : null}
 
-      {route === "account-success" ? (
-        <AccountSuccessScreen onDashboardPress={() => setRoute("feed")} />
-      ) : null}
+        {route === "account-success" ? (
+          <AccountSuccessScreen onDashboardPress={() => setRoute("feed")} />
+        ) : null}
 
-      {route === "feed" ? (
-        <FeedScreen />
-      ) : null}
-    </SafeAreaProvider>
+        {route === "feed" ? (
+          <FeedScreen />
+        ) : null}
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

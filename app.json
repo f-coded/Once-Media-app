@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "ONCE MEDIA app",
+    "name": "ONCE MEDIA",
     "slug": "once-media-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -15,6 +15,9 @@
     "plugins": [
       "expo-font",
       "expo-video"
-    ]
+    ],
+    "android": {
+      "softwareKeyboardLayoutMode": "pan"
+    }
   }
 }
