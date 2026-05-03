@@ -99,7 +99,7 @@ type CommentSheetProps = {
 };
 
 export const CommentSheet = forwardRef<BottomSheet, CommentSheetProps>(({ onClose }, ref) => {
-  const snapPoints = useMemo(() => ["55%"], []);
+  const snapPoints = useMemo(() => ["65%"], []);   
   const bottomSheetRef = useRef<BottomSheet>(null);
   const inputRef = useRef<TextInput>(null);
   const [commentText, setCommentText] = useState("");
@@ -263,13 +263,13 @@ export const CommentSheet = forwardRef<BottomSheet, CommentSheetProps>(({ onClos
 const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: 40,
+    zIndex: 20,
   },
   sheetContent: {
     flex: 1,
     backgroundColor: Platform.select({
-      android: "#ffffff89",
-      default: "rgba(255, 255, 255, 0.71)",
+      android: "#ffffffa1",
+      default: "rgba(255, 255, 255, 0.78)",
     }),
     marginHorizontal: Platform.select({
       android: 0,
@@ -277,8 +277,8 @@ const styles = StyleSheet.create({
     }),
     borderTopWidth: 0,
 
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
     overflow: "hidden",
   },
   header: {
@@ -290,14 +290,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 20,
-    backgroundColor: "rgba(255,255,255,0.96)",
+    backgroundColor: "rgba(255, 255, 255, 0.81)",
     zIndex: 10,
     // Tiny shadow for header
     shadowColor: "#1f1e1eff",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    // shadowRadius: 2,
+    // elevation: 2,
+    elevation: Platform.OS === 'android' ? 0 : 2,
   },
   title: {
     ...font("Ubuntu_700Bold", 18, "#0C0C0C"),

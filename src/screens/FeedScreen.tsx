@@ -2,6 +2,7 @@ import React, { useState, useCallback } from "react";
 import {
   NativeScrollEvent,
   NativeSyntheticEvent,
+  Platform,
   RefreshControl,
   View,
   StyleSheet,
@@ -10,7 +11,6 @@ import {
 import { FlashList } from "@shopify/flash-list";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { BlurView } from "expo-blur";
-
 import { PostCard, PostData } from "../components/feed/PostCard";
 import { FeedHeader } from "../components/feed/FeedHeader";
 import { BottomNav, NAV_HEIGHT } from "../components/feed/BottomNav";
@@ -209,9 +209,12 @@ export function FeedScreen() {
         {/* Feed header — floating */}
         <FeedHeader />
 
-        {/* Posts feed */}
+        {/* Posts feed — blur applied directly when comments open (no overlay artifacts) */}
         <View 
-          style={{ flex: 1, overflow: "hidden" }}
+          style={[
+            { flex: 1, overflow: "hidden" },
+            showComments && { filter: [{ blur: 7 }] } as any,
+          ]}
           onLayout={(e) => setContainerHeight(e.nativeEvent.layout.height)}
         >
           <FlashList
@@ -241,18 +244,6 @@ export function FeedScreen() {
             }
           />
         </View>
-
-        {/* Bottom nav — hidden when comment sheet is active */}
-        {showComments && (
-          <BlurView
-            intensity={12}
-            tint="dark"
-            experimentalBlurMethod="dimezisBlurView"
-            blurReductionFactor={1}
-            pointerEvents="none"
-            style={StyleSheet.absoluteFill}
-          />
-        )}
 
         {!showComments && (
           <BottomNav
