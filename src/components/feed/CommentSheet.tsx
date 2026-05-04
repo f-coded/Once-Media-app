@@ -328,7 +328,7 @@ export const CommentSheet = forwardRef<BottomSheet, CommentSheetProps>(({ onClos
           <BlurView
             intensity={60}
             tint="extraLight"
-            style={[styles.sheetContent, { backgroundColor: "rgba(255,255,255,0.55)" }]}
+            style={[styles.sheetContent]}
           >
             {/* Header */}
             <View style={styles.header}>
@@ -340,7 +340,7 @@ export const CommentSheet = forwardRef<BottomSheet, CommentSheetProps>(({ onClos
               >
                 <CloseIcon size={20} />
               </Pressable>
-            </View>
+            </View> 
 
             {sheetReady && (
               <BottomSheetFlatList
