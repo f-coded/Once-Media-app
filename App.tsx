@@ -48,7 +48,7 @@ export default function App() {
     Ubuntu_700Bold,
   });
 
-  const [route, setRoute] = useState<Route>("feed");
+  const [route, setRoute] = useState<Route>("login");
   const [selectedRole, setSelectedRole] = useState("House Hunter");
   const [showSplash, setShowSplash] = useState(true);
 
@@ -67,6 +67,7 @@ export default function App() {
 
         {route === "login" ? (
           <LoginScreen
+            onLoginPress={() => setRoute("feed")}
             onForgotPasswordPress={() => setRoute("forgot-password")}
             onSignUpPress={() => setRoute("signup")}
           />

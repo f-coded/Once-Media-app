@@ -208,17 +208,17 @@ export function FeedScreen() {
         {/* Feed header — floating */}
         <FeedHeader />
 
-        {/* Posts feed — blur applied directly when comments open (no overlay artifacts) */}
-        <View 
+        {/* Posts feed */}
+        <View
           style={[
             { flex: 1, overflow: "hidden" },
-            showComments && {
-              // Web (RN Web) needs CSS string; native needs the RN 0.76+ array format
-              filter: Platform.select({
-                web: "blur(3px)" as any,
-                native: [{ blur: 3 }] as any,
-              }),
-            } as any,
+            // Android: use the RN 0.76+ filter array (works great)
+            // iOS: we use a BlurView overlay instead (filter not reliable on iOS)
+            showComments && Platform.OS === "android"
+              ? ({
+                  filter: [{ blur: 3 }],
+                } as any)
+              : null,
           ]}
           onLayout={(e) => setContainerHeight(e.nativeEvent.layout.height)}
         >
@@ -248,6 +248,16 @@ export function FeedScreen() {
               />
             }
           />
+
+          {/* iOS feed blur overlay — sits above the feed, below the sheet */}
+          {showComments && Platform.OS === "ios" && (
+            <BlurView
+              intensity={28}
+              tint="dark"
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+            />
+          )}
         </View>
 
         {!showComments && (

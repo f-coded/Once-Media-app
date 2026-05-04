@@ -17,7 +17,21 @@
       "expo-video"
     ],
     "android": {
-      "softwareKeyboardLayoutMode": "pan"
-    }
+      "softwareKeyboardLayoutMode": "pan",
+      "package": "com.oncemedia.app"
+    },
+    "ios": {
+      "bundleIdentifier": "com.oncemedia.app",
+      "supportsTablet": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": true
+      }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "50a00ff4-6f25-4fab-b963-1b6c66b63fba"
+      }
+    },
+    "owner": "f_codes"
   }
 }

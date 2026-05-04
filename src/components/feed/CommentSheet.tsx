@@ -177,7 +177,7 @@ const CommentComposerFooter = React.memo(function CommentComposerFooter({
   }, [commentText, onFocusChange]);
 
   return (
-    <BottomSheetFooter {...footerProps} bottomInset={bottomInset}>
+    <BottomSheetFooter {...footerProps} bottomInset={Platform.OS === "ios" ? 0 : bottomInset}>
       <View style={styles.composer}>
         {isAdding && (
           <Text style={styles.replying}>
@@ -324,48 +324,96 @@ export const CommentSheet = forwardRef<BottomSheet, CommentSheetProps>(({ onClos
           if (index === 0 && !sheetReady) setSheetReady(true);
         }}
       >
-        <View style={styles.sheetContent}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.title}>Comments</Text>
-            <Pressable
-              style={styles.close}
-              onPress={handleClose}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            >
-              <CloseIcon size={20} />
-            </Pressable>
+        {Platform.OS === "ios" ? (
+          <BlurView
+            intensity={60}
+            tint="extraLight"
+            style={[styles.sheetContent, { backgroundColor: "rgba(255,255,255,0.55)" }]}
+          >
+            {/* Header */}
+            <View style={styles.header}>
+              <Text style={styles.title}>Comments</Text>
+              <Pressable
+                style={styles.close}
+                onPress={handleClose}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
+                <CloseIcon size={20} />
+              </Pressable>
+            </View>
+
+            {sheetReady && (
+              <BottomSheetFlatList
+                style={styles.scroll}
+                data={COMMENTS}
+                renderItem={renderComment}
+                keyExtractor={(item) => item.id}
+                bounces={false}
+                removeClippedSubviews={false}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                overScrollMode="never"
+                contentContainerStyle={styles.scrollContent}
+                ListFooterComponent={
+                  <View style={[styles.scrollFooterSpacer, { height: listEndSpacerHeight }]} />
+                }
+              />
+            )}
+
+            {keyboardVisible && (
+              <BlurView
+                intensity={15}
+                tint="light"
+                experimentalBlurMethod="dimezisBlurView"
+                pointerEvents="none"
+                style={styles.commentsBlur}
+              />
+            )}
+          </BlurView>
+        ) : (
+          <View style={styles.sheetContent}>
+            {/* Header */}
+            <View style={styles.header}>
+              <Text style={styles.title}>Comments</Text>
+              <Pressable
+                style={styles.close}
+                onPress={handleClose}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
+                <CloseIcon size={20} />
+              </Pressable>
+            </View>
+
+            {/* FlatList only mounts after sheet is settled — fixes Android cold start scroll bug */}
+            {sheetReady && (
+              <BottomSheetFlatList
+                style={styles.scroll}
+                data={COMMENTS}
+                renderItem={renderComment}
+                keyExtractor={(item) => item.id}
+                bounces={false}
+                removeClippedSubviews={false}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                overScrollMode="never"
+                contentContainerStyle={styles.scrollContent}
+                ListFooterComponent={
+                  <View style={[styles.scrollFooterSpacer, { height: listEndSpacerHeight }]} />
+                }
+              />
+            )}
+
+            {keyboardVisible && (
+              <BlurView
+                intensity={10}
+                tint="light"
+                experimentalBlurMethod="dimezisBlurView"
+                pointerEvents="none"
+                style={styles.commentsBlur}
+              />
+            )}
           </View>
-
-          {/* FlatList only mounts after sheet is settled — fixes Android cold start scroll bug */}
-          {sheetReady && (
-            <BottomSheetFlatList
-              style={styles.scroll}
-              data={COMMENTS}
-              renderItem={renderComment}
-              keyExtractor={(item) => item.id}
-              bounces={false}
-              removeClippedSubviews={false}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              overScrollMode="never"
-              contentContainerStyle={styles.scrollContent}
-              ListFooterComponent={
-                <View style={[styles.scrollFooterSpacer, { height: listEndSpacerHeight }]} />
-              }
-            />
-          )}
-
-          {keyboardVisible && (
-            <BlurView
-              intensity={12}
-              tint="light"
-              experimentalBlurMethod="dimezisBlurView"
-              pointerEvents="none"
-              style={styles.commentsBlur}
-            />
-          )}
-        </View>
+        )}
       </BottomSheet>
     </View>
   );

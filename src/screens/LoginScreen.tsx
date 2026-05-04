@@ -15,11 +15,13 @@ import { BrandMark } from "../components/BrandMark";
 import { colors } from "../theme/colors";
 
 type LoginScreenProps = {
+  onLoginPress: () => void;
   onForgotPasswordPress: () => void;
   onSignUpPress: () => void;
 };
 
 export function LoginScreen({
+  onLoginPress,
   onForgotPasswordPress,
   onSignUpPress,
 }: LoginScreenProps) {
@@ -63,7 +65,7 @@ export function LoginScreen({
       </Text>
 
       <View style={{ marginTop: 20 }}>
-        <PrimaryButton label="Login" onPress={() => { }} />
+        <PrimaryButton label="Login" onPress={onLoginPress} />
         <LinkText center label="Forgot Password" onPress={onForgotPasswordPress} />
       </View>
 
