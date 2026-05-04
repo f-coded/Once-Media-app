@@ -20,7 +20,7 @@ export function FeedHeader() {
       </View>
       <Pressable style={styles.newPostBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
         <BlurView
-          intensity={Platform.OS === "android" ? 2 : 10}
+          intensity={Platform.OS === "android" ? 1 : 10}
           tint="dark"
           experimentalBlurMethod="dimezisBlurView"
           blurReductionFactor={1}

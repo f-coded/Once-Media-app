@@ -20,7 +20,7 @@ import BottomSheet, {
 } from "@gorhom/bottom-sheet";
 
 import { font } from "../AuthUI";
-import { CloseIcon, SendIcon } from "./FeedIcons";
+import { CloseIcon, SendIcon, EmptyCommentIcon } from "./FeedIcons";
 
 type Comment = {
   id: string;
@@ -345,7 +345,7 @@ export const CommentSheet = forwardRef<BottomSheet, CommentSheetProps>(({ onClos
             {sheetReady && (
               <BottomSheetFlatList
                 style={styles.scroll}
-                data={COMMENTS}
+                data={[]} // Temporarily empty to show the empty state
                 renderItem={renderComment}
                 keyExtractor={(item) => item.id}
                 bounces={false}
@@ -354,6 +354,15 @@ export const CommentSheet = forwardRef<BottomSheet, CommentSheetProps>(({ onClos
                 keyboardShouldPersistTaps="handled"
                 overScrollMode="never"
                 contentContainerStyle={styles.scrollContent}
+                ListEmptyComponent={
+                  <View style={styles.emptyContainer}>
+                    <View style={styles.emptyIconWrapper}>
+                      <EmptyCommentIcon />
+                    </View>
+                    <Text style={styles.emptyTitle}>Be the First to Comment</Text>
+                    <Text style={styles.emptySubtitle}>No Comments Yet</Text>
+                  </View>
+                }
                 ListFooterComponent={
                   <View style={[styles.scrollFooterSpacer, { height: listEndSpacerHeight }]} />
                 }
@@ -388,7 +397,7 @@ export const CommentSheet = forwardRef<BottomSheet, CommentSheetProps>(({ onClos
             {sheetReady && (
               <BottomSheetFlatList
                 style={styles.scroll}
-                data={COMMENTS}
+                data={[]} // Temporarily empty to show the empty state
                 renderItem={renderComment}
                 keyExtractor={(item) => item.id}
                 bounces={false}
@@ -397,6 +406,15 @@ export const CommentSheet = forwardRef<BottomSheet, CommentSheetProps>(({ onClos
                 keyboardShouldPersistTaps="handled"
                 overScrollMode="never"
                 contentContainerStyle={styles.scrollContent}
+                ListEmptyComponent={
+                  <View style={styles.emptyContainer}>
+                    <View style={styles.emptyIconWrapper}>
+                      <EmptyCommentIcon />
+                    </View>
+                    <Text style={styles.emptyTitle}>Be the First to Comment</Text>
+                    <Text style={styles.emptySubtitle}>No Comments Yet</Text>
+                  </View>
+                }
                 ListFooterComponent={
                   <View style={[styles.scrollFooterSpacer, { height: listEndSpacerHeight }]} />
                 }
@@ -405,7 +423,7 @@ export const CommentSheet = forwardRef<BottomSheet, CommentSheetProps>(({ onClos
 
             {keyboardVisible && (
               <BlurView
-                intensity={10}
+                intensity={4}
                 tint="light"
                 experimentalBlurMethod="dimezisBlurView"
                 pointerEvents="none"
@@ -442,7 +460,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 18,
     backgroundColor: "rgba(255, 255, 255, 0.96)",
-    zIndex: 10,
+    zIndex: 5,
     shadowColor: "#1f1e1eff",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -462,9 +480,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 64,
     paddingBottom: COMMENT_LIST_PLATFORM_MODIFIER.contentBottomPadding,
+    flexGrow: 1,
   },
   scrollFooterSpacer: {
     flexShrink: 0,
+  },
+  emptyContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    flex: 1,
+    marginTop: 40,
+    paddingHorizontal: 20,
+  },
+  emptyIconWrapper: {
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    ...font("Ubuntu_500Medium", 16, "#282828"),
+    marginBottom: 6,
+  },
+  emptySubtitle: {
+    ...font("Ubuntu_400Regular", 14, "#8E8E8E"),
   },
   commentBlock: {
     paddingBottom: 12,
@@ -566,10 +602,10 @@ const styles = StyleSheet.create({
   },
   commentsBlur: {
     position: "absolute",
-    top: 48,
+    top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    zIndex: 5,
+    zIndex: 10,
   },
 });
