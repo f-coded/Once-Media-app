@@ -7,6 +7,7 @@ import {
   Text,
   useWindowDimensions,
   View,
+  BackHandler,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
@@ -121,6 +122,7 @@ const COMMENT_LIST_PLATFORM_MODIFIER = Platform.select({
 
 type CommentSheetProps = {
   onClose: () => void;
+  onCloseStart?: () => void;
 };
 
 type ReplyType = "post author" | "comment by";
@@ -193,6 +195,7 @@ const CommentComposerFooter = React.memo(function CommentComposerFooter({
             placeholderTextColor="#8E8E8E"
             value={commentText}
             onChangeText={setCommentText}
+            keyboardAppearance="light"
             onFocus={() => {
               setIsAdding(true);
               onFocusChange?.(true);
@@ -212,7 +215,7 @@ const CommentComposerFooter = React.memo(function CommentComposerFooter({
   );
 });
 
-export const CommentSheet = forwardRef<BottomSheet, CommentSheetProps>(({ onClose }, ref) => {
+export const CommentSheet = forwardRef<BottomSheet, CommentSheetProps>(({ onClose, onCloseStart }, ref) => {
   const { height: screenHeight } = useWindowDimensions();
   const snapPoints = useMemo(() => ["65%"], []);
   const bottomSheetRef = useRef<BottomSheet>(null);
@@ -248,10 +251,21 @@ export const CommentSheet = forwardRef<BottomSheet, CommentSheetProps>(({ onClos
   }, []);
 
   const handleClose = useCallback(() => {
+    onCloseStart?.();
     composerRef.current?.blur();
     Keyboard.dismiss();
-    onClose();
-  }, [onClose]);
+    bottomSheetRef.current?.close();
+  }, [onCloseStart]);
+
+  // Handle Android hardware back button
+  React.useEffect(() => {
+    const onBackPress = () => {
+      handleClose();
+      return true;
+    };
+    const subscription = BackHandler.addEventListener("hardwareBackPress", onBackPress);
+    return () => subscription.remove();
+  }, [handleClose]);
 
   const renderComment = useCallback(({ item }: { item: Comment }) => (
     <View style={styles.commentBlock}>
@@ -278,15 +292,12 @@ export const CommentSheet = forwardRef<BottomSheet, CommentSheetProps>(({ onClos
 
   const renderBackdrop = useCallback(
     (props: any) => (
-      <BottomSheetBackdrop
-        {...props}
-        appearsOnIndex={0}
-        disappearsOnIndex={-1}
-        opacity={0}
-        pressBehavior="none"
+      <Pressable
+        onPress={handleClose}
+        style={[props.style, { backgroundColor: "rgba(0,0,0,0)" }]}
       />
     ),
-    []
+    [handleClose]
   );
 
   const handleFocusChange = useCallback((focused: boolean) => {
@@ -307,7 +318,7 @@ export const CommentSheet = forwardRef<BottomSheet, CommentSheetProps>(({ onClos
         index={0}
         snapPoints={snapPoints}
         enableDynamicSizing={false}
-        enablePanDownToClose={false}
+        enablePanDownToClose={true}
         enableOverDrag={false}
         animateOnMount={true}
         enableContentPanningGesture={false}
@@ -322,11 +333,16 @@ export const CommentSheet = forwardRef<BottomSheet, CommentSheetProps>(({ onClos
           // Only allow FlatList to render once sheet has fully settled at snap point
           // This prevents Android gesture bridge race condition on cold start
           if (index === 0 && !sheetReady) setSheetReady(true);
+          
+          // Unmount from FeedScreen after the closing animation finishes
+          if (index === -1) {
+            onClose();
+          }
         }}
       >
         {Platform.OS === "ios" ? (
           <BlurView
-            intensity={60}
+            intensity={40}
             tint="extraLight"
             style={[styles.sheetContent]}
           >
@@ -371,7 +387,7 @@ export const CommentSheet = forwardRef<BottomSheet, CommentSheetProps>(({ onClos
 
             {keyboardVisible && (
               <BlurView
-                intensity={15}
+                intensity={10}
                 tint="light"
                 experimentalBlurMethod="dimezisBlurView"
                 pointerEvents="none"
@@ -423,7 +439,7 @@ export const CommentSheet = forwardRef<BottomSheet, CommentSheetProps>(({ onClos
 
             {keyboardVisible && (
               <BlurView
-                intensity={4}
+                intensity={2}
                 tint="light"
                 experimentalBlurMethod="dimezisBlurView"
                 pointerEvents="none"
@@ -536,7 +552,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 16,
-    backgroundColor: "#F0F0F0",
+    backgroundColor: "#F2F2F2",
   },
   commentText: {
     ...font("Ubuntu_400Regular", 14, "#282828", 19),
@@ -602,7 +618,7 @@ const styles = StyleSheet.create({
   },
   commentsBlur: {
     position: "absolute",
-    top: 0,
+    top: 10,
     left: 0,
     right: 0,
     bottom: 0,

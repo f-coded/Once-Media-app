@@ -144,16 +144,23 @@ export function FeedScreen() {
   const [loadingPostId, setLoadingPostId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [showComments, setShowComments] = useState(false);
+  const [isBlurActive, setIsBlurActive] = useState(false);
 
   const activePost = posts.find((post) => post.id === activePostId);
   const isActiveVideoLoading = Boolean(activePost?.video && loadingPostId === activePostId);
 
   const handleCommentPress = useCallback(() => {
     setShowComments(true);
+    setIsBlurActive(true);
+  }, []);
+
+  const handleCommentCloseStart = useCallback(() => {
+    setIsBlurActive(false);
   }, []);
 
   const handleCommentClose = useCallback(() => {
     setShowComments(false);
+    setIsBlurActive(false);
   }, []);
 
   const handleScrollEnd = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -214,9 +221,9 @@ export function FeedScreen() {
             { flex: 1, overflow: "hidden" },
             // Android: use the RN 0.76+ filter array (works great)
             // iOS: we use a BlurView overlay instead (filter not reliable on iOS)
-            showComments && Platform.OS === "android"
+            isBlurActive && Platform.OS === "android"
               ? ({
-                  filter: [{ blur: 3 }],
+                  filter: [{ blur: 2 }],
                 } as any)
               : null,
           ]}
@@ -250,17 +257,28 @@ export function FeedScreen() {
           />
 
           {/* iOS feed blur overlay — sits above the feed, below the sheet */}
-          {showComments && Platform.OS === "ios" && (
+          {isBlurActive && Platform.OS === "ios" && (
             <BlurView
-              intensity={28}
+              intensity={20}
               tint="dark"
               style={StyleSheet.absoluteFill}
               pointerEvents="none"
             />
           )}
+
+           {/* dim overlay for both platforms */}
+          {isBlurActive && (
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                { backgroundColor: "rgba(0, 0, 0, 0.45)" },
+              ]}
+              pointerEvents="none"
+            />
+          )}
         </View>
 
-        {!showComments && (
+        {!isBlurActive && (
           <BottomNav
             activeTab={activeTab}
             isLoading={isActiveVideoLoading}
@@ -270,7 +288,7 @@ export function FeedScreen() {
 
         {/* Comment sheet — only mounted when active so it doesn't block touches */}
         {showComments && (
-          <CommentSheet onClose={handleCommentClose} />
+          <CommentSheet onClose={handleCommentClose} onCloseStart={handleCommentCloseStart} />
         )}
       </View>
     </View>
