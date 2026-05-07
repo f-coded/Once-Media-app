@@ -18,34 +18,23 @@ const AVATAR_OLUCHI    = require("../../assets/avatar-oluchi.png");
 const AVATAR_NNAMDI    = require("../../assets/avatar-nnamdi.png");
 const AVATAR_EREKOSIMA = require("../../assets/avatar-erekosima.png");
 
-/* ── Gallery icon — Figma component 7:2862 ── */
+/* ── Gallery icon — exact Figma SVG from node 63:1360 (component 7:2862) ── */
 function GalleryIcon() {
   return (
     <Svg width={18} height={18} viewBox="0 0 18 18" fill="none">
+      {/* Rounded square frame */}
       <Path
-        d="M1.5 10.5C1.5 7.67157 1.5 6.25736 2.37868 5.37868C3.25736 4.5 4.67157 4.5 7.5 4.5H10.5C13.3284 4.5 14.7426 4.5 15.6213 5.37868C16.5 6.25736 16.5 7.67157 16.5 10.5C16.5 13.3284 16.5 14.7426 15.6213 15.6213C14.7426 16.5 13.3284 16.5 10.5 16.5H7.5C4.67157 16.5 3.25736 16.5 2.37868 15.6213C1.5 14.7426 1.5 13.3284 1.5 10.5Z"
+        d="M1.5 9C1.5 5.46447 1.5 3.6967 2.59835 2.59835C3.6967 1.5 5.46447 1.5 9 1.5C12.5355 1.5 14.3033 1.5 15.4017 2.59835C16.5 3.6967 16.5 5.46447 16.5 9C16.5 12.5355 16.5 14.3033 15.4017 15.4017C14.3033 16.5 12.5355 16.5 9 16.5C5.46447 16.5 3.6967 16.5 2.59835 15.4017C1.5 14.3033 1.5 12.5355 1.5 9Z"
         stroke="#1B17B3"
-        strokeWidth="1.125"
+        strokeWidth={1.125}
       />
-      <Circle cx="6.75" cy="8.25" r="1.5" stroke="#1B17B3" strokeWidth="1.125" />
+      {/* Sun/circle dot */}
+      <Circle cx={12} cy={6} r={1.5} stroke="#1B17B3" strokeWidth={1.125} />
+      {/* Mountain/landscape line */}
       <Path
-        d="M1.5 11.25L4.08579 8.66421C4.86684 7.88317 6.13317 7.88317 6.91421 8.66421L10.5 12.25"
+        d="M1.5 9.3751L2.81369 8.22563C3.49714 7.62762 4.52721 7.66192 5.16936 8.30407L8.38666 11.5214C8.90208 12.0368 9.71343 12.1071 10.3098 11.6879L10.5335 11.5308C11.3916 10.9277 12.5527 10.9975 13.3324 11.6992L15.75 13.8751"
         stroke="#1B17B3"
-        strokeWidth="1.125"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M10.5 12.25L11.8358 10.9142C12.6168 10.1332 13.8832 10.1332 14.6642 10.9142L16.5 12.75"
-        stroke="#1B17B3"
-        strokeWidth="1.125"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M13.5 4.5V1.5M12 3H15"
-        stroke="#1B17B3"
-        strokeWidth="1.125"
+        strokeWidth={1.125}
         strokeLinecap="round"
       />
     </Svg>
@@ -74,9 +63,9 @@ const CONVERSATIONS: ChatConversation[] = [
     avatarSource: AVATAR_SAMANTHA,
     avatarBg: "#1B17B3",
     time: "12:54 PM",
-    timeColor: "#1B17B3",   // Primary/100 — Figma: fills: Primary/100
+    timeColor: "#262525",   // Primary/100 — Figma: fills: Primary/100
     preview: "You: Hi, I'd like to make an inquiry about the Sea Watch Mansion in Onipan.",
-    previewColor: "#1B17B3", // Primary/100
+    previewColor: "#262525", // Primary/100
   },
   {
     id: "2",

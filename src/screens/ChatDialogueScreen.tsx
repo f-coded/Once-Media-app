@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   StatusBar,
+  BackHandler,
 } from "react-native";
 import Svg, { Path, Circle, Rect } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -22,14 +23,14 @@ const PROPERTY_IMG_2 = require("../../assets/feed_property_2.jpg");
    SVG Icons
 ───────────────────────────────────────────── */
 
-/** Back arrow — Figma Arrow Left (7:28647) */
-function BackIcon() {
+/** Back arrow */
+export function BackArrowIcon() {
   return (
-    <Svg width={18} height={18} viewBox="0 0 18 18" fill="none">
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M11.25 4.5L6.75 9L11.25 13.5"
-        stroke="#262525"
-        strokeWidth={1.125}
+        d="M20.75 12H3.25M3.25 12L10 5.25M3.25 12L10 18.75"
+        stroke="#363636"
+        strokeWidth={1.5}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -37,7 +38,7 @@ function BackIcon() {
   );
 }
 
-/** Video camera — Figma Videocamera (7:1112) */
+/** Video camera */
 function VideoCamIcon() {
   return (
     <Svg width={22} height={18} viewBox="0 0 22 18" fill="none">
@@ -55,7 +56,7 @@ function VideoCamIcon() {
   );
 }
 
-/** Phone — Figma Phone (7:24817) */
+/** Phone*/
 function PhoneIcon() {
   return (
     <Svg width={18} height={18} viewBox="0 0 18 18" fill="none">
@@ -69,30 +70,42 @@ function PhoneIcon() {
   );
 }
 
-/** Map pin — Point On Map (7:14322) — 16×16 */
+/** Map pin */
 function MapPinIcon() {
   return (
-    <Svg width={16} height={16} viewBox="0 0 16 16" fill="none">
+    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+      {/* Map fold background */}
       <Path
-        d="M12 5.33C12 3.03 10.21 1.33 8 1.33C5.79 1.33 4 3.03 4 5.13C4 7.22 5.28 9.65 7.27 10.51C7.73 10.72 8.27 10.72 8.73 10.51C10.72 9.65 12 7.22 12 5.13V5.33Z"
+        d="M18 8L18.9487 8.31623C19.9387 8.64624 20.4337 8.81124 20.7169 9.20407C21 9.5969 21 10.1187 21 11.1623V16.829C21 18.1199 21 18.7653 20.6603 19.18C20.5449 19.3208 20.4048 19.4394 20.247 19.5301C19.7821 19.797 19.1455 19.6909 17.8721 19.4787C16.6157 19.2693 15.9875 19.1646 15.3648 19.2167C15.1463 19.235 14.9292 19.2676 14.715 19.3144C14.1046 19.4477 13.5299 19.735 12.3806 20.3097C10.8809 21.0596 10.131 21.4345 9.33284 21.5501C9.09242 21.5849 8.8498 21.6021 8.60688 21.6016C7.80035 21.6001 7.01186 21.3373 5.43488 20.8116L5.05132 20.6838C4.06129 20.3538 3.56627 20.1888 3.28314 19.7959C3 19.4031 3 18.8813 3 17.8377V12.908C3 11.2491 3 10.4197 3.48841 9.97358C3.57388 9.89552 3.66809 9.82762 3.76917 9.77122C4.34681 9.44894 5.13369 9.71123 6.70746 10.2358"
         stroke="#434343"
-        strokeWidth={1}
+        strokeWidth={1.5}
       />
-      <Circle cx={8} cy={5.33} r={1.33} stroke="#434343" strokeWidth={1} />
+      {/* Pin shape */}
+      <Path
+        d="M6 7.70031C6 4.55211 8.68629 2 12 2C15.3137 2 18 4.55211 18 7.70031C18 10.8238 16.085 14.4687 13.0972 15.7721C12.4007 16.076 11.5993 16.076 10.9028 15.7721C7.91499 14.4687 6 10.8238 6 7.70031Z"
+        stroke="#434343"
+        strokeWidth={1.5}
+      />
+      {/* Center dot */}
+      <Circle cx={12} cy={8} r={2} stroke="#434343" strokeWidth={1.5} />
     </Svg>
   );
 }
 
-/** Send / paper plane — 22×22 white inside blue circle button */
+/** Send / paper plane */
 function SendIcon() {
   return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+    <Svg width={22} height={22} viewBox="28 14 24 24" fill="none">
+      {/* Paper plane body */}
       <Path
-        d="M22 2L11 13M22 2L15 22L11 13M22 2L2 9L11 13"
-        stroke="#FFFFFF"
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
+        d="M45.0829 28.3643L46.6563 23.6441C48.0308 19.5205 48.718 17.4588 47.6297 16.3705C46.5414 15.2821 44.4796 15.9694 40.3561 17.3439L35.6359 18.9173C32.3078 20.0267 30.6438 20.5813 30.1709 21.3947C29.721 22.1685 29.721 23.1242 30.1709 23.898C30.6438 24.7114 32.3078 25.2661 35.6359 26.3755C36.1702 26.5536 36.4374 26.6426 36.6608 26.7922C36.8772 26.937 37.0631 27.123 37.208 27.3394C37.3575 27.5627 37.4466 27.8299 37.6247 28.3643C38.7341 31.6924 39.2887 33.3564 40.1021 33.8293C40.8759 34.2791 41.8316 34.2791 42.6054 33.8293C43.4188 33.3564 43.9735 31.6924 45.0829 28.3643Z"
+        stroke="white"
+        strokeWidth={1.375}
+      />
+      {/* Diagonal line */}
+      <Path
+        d="M42.8605 22.1112C43.1305 21.8442 43.1329 21.4089 42.8659 21.1389C42.5989 20.8689 42.1636 20.8665 41.8936 21.1335L42.377 21.6223L42.8605 22.1112ZM37.2905 26.6528L37.774 27.1416L42.8605 22.1112L42.377 21.6223L41.8936 21.1335L36.8071 26.164L37.2905 26.6528Z"
+        fill="white"
       />
     </Svg>
   );
@@ -164,7 +177,7 @@ function SenderLabel({ name, time }: { name: string; time: string }) {
   );
 }
 
-/** Property card (231×auto) — matches Figma layout_JXKYFT */
+/** Property card (231×auto) */
 function PropertyCard() {
   return (
     <View style={styles.propertyCard}>
@@ -264,6 +277,7 @@ type ChatDialogueScreenProps = {
   onBack?: () => void;
 };
 
+export const LIGHT_NAV_HEIGHT = 80;
 export function ChatDialogueScreen({
   contactName = "Kelechi Obi",
   onBack,
@@ -272,6 +286,16 @@ export function ChatDialogueScreen({
   const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
   const [inputText, setInputText] = useState("");
   const scrollRef = useRef<ScrollView>(null);
+
+  /* Android hardware back button */
+  useEffect(() => {
+    if (!onBack) return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      onBack();
+      return true;
+    });
+    return () => sub.remove();
+  }, [onBack]);
 
   const sendMessage = () => {
     const text = inputText.trim();
@@ -302,7 +326,7 @@ export function ChatDialogueScreen({
         {/* Left: back + avatar (35×35) + name */}
         <View style={styles.headerLeft}>
           <Pressable onPress={onBack} hitSlop={12} style={styles.backBtn}>
-            <BackIcon />
+            <BackArrowIcon/>
           </Pressable>
 
           {/* Avatar — Figma layout_FES0RX: 35×35, borderRadius 60px */}
@@ -485,11 +509,11 @@ const styles = StyleSheet.create({
     height: 137,
     resizeMode: "cover",
   },
-  /* Info row — layout_E53JLV: row, space-between, padding 8px */
+  /* Info row — Figma layout_VEUPZJ: row, space-between, padding 8px */
   propertyInfo: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start", // Changed from center to align with top line
     padding: 8,
   },
   propertyLeft: {
@@ -550,7 +574,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 3,
   },
-  /* "You" label — Ubuntu Medium 12, Black/200 */
+  /* "You" label  */
   metaName: {
     fontFamily: "Ubuntu_500Medium",
     fontSize: 12,
@@ -564,7 +588,7 @@ const styles = StyleSheet.create({
     maxWidth: 272,
     gap: 0,
   },
-  /* Received bubble — layout_3EB5ZK / layout_0ER4TW: padding 8px 10px, White/200 (#F2F2F2) */
+  /* Received bubble  */
   themBubble: {
     backgroundColor: "#F2F2F2",
     borderRadius: 16,
@@ -592,19 +616,18 @@ const styles = StyleSheet.create({
     resizeMode: "cover",
   },
 
-  /* ── Input bar (Nav Bar) ──
-     layout_KJMYMO: padding 6px 18px, borderTop 1px White/200 */
+  /* ── Input bar (Nav Bar) ─ */
   inputBar: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
     paddingHorizontal: 18,
-    paddingTop: 6,
+    height: LIGHT_NAV_HEIGHT,
     borderTopWidth: 1,
     borderTopColor: "#F2F2F2",
     backgroundColor: "#FFFFFF",
   },
-  /* Input field — layout_H2W8DH: h=50, padding 9px 14px, fill #F2F2F2, stroke #E4E4E4 */
+  /* Input field — */
   inputWrapper: {
     flex: 1,
     height: 50,
@@ -614,7 +637,7 @@ const styles = StyleSheet.create({
     borderColor: "#E4E4E4",
     paddingHorizontal: 14,
     paddingVertical: 9,
-    justifyContent: "center",
+    justifyContent: "center",   
   },
   textInput: {
     fontFamily: "Ubuntu_400Regular",
@@ -626,7 +649,7 @@ const styles = StyleSheet.create({
   },
   /* Send button — layout_M5OMDB: h=50, padding 9px, fill #1B17B3, radius 30 */
   sendBtn: {
-    width: 50,
+    width: 78,
     height: 50,
     borderRadius: 30,
     backgroundColor: "#1B17B3",
