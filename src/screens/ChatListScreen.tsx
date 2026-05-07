@@ -188,7 +188,7 @@ export function ChatListScreen({ onTabPress, onConversationPress }: ChatListScre
       </ScrollView>
 
       {/* Bottom nav */}
-      <LightBottomNav activeTab="chat" onTabPress={onTabPress} />
+      <LightBottomNav activeTab="chat" onTabPress={onTabPress} badge={{ chat: 1 }} />
     </View>
   );
 }

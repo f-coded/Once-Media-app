@@ -182,7 +182,7 @@ function PropertyCard() {
   return (
     <View style={styles.propertyCard}>
       <Image source={PROPERTY_IMG} style={styles.propertyImage} />
-      {/* info row — Figma layout_E53JLV: row, space-between, padding 8px */}
+      {/* info row*/}
       <View style={styles.propertyInfo}>
         <View style={styles.propertyLeft}>
           <Text style={styles.propertyName}>Sea Watch Mansion</Text>
@@ -318,10 +318,7 @@ export function ChatDialogueScreen({
     >
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      {/* ── Header ─────────────────────────────────────────────
-          Figma layout_7XS0K0: padding 15px 18px, row, space-between, alignItems center
-          paddingTop adds safe area so it never overlaps status bar
-      ─────────────────────────────────────────────────────────── */}
+      {/* Header*/}
       <View style={[styles.header, { paddingTop: insets.top + 15 }]}>
         {/* Left: back + avatar (35×35) + name */}
         <View style={styles.headerLeft}>
@@ -329,7 +326,7 @@ export function ChatDialogueScreen({
             <BackArrowIcon/>
           </Pressable>
 
-          {/* Avatar — Figma layout_FES0RX: 35×35, borderRadius 60px */}
+          {/* Avatar  */}
           <View style={styles.headerAvatar}>
             <Image source={AVATAR_KELECHI} style={styles.fillImg} />
           </View>
@@ -338,7 +335,7 @@ export function ChatDialogueScreen({
           <Text style={styles.headerName}>{contactName}</Text>
         </View>
 
-        {/* Right: video + phone — Figma layout_LT0KC7: row, gap 16px */}
+        {/* Right: video + phone*/}
         <View style={styles.headerActions}>
           <Pressable hitSlop={10}><VideoCamIcon /></Pressable>
           <Pressable hitSlop={10}><PhoneIcon /></Pressable>
@@ -361,12 +358,9 @@ export function ChatDialogueScreen({
         ))}
       </ScrollView>
 
-      {/* ── Input bar (Nav Bar in Figma) ────────────────────────
-          layout_KJMYMO: padding 6px 18px, height 86, gap 15 (vertical)
-          borderTopWidth 1, color White/200 (#F2F2F2)
-      ─────────────────────────────────────────────────────────── */}
+      {/* Input bar */}
       <View style={[styles.inputBar, { paddingBottom: insets.bottom + 6 }]}>
-        {/* Input field — layout_H2W8DH: w=251,h=50, padding 9px 14px, gap 8 */}
+        {/* Input field  */}
         <View style={styles.inputWrapper}>
           <TextInput
             style={styles.textInput}
@@ -380,7 +374,7 @@ export function ChatDialogueScreen({
           />
         </View>
 
-        {/* Send button — layout_M5OMDB: h=50, padding 9px, fill #1B17B3, radius 30 */}
+        {/* Send button */}
         <Pressable style={styles.sendBtn} onPress={sendMessage}>
           <SendIcon />
         </Pressable>
@@ -418,7 +412,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  /* Avatar 35×35 — Figma layout_FES0RX */
+  /* Avatar  */
   headerAvatar: {
     width: 35,
     height: 35,
@@ -431,7 +425,7 @@ const styles = StyleSheet.create({
     height: "100%",
     resizeMode: "cover",
   },
-  /* Name — Ubuntu Medium 16, Black/100 */
+  /* Name */
   headerName: {
     fontFamily: "Ubuntu_500Medium",
     fontSize: 16,
@@ -465,7 +459,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
-    marginBottom: 6,
   },
   senderAvatar: {
     width: 22,
@@ -480,14 +473,14 @@ const styles = StyleSheet.create({
     letterSpacing: 16 * -0.02,
     color: "#0C0C0C",
   },
-  /* Dot separator — Figma Ellipse 591: 4×4, fill #D9D9D9 */
+  /* Dot separator  */
   dot: {
     width: 4,
     height: 4,
     borderRadius: 2,
     backgroundColor: "#D9D9D9",
   },
-  /* Time — Ubuntu Regular 12, Black/300 (#434343) */
+  /* Time*/
   msgTime: {
     fontFamily: "Ubuntu_400Regular",
     fontSize: 12,
@@ -495,7 +488,7 @@ const styles = StyleSheet.create({
     color: "#434343",
   },
 
-  /* Property card — layout_JXKYFT: width 231 */
+  /* Property card*/
   propertyCard: {
     width: 231,
     borderRadius: 16,
@@ -503,13 +496,13 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     alignSelf: "flex-end",
   },
-  /* Image — layout_1XRZ84: height 137, fill */
+  /* Image */
   propertyImage: {
     width: "100%",
     height: 137,
     resizeMode: "cover",
   },
-  /* Info row — Figma layout_VEUPZJ: row, space-between, padding 8px */
+  /* Info row  */
   propertyInfo: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -519,27 +512,27 @@ const styles = StyleSheet.create({
   propertyLeft: {
     gap: 6,
   },
-  /* Property name — Ubuntu Medium 14, Black/200 */
+  /* Property name  */
   propertyName: {
     fontFamily: "Ubuntu_500Medium",
     fontSize: 14,
     letterSpacing: 14 * -0.02,
     color: "#262525",
   },
-  /* Location — layout_CMSEBG: row, center, gap 1 */
+  /* Location*/
   locationRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 1,
   },
-  /* Location text — Ubuntu Regular 13, Black/300 */
+  /* Location text */
   locationText: {
     fontFamily: "Ubuntu_400Regular",
     fontSize: 13,
     letterSpacing: 13 * -0.02,
     color: "#434343",
   },
-  /* Price — Ubuntu Medium 16, Black/100 */
+  /* Price */
   propertyPrice: {
     fontFamily: "Ubuntu_500Medium",
     fontSize: 16,
@@ -550,9 +543,9 @@ const styles = StyleSheet.create({
   /* Sent (you) group */
   youGroup: {
     alignItems: "flex-end",
-    gap: 4,
+    gap: 6,
   },
-  /* Sent bubble — layout_H2ZTW0 / layout_87703L: padding 8px 10px, Primary/100, radius 16 */
+  /* Sent bubble */
   youBubble: {
     backgroundColor: "#1B17B3",
     borderRadius: 16,
@@ -560,7 +553,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     maxWidth: 272,
   },
-  /* Bubble text — Ubuntu Regular 14, lineHeight 135%, White/100 */
+  /* Bubble text */
   bubbleText: {
     fontFamily: "Ubuntu_400Regular",
     fontSize: 14,
@@ -586,7 +579,7 @@ const styles = StyleSheet.create({
   themGroup: {
     alignItems: "flex-start",
     maxWidth: 272,
-    gap: 0,
+    gap: 6,
   },
   /* Received bubble  */
   themBubble: {
@@ -595,7 +588,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
-  /* Received text — Ubuntu Regular 14, lineHeight 135%, Black/200 */
+  /* Received text */
   themText: {
     fontFamily: "Ubuntu_400Regular",
     fontSize: 14,
@@ -616,7 +609,7 @@ const styles = StyleSheet.create({
     resizeMode: "cover",
   },
 
-  /* ── Input bar (Nav Bar) ─ */
+  /* Input bar */
   inputBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -627,7 +620,7 @@ const styles = StyleSheet.create({
     borderTopColor: "#F2F2F2",
     backgroundColor: "#FFFFFF",
   },
-  /* Input field — */
+  /* Input field */
   inputWrapper: {
     flex: 1,
     height: 50,
@@ -647,7 +640,7 @@ const styles = StyleSheet.create({
     padding: 0,
     margin: 0,
   },
-  /* Send button — layout_M5OMDB: h=50, padding 9px, fill #1B17B3, radius 30 */
+  /* Send button */
   sendBtn: {
     width: 78,
     height: 50,
