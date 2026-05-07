@@ -9,20 +9,25 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  StatusBar,
 } from "react-native";
-import Svg, { Path, Circle } from "react-native-svg";
+import Svg, { Path, Circle, Rect } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const AVATAR_KELECHI = require("../../assets/avatar-kelechi.png");
-const PROPERTY_IMG = require("../../assets/chat-property-card.png");
+const PROPERTY_IMG   = require("../../assets/chat-property-card.png");
 const PROPERTY_IMG_2 = require("../../assets/feed_property_2.jpg");
 
-/* ── Icons ── */
+/* ─────────────────────────────────────────────
+   SVG Icons
+───────────────────────────────────────────── */
+
+/** Back arrow — Figma Arrow Left (7:28647) */
 function BackIcon() {
   return (
-    <Svg width={18} height={36} viewBox="0 0 18 36" fill="none">
+    <Svg width={18} height={18} viewBox="0 0 18 18" fill="none">
       <Path
-        d="M15 18H3M7.5 22.5L3 18L7.5 13.5"
+        d="M11.25 4.5L6.75 9L11.25 13.5"
         stroke="#262525"
         strokeWidth={1.125}
         strokeLinecap="round"
@@ -32,6 +37,7 @@ function BackIcon() {
   );
 }
 
+/** Video camera — Figma Videocamera (7:1112) */
 function VideoCamIcon() {
   return (
     <Svg width={22} height={18} viewBox="0 0 22 18" fill="none">
@@ -49,6 +55,7 @@ function VideoCamIcon() {
   );
 }
 
+/** Phone — Figma Phone (7:24817) */
 function PhoneIcon() {
   return (
     <Svg width={18} height={18} viewBox="0 0 18 18" fill="none">
@@ -62,6 +69,7 @@ function PhoneIcon() {
   );
 }
 
+/** Map pin — Point On Map (7:14322) — 16×16 */
 function MapPinIcon() {
   return (
     <Svg width={16} height={16} viewBox="0 0 16 16" fill="none">
@@ -75,6 +83,7 @@ function MapPinIcon() {
   );
 }
 
+/** Send / paper plane — 22×22 white inside blue circle button */
 function SendIcon() {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
@@ -89,16 +98,16 @@ function SendIcon() {
   );
 }
 
-/* ── Types ── */
-type MessageBase = { id: string; time: string };
-type SentMessage = MessageBase & { from: "you"; text: string };
+/* ─────────────────────────────────────────────
+   Types & mock data
+───────────────────────────────────────────── */
+type MessageBase   = { id: string; time: string };
+type SentMessage   = MessageBase & { from: "you"; text: string };
 type ReceivedMessage = MessageBase & { from: "them"; senderName: string; text: string };
-type PropertyCardMessage = MessageBase & { type: "property" };
-type ImageMessage = MessageBase & { from: "them"; senderName: string; images: any[] };
-
+type PropertyCardMessage = MessageBase & { type: "property"; from?: never };
+type ImageMessage  = MessageBase & { from: "them"; senderName: string; images: any[] };
 type Message = SentMessage | ReceivedMessage | PropertyCardMessage | ImageMessage;
 
-/* ── Mock thread (matches Figma dialogue screens) ── */
 const INITIAL_MESSAGES: Message[] = [
   { id: "prop", type: "property", time: "" },
   {
@@ -136,28 +145,35 @@ const INITIAL_MESSAGES: Message[] = [
   } as ImageMessage,
 ];
 
-/* ── Sender label row ── */
+/* ─────────────────────────────────────────────
+   Sub-components
+───────────────────────────────────────────── */
+
+/** Sender label: avatar (22×22) · Name · dot · time */
 function SenderLabel({ name, time }: { name: string; time: string }) {
   return (
     <View style={styles.senderRow}>
-      <View style={styles.avatarSmall}>
-        <Image source={AVATAR_KELECHI} style={{ width: "100%", height: "100%", resizeMode: "cover" }} />
+      <View style={styles.senderAvatar}>
+        <Image source={AVATAR_KELECHI} style={styles.fillImg} />
       </View>
       <Text style={styles.senderName}>{name}</Text>
+      {/* dot — Figma: 4×4, fill #D9D9D9 */}
       <View style={styles.dot} />
       <Text style={styles.msgTime}>{time}</Text>
     </View>
   );
 }
 
-/* ── Message bubbles ── */
+/** Property card (231×auto) — matches Figma layout_JXKYFT */
 function PropertyCard() {
   return (
     <View style={styles.propertyCard}>
       <Image source={PROPERTY_IMG} style={styles.propertyImage} />
+      {/* info row — Figma layout_E53JLV: row, space-between, padding 8px */}
       <View style={styles.propertyInfo}>
-        <View>
+        <View style={styles.propertyLeft}>
           <Text style={styles.propertyName}>Sea Watch Mansion</Text>
+          {/* location row — gap: 1px */}
           <View style={styles.locationRow}>
             <MapPinIcon />
             <Text style={styles.locationText}>Onipanu, Lagos</Text>
@@ -169,19 +185,22 @@ function PropertyCard() {
   );
 }
 
+/** Message bubble dispatcher */
 function MessageBubble({ msg }: { msg: Message }) {
+  /* Property card + first "you" message */
   if ("type" in msg && msg.type === "property") {
     return (
-      <View style={styles.propertyWrapper}>
+      <View style={styles.youGroup}>
         <PropertyCard />
-        {/* The "you" bubble below the card */}
+        {/* the sent bubble that comes with the card */}
         <View style={styles.youBubble}>
-          <Text style={styles.youText}>
+          <Text style={styles.bubbleText}>
             Hi, I'd like to make an inquiry about the Sea Watch Mansion in Onipan.
           </Text>
         </View>
-        <View style={styles.youMeta}>
-          <Text style={styles.youMetaName}>You</Text>
+        {/* meta */}
+        <View style={styles.metaRow}>
+          <Text style={styles.metaName}>You</Text>
           <View style={styles.dot} />
           <Text style={styles.msgTime}>12:54 PM</Text>
         </View>
@@ -189,13 +208,14 @@ function MessageBubble({ msg }: { msg: Message }) {
     );
   }
 
+  /* Image grid message */
   if ("images" in msg) {
-    const imgMsg = msg as ImageMessage;
+    const m = msg as ImageMessage;
     return (
-      <View style={styles.receivedGroup}>
-        <SenderLabel name={imgMsg.senderName} time={imgMsg.time} />
+      <View style={styles.themGroup}>
+        <SenderLabel name={m.senderName} time={m.time} />
         <View style={styles.imageGrid}>
-          {imgMsg.images.map((src, i) => (
+          {m.images.map((src, i) => (
             <Image key={i} source={src} style={styles.gridImage} />
           ))}
         </View>
@@ -203,15 +223,16 @@ function MessageBubble({ msg }: { msg: Message }) {
     );
   }
 
+  /* Sent */
   if (msg.from === "you") {
     const m = msg as SentMessage;
     return (
       <View style={styles.youGroup}>
         <View style={styles.youBubble}>
-          <Text style={styles.youText}>{m.text}</Text>
+          <Text style={styles.bubbleText}>{m.text}</Text>
         </View>
-        <View style={styles.youMeta}>
-          <Text style={styles.youMetaName}>You</Text>
+        <View style={styles.metaRow}>
+          <Text style={styles.metaName}>You</Text>
           <View style={styles.dot} />
           <Text style={styles.msgTime}>{m.time}</Text>
         </View>
@@ -219,10 +240,11 @@ function MessageBubble({ msg }: { msg: Message }) {
     );
   }
 
+  /* Received */
   if (msg.from === "them") {
     const m = msg as ReceivedMessage;
     return (
-      <View style={styles.receivedGroup}>
+      <View style={styles.themGroup}>
         <SenderLabel name={m.senderName} time={m.time} />
         <View style={styles.themBubble}>
           <Text style={styles.themText}>{m.text}</Text>
@@ -234,7 +256,9 @@ function MessageBubble({ msg }: { msg: Message }) {
   return null;
 }
 
-/* ── Screen ── */
+/* ─────────────────────────────────────────────
+   Screen
+───────────────────────────────────────────── */
 type ChatDialogueScreenProps = {
   contactName?: string;
   onBack?: () => void;
@@ -268,28 +292,39 @@ export function ChatDialogueScreen({
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={0}
     >
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top }]}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+
+      {/* ── Header ─────────────────────────────────────────────
+          Figma layout_7XS0K0: padding 15px 18px, row, space-between, alignItems center
+          paddingTop adds safe area so it never overlaps status bar
+      ─────────────────────────────────────────────────────────── */}
+      <View style={[styles.header, { paddingTop: insets.top + 15 }]}>
+        {/* Left: back + avatar (35×35) + name */}
         <View style={styles.headerLeft}>
-          <Pressable onPress={onBack} style={styles.backBtn} hitSlop={12}>
+          <Pressable onPress={onBack} hitSlop={12} style={styles.backBtn}>
             <BackIcon />
           </Pressable>
+
+          {/* Avatar — Figma layout_FES0RX: 35×35, borderRadius 60px */}
           <View style={styles.headerAvatar}>
-            <Image source={AVATAR_KELECHI} style={{ width: "100%", height: "100%", resizeMode: "cover" }} />
+            <Image source={AVATAR_KELECHI} style={styles.fillImg} />
           </View>
+
+          {/* Name — Ubuntu Medium 16, Black/100 (#0C0C0C) */}
           <Text style={styles.headerName}>{contactName}</Text>
         </View>
+
+        {/* Right: video + phone — Figma layout_LT0KC7: row, gap 16px */}
         <View style={styles.headerActions}>
-          <Pressable style={styles.actionBtn} hitSlop={10}>
-            <VideoCamIcon />
-          </Pressable>
-          <Pressable style={styles.actionBtn} hitSlop={10}>
-            <PhoneIcon />
-          </Pressable>
+          <Pressable hitSlop={10}><VideoCamIcon /></Pressable>
+          <Pressable hitSlop={10}><PhoneIcon /></Pressable>
         </View>
       </View>
 
-      {/* Messages */}
+      {/* Separator line */}
+      <View style={styles.separator} />
+
+      {/* ── Messages ── */}
       <ScrollView
         ref={scrollRef}
         style={styles.messages}
@@ -302,8 +337,12 @@ export function ChatDialogueScreen({
         ))}
       </ScrollView>
 
-      {/* Input bar */}
+      {/* ── Input bar (Nav Bar in Figma) ────────────────────────
+          layout_KJMYMO: padding 6px 18px, height 86, gap 15 (vertical)
+          borderTopWidth 1, color White/200 (#F2F2F2)
+      ─────────────────────────────────────────────────────────── */}
       <View style={[styles.inputBar, { paddingBottom: insets.bottom + 6 }]}>
+        {/* Input field — layout_H2W8DH: w=251,h=50, padding 9px 14px, gap 8 */}
         <View style={styles.inputWrapper}>
           <TextInput
             style={styles.textInput}
@@ -311,11 +350,13 @@ export function ChatDialogueScreen({
             placeholderTextColor="#838383"
             value={inputText}
             onChangeText={setInputText}
-            multiline
+            multiline={false}
             returnKeyType="send"
             onSubmitEditing={sendMessage}
           />
         </View>
+
+        {/* Send button — layout_M5OMDB: h=50, padding 9px, fill #1B17B3, radius 30 */}
         <Pressable style={styles.sendBtn} onPress={sendMessage}>
           <SendIcon />
         </Pressable>
@@ -324,75 +365,85 @@ export function ChatDialogueScreen({
   );
 }
 
-/* ── Styles ── */
+/* ─────────────────────────────────────────────
+   Styles
+───────────────────────────────────────────── */
 const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: "#FFFFFF",
   },
+
   /* Header */
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 18,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E4E4E4",
+    paddingBottom: 15,
     backgroundColor: "#FFFFFF",
   },
   headerLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 11,
   },
   backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#FFFFFF",
+    width: 18,
+    height: 18,
     alignItems: "center",
     justifyContent: "center",
   },
+  /* Avatar 35×35 — Figma layout_FES0RX */
   headerAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 35,
+    height: 35,
+    borderRadius: 17.5,
     overflow: "hidden",
     backgroundColor: "#1B17B3",
   },
+  fillImg: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
+  },
+  /* Name — Ubuntu Medium 16, Black/100 */
   headerName: {
     fontFamily: "Ubuntu_500Medium",
     fontSize: 16,
-    letterSpacing: -0.32,
+    letterSpacing: 16 * -0.02,
     color: "#0C0C0C",
   },
+  /* Actions row — gap 16 */
   headerActions: {
     flexDirection: "row",
+    alignItems: "center",
     gap: 16,
-    alignItems: "center",
   },
-  actionBtn: {
-    alignItems: "center",
-    justifyContent: "center",
+  separator: {
+    height: 1,
+    backgroundColor: "#E4E4E4",
   },
-  /* Messages */
+
+  /* Messages scroll */
   messages: {
     flex: 1,
   },
   messagesContent: {
-    padding: 18,
+    paddingHorizontal: 18,
+    paddingTop: 16,
+    paddingBottom: 16,
     gap: 16,
-    paddingBottom: 12,
   },
-  /* Sender label */
+
+  /* Sender label row: avatar 22×22, gap 3 */
   senderRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
-    marginBottom: 4,
+    marginBottom: 6,
   },
-  avatarSmall: {
+  senderAvatar: {
     width: 22,
     height: 22,
     borderRadius: 11,
@@ -402,73 +453,82 @@ const styles = StyleSheet.create({
   senderName: {
     fontFamily: "Ubuntu_500Medium",
     fontSize: 16,
-    letterSpacing: -0.32,
+    letterSpacing: 16 * -0.02,
     color: "#0C0C0C",
   },
+  /* Dot separator — Figma Ellipse 591: 4×4, fill #D9D9D9 */
   dot: {
     width: 4,
     height: 4,
     borderRadius: 2,
     backgroundColor: "#D9D9D9",
-    marginHorizontal: 1,
   },
+  /* Time — Ubuntu Regular 12, Black/300 (#434343) */
   msgTime: {
     fontFamily: "Ubuntu_400Regular",
     fontSize: 12,
-    letterSpacing: -0.24,
+    letterSpacing: 12 * -0.02,
     color: "#434343",
   },
-  /* Property card */
-  propertyWrapper: {
-    alignItems: "flex-end",
-    gap: 6,
-  },
+
+  /* Property card — layout_JXKYFT: width 231 */
   propertyCard: {
     width: 231,
     borderRadius: 16,
     backgroundColor: "#F2F2F2",
     overflow: "hidden",
+    alignSelf: "flex-end",
   },
+  /* Image — layout_1XRZ84: height 137, fill */
   propertyImage: {
     width: "100%",
     height: 137,
     resizeMode: "cover",
   },
+  /* Info row — layout_E53JLV: row, space-between, padding 8px */
   propertyInfo: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     padding: 8,
   },
+  propertyLeft: {
+    gap: 6,
+  },
+  /* Property name — Ubuntu Medium 14, Black/200 */
   propertyName: {
     fontFamily: "Ubuntu_500Medium",
     fontSize: 14,
-    letterSpacing: -0.28,
+    letterSpacing: 14 * -0.02,
     color: "#262525",
   },
+  /* Location — layout_CMSEBG: row, center, gap 1 */
   locationRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 1,
-    marginTop: 6,
   },
+  /* Location text — Ubuntu Regular 13, Black/300 */
   locationText: {
     fontFamily: "Ubuntu_400Regular",
     fontSize: 13,
-    letterSpacing: -0.26,
+    letterSpacing: 13 * -0.02,
     color: "#434343",
   },
+  /* Price — Ubuntu Medium 16, Black/100 */
   propertyPrice: {
     fontFamily: "Ubuntu_500Medium",
     fontSize: 16,
-    letterSpacing: -0.32,
+    letterSpacing: 16 * -0.02,
     color: "#0C0C0C",
   },
-  /* You bubble */
+
+  /* Sent (you) group */
   youGroup: {
     alignItems: "flex-end",
     gap: 4,
   },
+  /* Sent bubble — layout_H2ZTW0 / layout_87703L: padding 8px 10px, Primary/100, radius 16 */
   youBubble: {
     backgroundColor: "#1B17B3",
     borderRadius: 16,
@@ -476,44 +536,50 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     maxWidth: 272,
   },
-  youText: {
+  /* Bubble text — Ubuntu Regular 14, lineHeight 135%, White/100 */
+  bubbleText: {
     fontFamily: "Ubuntu_400Regular",
     fontSize: 14,
     lineHeight: 14 * 1.35,
-    letterSpacing: -0.28,
+    letterSpacing: 14 * -0.02,
     color: "#FFFFFF",
   },
-  youMeta: {
+  /* Meta row: You · dot · time */
+  metaRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
   },
-  youMetaName: {
+  /* "You" label — Ubuntu Medium 12, Black/200 */
+  metaName: {
     fontFamily: "Ubuntu_500Medium",
     fontSize: 12,
-    letterSpacing: -0.24,
+    letterSpacing: 12 * -0.02,
     color: "#262525",
   },
-  /* Them bubble */
-  receivedGroup: {
+
+  /* Received (them) group */
+  themGroup: {
     alignItems: "flex-start",
-    gap: 2,
     maxWidth: 272,
+    gap: 0,
   },
+  /* Received bubble — layout_3EB5ZK / layout_0ER4TW: padding 8px 10px, White/200 (#F2F2F2) */
   themBubble: {
     backgroundColor: "#F2F2F2",
     borderRadius: 16,
     paddingHorizontal: 10,
     paddingVertical: 8,
-    alignSelf: "stretch",
   },
+  /* Received text — Ubuntu Regular 14, lineHeight 135%, Black/200 */
   themText: {
     fontFamily: "Ubuntu_400Regular",
     fontSize: 14,
     lineHeight: 14 * 1.35,
-    letterSpacing: -0.28,
+    letterSpacing: 14 * -0.02,
     color: "#262525",
   },
+
   /* Image grid */
   imageGrid: {
     flexDirection: "row",
@@ -525,7 +591,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     resizeMode: "cover",
   },
-  /* Input bar */
+
+  /* ── Input bar (Nav Bar) ──
+     layout_KJMYMO: padding 6px 18px, borderTop 1px White/200 */
   inputBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -536,25 +604,27 @@ const styles = StyleSheet.create({
     borderTopColor: "#F2F2F2",
     backgroundColor: "#FFFFFF",
   },
+  /* Input field — layout_H2W8DH: h=50, padding 9px 14px, fill #F2F2F2, stroke #E4E4E4 */
   inputWrapper: {
     flex: 1,
+    height: 50,
     backgroundColor: "#F2F2F2",
     borderRadius: 30,
     borderWidth: 1,
     borderColor: "#E4E4E4",
     paddingHorizontal: 14,
     paddingVertical: 9,
-    height: 50,
     justifyContent: "center",
   },
   textInput: {
     fontFamily: "Ubuntu_400Regular",
     fontSize: 13,
-    letterSpacing: -0.26,
+    letterSpacing: 13 * -0.02,
     color: "#262525",
     padding: 0,
     margin: 0,
   },
+  /* Send button — layout_M5OMDB: h=50, padding 9px, fill #1B17B3, radius 30 */
   sendBtn: {
     width: 50,
     height: 50,
