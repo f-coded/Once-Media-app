@@ -1,24 +1,36 @@
-import React from "react";
+/**
+ * ChatScreen — top-level chat navigator
+ *
+ * Manages three views:
+ *  1. "empty"    — No conversations yet  (Chat/empty Figma)
+ *  2. "list"     — Conversation list     (Chat/active Figma)
+ *  3. "dialogue" — Message thread        (Chat/dialogue Figma)
+ */
+import React, { useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
-  Platform,
 } from "react-native";
 import Svg, { Path, Rect } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LightBottomNav } from "../components/chat/LightBottomNav";
+import { ChatListScreen, ChatConversation } from "./ChatListScreen";
+import { ChatDialogueScreen } from "./ChatDialogueScreen";
 
 type Tab = "home" | "market" | "chat" | "wallet";
+type ChatView = "empty" | "list" | "dialogue";
 
 type ChatScreenProps = {
+  /** Which bottom-nav tab is active when this screen mounts */
   activeTab?: Tab;
   onTabPress?: (tab: Tab) => void;
+  /** Whether there are conversations to show */
+  hasConversations?: boolean;
 };
 
-/* ── Chat bubble icon (from Figma node 63:1400) ── */
+/* ── Chat bubble icon (Figma node 63:1400) ── */
 function ChatBubbleIcon() {
   return (
     <Svg width="45" height="45" viewBox="0 0 45 45" fill="none">
@@ -44,29 +56,23 @@ function ChatBubbleIcon() {
   );
 }
 
-export function ChatScreen({
-  activeTab = "chat",
+/* ── Empty state view ── */
+function EmptyView({
+  insets,
   onTabPress,
-}: ChatScreenProps) {
-  const insets = useSafeAreaInsets();
-
+}: {
+  insets: ReturnType<typeof useSafeAreaInsets>;
+  onTabPress?: (tab: Tab) => void;
+}) {
   return (
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-
-      {/* White body */}
       <View style={[styles.body, { paddingTop: insets.top }]}>
-        {/* Page title */}
         <Text style={styles.title}>Chats</Text>
-
-        {/* Centered empty state */}
         <View style={styles.emptyWrapper}>
-          {/* Circle icon container */}
           <View style={styles.iconCircle}>
             <ChatBubbleIcon />
           </View>
-
-          {/* Text block */}
           <View style={styles.textBlock}>
             <Text style={styles.emptyTitle}>No Message Yet</Text>
             <Text style={styles.emptySubtitle}>
@@ -76,11 +82,43 @@ export function ChatScreen({
           </View>
         </View>
       </View>
-
-      {/* Light bottom nav */}
-      <LightBottomNav activeTab={activeTab} onTabPress={onTabPress} />
+      <LightBottomNav activeTab="chat" onTabPress={onTabPress} />
     </View>
   );
+}
+
+/* ── Main export ── */
+export function ChatScreen({
+  activeTab = "chat",
+  onTabPress,
+  hasConversations = true,
+}: ChatScreenProps) {
+  const insets = useSafeAreaInsets();
+  const [view, setView] = useState<ChatView>(hasConversations ? "list" : "empty");
+  const [selectedContact, setSelectedContact] = useState<string>("Kelechi Obi");
+
+  if (view === "dialogue") {
+    return (
+      <ChatDialogueScreen
+        contactName={selectedContact}
+        onBack={() => setView("list")}
+      />
+    );
+  }
+
+  if (view === "list") {
+    return (
+      <ChatListScreen
+        onTabPress={onTabPress}
+        onConversationPress={(convo: ChatConversation) => {
+          setSelectedContact(convo.name);
+          setView("dialogue");
+        }}
+      />
+    );
+  }
+
+  return <EmptyView insets={insets} onTabPress={onTabPress} />;
 }
 
 const styles = StyleSheet.create({
@@ -99,14 +137,13 @@ const styles = StyleSheet.create({
     letterSpacing: -0.52,
     color: "rgba(0,0,0,0.91)",
     marginTop: 8,
-    marginBottom: 0,
   },
   emptyWrapper: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     gap: 11,
-    paddingBottom: 80, // offset for nav bar
+    paddingBottom: 80,
   },
   iconCircle: {
     width: 45,
@@ -129,7 +166,7 @@ const styles = StyleSheet.create({
   emptySubtitle: {
     fontFamily: "Ubuntu_400Regular",
     fontSize: 15,
-    letterSpacing: -0.3,
+    letterSpacing: -0.2,
     color: "#838383",
     textAlign: "center",
     maxWidth: 316,

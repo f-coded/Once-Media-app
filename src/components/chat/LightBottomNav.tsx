@@ -110,9 +110,10 @@ export const LIGHT_NAV_HEIGHT = 80;
 type LightBottomNavProps = {
   activeTab: Tab;
   onTabPress?: (tab: Tab) => void;
+  badge?: Partial<Record<Tab, number>>;
 };
 
-export function LightBottomNav({ activeTab, onTabPress }: LightBottomNavProps) {
+export function LightBottomNav({ activeTab, onTabPress, badge }: LightBottomNavProps) {
   const insets = useSafeAreaInsets();
 
   return (
@@ -124,6 +125,7 @@ export function LightBottomNav({ activeTab, onTabPress }: LightBottomNavProps) {
         {TABS.map((tab) => {
           const active = tab.key === activeTab;
           const color = active ? PRIMARY : INACTIVE;
+          const badgeCount = badge?.[tab.key];
           return (
             <Pressable
               key={tab.key}
@@ -131,7 +133,14 @@ export function LightBottomNav({ activeTab, onTabPress }: LightBottomNavProps) {
               onPress={() => onTabPress?.(tab.key)}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              {tab.icon(color)}
+              <View style={styles.iconWrapper}>
+                {tab.icon(color)}
+                {!!badgeCount && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{badgeCount}</Text>
+                  </View>
+                )}
+              </View>
               <Text style={[styles.label, { color }]}>{tab.label}</Text>
             </Pressable>
           );
@@ -177,5 +186,25 @@ const styles = StyleSheet.create({
     letterSpacing: -0.26,
     lineHeight: 15,
   },
-
+  iconWrapper: {
+    position: "relative",
+  },
+  badge: {
+    position: "absolute",
+    top: -4,
+    right: -6,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: "#1B17B3",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 3,
+  },
+  badgeText: {
+    fontFamily: "Ubuntu_500Medium",
+    fontSize: 10,
+    color: "#FFFFFF",
+    lineHeight: 12,
+  },
 });
