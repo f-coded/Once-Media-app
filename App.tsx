@@ -19,6 +19,7 @@ import { OTPVerificationScreen } from "./src/screens/OTPVerificationScreen";
 import { CreatePasswordScreen } from "./src/screens/CreatePasswordScreen";
 import { ConfirmPasswordScreen } from "./src/screens/ConfirmPasswordScreen";
 import { FeedScreen } from "./src/screens/FeedScreen";
+import { ChatScreen } from "./src/screens/ChatScreen";
 import { AnimatedSplashScreen } from "./src/components/AnimatedSplashScreen";
 
 import * as NavigationBar from "expo-navigation-bar";
@@ -39,7 +40,8 @@ type Route =
   | "choose-role"
   | "complete-profile"
   | "account-success"
-  | "feed";
+  | "feed"
+  | "chat";
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -131,7 +133,16 @@ export default function App() {
         ) : null}
 
         {route === "feed" ? (
-          <FeedScreen />
+          <FeedScreen onChatPress={() => setRoute("chat")} />
+        ) : null}
+
+        {route === "chat" ? (
+          <ChatScreen
+            activeTab="chat"
+            onTabPress={(tab) => {
+              if (tab === "home") setRoute("feed");
+            }}
+          />
         ) : null}
       </SafeAreaProvider>
     </GestureHandlerRootView>

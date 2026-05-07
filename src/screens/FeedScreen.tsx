@@ -133,13 +133,21 @@ const MOCK_POSTS: PostData[] = [
   },
 ];
 
-export function FeedScreen() {
+export function FeedScreen({ onChatPress }: { onChatPress?: () => void }) {
   const { height: windowHeight } = useWindowDimensions();
   const [containerHeight, setContainerHeight] = useState(windowHeight);
   const POST_HEIGHT = containerHeight - NAV_HEIGHT;
 
   const [posts, setPosts] = useState(MOCK_POSTS);
   const [activeTab, setActiveTab] = useState<"home" | "market" | "chat" | "wallet">("home");
+
+  const handleTabPress = (tab: "home" | "market" | "chat" | "wallet") => {
+    if (tab === "chat") {
+      onChatPress?.();
+      return;
+    }
+    setActiveTab(tab);
+  };
   const [activePostId, setActivePostId] = useState(MOCK_POSTS[0]?.id ?? "");
   const [loadingPostId, setLoadingPostId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -282,7 +290,7 @@ export function FeedScreen() {
           <BottomNav
             activeTab={activeTab}
             isLoading={isActiveVideoLoading}
-            onTabPress={setActiveTab}
+            onTabPress={handleTabPress}
           />
         )}
 
