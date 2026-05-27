@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import Svg, { Path, Circle } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { LightBottomNav } from "../components/chat/LightBottomNav";
+import { BottomNav } from "../components/BottomNav";
 
 /* ── Avatar images (one per contact, from Figma imageRefs) ── */
 const AVATAR_SAMANTHA  = require("../../assets/avatar-samantha.png");
@@ -188,7 +188,7 @@ export function ChatListScreen({ onTabPress, onConversationPress }: ChatListScre
       </ScrollView>
 
       {/* Bottom nav */}
-      <LightBottomNav activeTab="chat" onTabPress={onTabPress} badge={{ chat: 1 }} />
+      <BottomNav activeTab="chat" onTabPress={onTabPress} badge={{ chat: 1 }} />
     </View>
   );
 }

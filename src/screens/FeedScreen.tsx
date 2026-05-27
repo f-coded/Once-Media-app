@@ -12,7 +12,7 @@ import { FlashList } from "@shopify/flash-list";
 import { BlurView } from "expo-blur";
 import { PostCard, PostData } from "../components/feed/PostCard";
 import { FeedHeader } from "../components/feed/FeedHeader";
-import { BottomNav, NAV_HEIGHT } from "../components/feed/BottomNav";
+import { BottomNav, NAV_HEIGHT } from "../components/BottomNav";
 import { CommentSheet } from "../components/feed/CommentSheet";
 
 
@@ -133,7 +133,7 @@ const MOCK_POSTS: PostData[] = [
   },
 ];
 
-export function FeedScreen({ onChatPress }: { onChatPress?: () => void }) {
+export function FeedScreen({ onChatPress, onWalletPress }: { onChatPress?: () => void; onWalletPress?: () => void }) {
   const { height: windowHeight } = useWindowDimensions();
   const [containerHeight, setContainerHeight] = useState(windowHeight);
   const POST_HEIGHT = containerHeight - NAV_HEIGHT;
@@ -144,6 +144,10 @@ export function FeedScreen({ onChatPress }: { onChatPress?: () => void }) {
   const handleTabPress = (tab: "home" | "market" | "chat" | "wallet") => {
     if (tab === "chat") {
       onChatPress?.();
+      return;
+    }
+    if (tab === "wallet") {
+      onWalletPress?.();
       return;
     }
     setActiveTab(tab);

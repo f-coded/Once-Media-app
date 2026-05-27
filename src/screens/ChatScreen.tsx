@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import Svg, { Path, Rect } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { LightBottomNav } from "../components/chat/LightBottomNav";
+import { BottomNav } from "../components/BottomNav";
 import { ChatListScreen, ChatConversation } from "./ChatListScreen";
 import { ChatDialogueScreen } from "./ChatDialogueScreen";
 
@@ -82,7 +82,7 @@ function EmptyView({
           </View>
         </View>
       </View>
-      <LightBottomNav activeTab="chat" onTabPress={onTabPress} badge={{ chat: 1 }} />
+      <BottomNav activeTab="chat" onTabPress={onTabPress} badge={{ chat: 1 }} />
     </View>
   );
 }

@@ -20,6 +20,7 @@ import { CreatePasswordScreen } from "./src/screens/CreatePasswordScreen";
 import { ConfirmPasswordScreen } from "./src/screens/ConfirmPasswordScreen";
 import { FeedScreen } from "./src/screens/FeedScreen";
 import { ChatScreen } from "./src/screens/ChatScreen";
+import { WalletScreen } from "./src/screens/WalletScreen";
 import { AnimatedSplashScreen } from "./src/components/AnimatedSplashScreen";
 
 import * as NavigationBar from "expo-navigation-bar";
@@ -41,7 +42,8 @@ type Route =
   | "complete-profile"
   | "account-success"
   | "feed"
-  | "chat";
+  | "chat"
+  | "wallet";
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -133,7 +135,10 @@ export default function App() {
         ) : null}
 
         {route === "feed" ? (
-          <FeedScreen onChatPress={() => setRoute("chat")} />
+          <FeedScreen
+            onChatPress={() => setRoute("chat")}
+            onWalletPress={() => setRoute("wallet")}
+          />
         ) : null}
 
         {route === "chat" ? (
@@ -141,6 +146,16 @@ export default function App() {
             activeTab="chat"
             onTabPress={(tab) => {
               if (tab === "home") setRoute("feed");
+              if (tab === "wallet") setRoute("wallet");
+            }}
+          />
+        ) : null}
+
+        {route === "wallet" ? (
+          <WalletScreen
+            onTabPress={(tab) => {
+              if (tab === "home") setRoute("feed");
+              if (tab === "chat") setRoute("chat");
             }}
           />
         ) : null}
