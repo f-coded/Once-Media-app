@@ -24,7 +24,7 @@ import { WalletScreen } from "./src/screens/WalletScreen";
 import { AnimatedSplashScreen } from "./src/components/AnimatedSplashScreen";
 
 import * as NavigationBar from "expo-navigation-bar";
-import { Platform } from "react-native";
+import { Platform, View, StyleSheet } from "react-native";
 
 if (Platform.OS === "android") {
   NavigationBar.setPositionAsync("absolute");
@@ -63,7 +63,12 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <StatusBar style={showSplash || route === "feed" ? "light" : "dark"} />
+        {/* Feed → light icons (white, no bg scrim); splash → light; auth screens → dark */}
+        <StatusBar
+          style={showSplash || route === "feed" ? "light" : "dark"}
+          translucent
+          backgroundColor="transparent"
+        />
 
         {showSplash && (
           <AnimatedSplashScreen onAnimationFinish={() => setShowSplash(false)} />
@@ -134,31 +139,38 @@ export default function App() {
           <AccountSuccessScreen onDashboardPress={() => setRoute("feed")} />
         ) : null}
 
-        {route === "feed" ? (
-          <FeedScreen
-            onChatPress={() => setRoute("chat")}
-            onWalletPress={() => setRoute("wallet")}
-          />
-        ) : null}
+        {/* ── Tab screens: always mounted, show/hide via display ─────────────
+             Keeps each screen alive in memory (like React Navigation tabs)
+             so switching back to Home is instant — no remount lag.       */}
+        {(route === "feed" || route === "chat" || route === "wallet") && (
+          <>
+            <View style={[StyleSheet.absoluteFill, { display: route === "feed" ? "flex" : "none" }]}>
+              <FeedScreen
+                onChatPress={() => setRoute("chat")}
+                onWalletPress={() => setRoute("wallet")}
+              />
+            </View>
 
-        {route === "chat" ? (
-          <ChatScreen
-            activeTab="chat"
-            onTabPress={(tab) => {
-              if (tab === "home") setRoute("feed");
-              if (tab === "wallet") setRoute("wallet");
-            }}
-          />
-        ) : null}
+            <View style={[StyleSheet.absoluteFill, { display: route === "chat" ? "flex" : "none" }]}>
+              <ChatScreen
+                activeTab="chat"
+                onTabPress={(tab) => {
+                  if (tab === "home") setRoute("feed");
+                  if (tab === "wallet") setRoute("wallet");
+                }}
+              />
+            </View>
 
-        {route === "wallet" ? (
-          <WalletScreen
-            onTabPress={(tab) => {
-              if (tab === "home") setRoute("feed");
-              if (tab === "chat") setRoute("chat");
-            }}
-          />
-        ) : null}
+            <View style={[StyleSheet.absoluteFill, { display: route === "wallet" ? "flex" : "none" }]}>
+              <WalletScreen
+                onTabPress={(tab) => {
+                  if (tab === "home") setRoute("feed");
+                  if (tab === "chat") setRoute("chat");
+                }}
+              />
+            </View>
+          </>
+        )}
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

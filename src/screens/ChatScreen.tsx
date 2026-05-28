@@ -11,7 +11,6 @@ import {
   View,
   Text,
   StyleSheet,
-  StatusBar,
 } from "react-native";
 import Svg, { Path, Rect } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -66,7 +65,6 @@ function EmptyView({
 }) {
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       <View style={[styles.body, { paddingTop: insets.top }]}>
         <Text style={styles.title}>Chats</Text>
         <View style={styles.emptyWrapper}>

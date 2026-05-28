@@ -5,7 +5,6 @@ import {
   Animated,
   Easing,
   Dimensions,
-  StatusBar,
 } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { OnceLogoIcon } from "./OnceLogoIcon";

@@ -11,7 +11,6 @@ import {
   Dimensions,
   Platform,
   KeyboardAvoidingView,
-  StatusBar,
   ScrollView,
 } from "react-native";
 import Svg, { Path, Rect, Circle, Defs, LinearGradient, Stop } from "react-native-svg";
@@ -216,7 +215,6 @@ export function WalletScreen({ onTabPress }: WalletScreenProps) {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* Main Container */}
       <View style={[styles.container, { paddingTop: insets.top }]}>

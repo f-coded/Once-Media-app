@@ -9,7 +9,6 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  StatusBar,
   BackHandler,
 } from "react-native";
 import Svg, { Path, Circle, Rect } from "react-native-svg";
@@ -316,7 +315,6 @@ export function ChatDialogueScreen({
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={0}
     >
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* Header*/}
       <View style={[styles.header, { paddingTop: insets.top + 15 }]}>

@@ -98,9 +98,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 16,
     letterSpacing: -0.28,
-    color: "#FFFFFF",
-    textShadowColor: "rgba(0,0,0,0.65)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 13,
+    color: "#fffffff4",
+    textShadowColor: "rgba(0, 0, 0, 0.85)",
+    textShadowOffset: { width: 0.2, height: 0.5 },
+    textShadowRadius: 0.8,
   },
 });

@@ -7,7 +7,7 @@ export type Tab = "home" | "market" | "chat" | "wallet";
 
 const PRIMARY = "#1B17B3";
 const INACTIVE = "#838383";
-export const NAV_HEIGHT = 70;
+export const NAV_HEIGHT = 60;
 
 /* ─────────────────────────────────────────────────────────────
    HOME  —  linear (inactive) vs bold (active)
@@ -219,20 +219,21 @@ function TabItem({ tabKey, label, active, LinearIcon, BoldIcon, onPress, badgeCo
   const rippleScale = useRef(new Animated.Value(0.3)).current;
   const rippleOpacity = useRef(new Animated.Value(0)).current;
 
-  const triggerRipple = () => {
-    // Reset
-    rippleScale.setValue(0.3);
-    rippleOpacity.setValue(0.12);
-    // Animate outward + fade
+  const handlePressIn = () => {
+    // Fire navigation immediately on touch-down — no lift delay
+    onPress(tabKey);
+    // Kick off ripple at the same time
+    rippleScale.setValue(0.5);
+    rippleOpacity.setValue(0.12); 
     Animated.parallel([
       Animated.timing(rippleScale, {
-        toValue: 1.3,
-        duration: 350,
+        toValue: 1.5,
+        duration: 300,
         useNativeDriver: true,
       }),
       Animated.timing(rippleOpacity, {
         toValue: 0,
-        duration: 350,
+        duration: 300,
         useNativeDriver: true,
       }),
     ]).start();
@@ -247,8 +248,7 @@ function TabItem({ tabKey, label, active, LinearIcon, BoldIcon, onPress, badgeCo
           tabKey === "wallet" && active && { gap: 0.3 },   // bold (active)
           tabKey === "wallet" && !active && { gap: 1.0 },   // linear (inactive)
         ]}
-      onPress={() => onPress(tabKey)}
-      onPressIn={triggerRipple}
+      onPressIn={handlePressIn}
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
     >
       {/* Ripple circle — centered behind both the icon and label */}
@@ -327,6 +327,7 @@ export function BottomNav({ activeTab, isLoading = false, onTabPress, badge }: B
       style={[
         styles.container,
         { paddingBottom: insets.bottom },
+        { backgroundColor: activeTab === "home" ? "#000000" : "#FFFFFF" },
       ]}
     >
       {/* Top border */}
@@ -388,8 +389,8 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   topBorder: {
-    height: 1,
-    backgroundColor: "#F2F2F2",
+    height: .3,
+    backgroundColor: "#85858557",
   },
   tabRow: {
     flexDirection: "row",
