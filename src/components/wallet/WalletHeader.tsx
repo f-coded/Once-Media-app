@@ -33,7 +33,7 @@ const styles = StyleSheet.create({
   profileWrapper: {
     flexDirection: "column",
     alignItems: "flex-start",
-    gap: 4,
+    gap: 2,
   },
   avatarRow: {
     flexDirection: "row",
@@ -48,10 +48,10 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontFamily: "Ubuntu_500Medium",
-    fontSize: 22,
-    letterSpacing: -0.44,
+    fontSize: 24,
+    letterSpacing: 22 * -0.02,  // Figma: -2%  → fontSize × -0.02 = -0.44
     color: "#0C0C0C",
-    lineHeight: 25,
+    lineHeight: 22 * 1.0,       // Figma: 100% → fontSize × 1.0  = 22
   },
   headerSubtitle: {
     fontFamily: "Ubuntu_400Regular",

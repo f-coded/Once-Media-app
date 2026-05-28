@@ -17,7 +17,7 @@
       "expo-video"
     ],
     "android": {
-      "softwareKeyboardLayoutMode": "pan",
+      "softwareKeyboardLayoutMode": "resize",
       "package": "com.oncemedia.app"
     },
     "ios": {

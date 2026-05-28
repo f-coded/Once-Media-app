@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   BackHandler,
+  Keyboard,
 } from "react-native";
 import Svg, { Path, Circle, Rect } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -276,7 +277,7 @@ type ChatDialogueScreenProps = {
   onBack?: () => void;
 };
 
-export const LIGHT_NAV_HEIGHT = 80;
+export const LIGHT_NAV_HEIGHT = 70;
 export function ChatDialogueScreen({
   contactName = "Kelechi Obi",
   onBack,
@@ -285,6 +286,22 @@ export function ChatDialogueScreen({
   const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
   const [inputText, setInputText] = useState("");
   const scrollRef = useRef<ScrollView>(null);
+  const inputRef = useRef<TextInput>(null);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  /* Keyboard visibility listener */
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+
+    const showSub = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   /* Android hardware back button */
   useEffect(() => {
@@ -310,13 +327,9 @@ export function ChatDialogueScreen({
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.root}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={0}
-    >
+    <View style={styles.root}>
 
-      {/* Header*/}
+      {/* Header — stays fixed at top, unaffected by keyboard */}
       <View style={[styles.header, { paddingTop: insets.top + 15 }]}>
         {/* Left: back + avatar (35×35) + name */}
         <View style={styles.headerLeft}>
@@ -343,51 +356,75 @@ export function ChatDialogueScreen({
       {/* Separator line */}
       <View style={styles.separator} />
 
-      {/* ── Messages ── */}
-      <ScrollView
-        ref={scrollRef}
-        style={styles.messages}
-        contentContainerStyle={styles.messagesContent}
-        showsVerticalScrollIndicator={false}
-        onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
+      <KeyboardAvoidingView
+        style={styles.keyboardArea}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={0}
       >
-        {messages.map((msg) => (
-          <MessageBubble key={msg.id} msg={msg} />
-        ))}
-      </ScrollView>
+        {/* ── Messages ── */}
+        <ScrollView
+          ref={scrollRef}
+          style={styles.messages}
+          contentContainerStyle={styles.messagesContent}
+          showsVerticalScrollIndicator={false}
+          onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
+        >
+          {messages.map((msg) => (
+            <MessageBubble key={msg.id} msg={msg} />
+          ))}
+        </ScrollView>
 
-      {/* Input bar */}
-      <View style={[styles.inputBar, { paddingBottom: insets.bottom + 6 }]}>
-        {/* Input field  */}
-        <View style={styles.inputWrapper}>
-          <TextInput
-            style={styles.textInput}
-            placeholder="Enter you Message here"
-            placeholderTextColor="#838383"
-            value={inputText}
-            onChangeText={setInputText}
-            multiline={false}
-            returnKeyType="send"
-            onSubmitEditing={sendMessage}
-          />
+        {/* Input bar */}
+        <View
+          style={[
+            styles.inputBar,
+            {
+              paddingBottom: keyboardVisible
+                ? 10
+                : insets.bottom > 0
+                ? insets.bottom + 6
+                : 12,
+            },
+          ]}
+        >
+          {/* Input field  */}
+          <Pressable
+            style={styles.inputWrapper}
+            onPress={() => inputRef.current?.focus()}
+          >
+            <TextInput
+              ref={inputRef}
+              style={styles.textInput}
+              placeholder="Enter you Message here"
+              placeholderTextColor="#838383"
+              value={inputText}
+              onChangeText={setInputText}
+              multiline={false}
+              returnKeyType="send"
+              onSubmitEditing={sendMessage}
+            />
+          </Pressable>
+
+          {/* Send button */}
+          <Pressable style={styles.sendBtn} onPress={sendMessage}>
+            <SendIcon />
+          </Pressable>
         </View>
-
-        {/* Send button */}
-        <Pressable style={styles.sendBtn} onPress={sendMessage}>
-          <SendIcon />
-        </Pressable>
-      </View>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
-/* ─────────────────────────────────────────────
+/* ────────────────────────────────────────────
    Styles
 ───────────────────────────────────────────── */
 const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: "#FFFFFF",
+  },
+  keyboardArea: {
+    flex: 1,
   },
 
   /* Header */
@@ -613,7 +650,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
     paddingHorizontal: 18,
-    height: LIGHT_NAV_HEIGHT,
+    paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: "#F2F2F2",
     backgroundColor: "#FFFFFF",
@@ -631,6 +668,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",   
   },
   textInput: {
+    flex: 1,
     fontFamily: "Ubuntu_400Regular",
     fontSize: 13,
     letterSpacing: 13 * -0.02,

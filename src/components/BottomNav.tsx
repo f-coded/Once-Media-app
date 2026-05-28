@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from "react";
-import { Animated, View, Text, Pressable, StyleSheet, useWindowDimensions } from "react-native";
+import { Animated, View, Text, Pressable, StyleSheet, useWindowDimensions, Platform } from "react-native";
 import Svg, { Path, Circle } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -7,10 +7,12 @@ export type Tab = "home" | "market" | "chat" | "wallet";
 
 const PRIMARY = "#1B17B3";
 const INACTIVE = "#838383";
-export const NAV_HEIGHT = 60;
+// iOS 26+ needs extra height for the new tab-bar region
+const isIOS26 = Platform.OS === "ios" && parseInt(String(Platform.Version), 10) >= 26;
+export const NAV_HEIGHT = isIOS26 ? 72 : 75;
 
 /* ─────────────────────────────────────────────────────────────
-   HOME  —  linear (inactive) vs bold (active)
+   HOME  —  linear    (inactive) vs bold (active)
 ───────────────────────────────────────────────────────────── */
 function HomeLinear({ color }: { color: string }) {
   return (
