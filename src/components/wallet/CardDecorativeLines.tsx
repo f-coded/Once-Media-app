@@ -14,9 +14,9 @@ export function CardDecorativeLines() {
 
 const styles = StyleSheet.create({
   pattern: {
-    ...StyleSheet.absoluteFillObject,
-    width: "100%",
-    height: "100%",
-    resizeMode: "cover",
+    ...StyleSheet.absoluteFillObject, 
+    width: "auto",
+    height: "auto",
+    resizeMode: "cover", 
   },
 });
