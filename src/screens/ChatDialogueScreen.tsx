@@ -377,7 +377,7 @@ export function ChatDialogueScreen({
         {/* Input bar */}
         <View
           style={[
-            styles.inputBar,
+            styles.inputBar,  
             {
               paddingBottom: keyboardVisible
                 ? 10
