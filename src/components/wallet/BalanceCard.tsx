@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { CardDecorativeLines } from "./CardDecorativeLines";
 
 interface BalanceCardProps {
@@ -11,56 +11,63 @@ export function BalanceCard({ balance, onWithdrawPress }: BalanceCardProps) {
   return (
     <View style={styles.balanceCard}>
       {/* Wave Decorative Pattern overlay */}
-      <CardDecorativeLines />
-      
-      {/* Content wrapper */}
-      <View style={styles.balanceInfo}>
-        <Text style={styles.balanceLabel}>Balance</Text>
-        {/* Render Naira symbol exactly matching the mockup design */}
-        <Text style={styles.balanceValue}>₦{balance}</Text>
+      <View style={styles.patternWrapper}>
+        <CardDecorativeLines />
       </View>
       
-      <Pressable
-        style={({ pressed }) => [
-          styles.withdrawBtn,
-          pressed && styles.btnPressed,
-        ]}
-        onPress={onWithdrawPress}
-      >
-        <Text style={styles.withdrawBtnText}>Withdraw</Text>
-      </Pressable>
+      {/* Content wrapper */}
+      <View style={styles.contentWrapper}>
+        <View style={styles.balanceInfo}>
+          <Text style={styles.balanceLabel}>Balance</Text>
+          {/* Render Naira symbol exactly matching the mockup design */}
+          <Text style={styles.balanceValue}>₦{balance}</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.withdrawBtn}
+          onPress={onWithdrawPress}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.withdrawBtnText}>Withdraw</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   balanceCard: {
-    width: "100%",
-    height: 146,
-    borderRadius: 24,
+    width: "auto",
+    height: 140,
+    borderRadius: 22,
     backgroundColor: "#1B17B3",
-    padding: 16,
+    padding: 8,
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
     overflow: "hidden",
-    shadowColor: "#1B17B3",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 5,
+
+  },
+  patternWrapper: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 0,
+    elevation: 0,
+  },
+  contentWrapper: {
+    width: "100%",
+    alignItems: "center",
+    zIndex: 10,
+    elevation: 10,
   },
   balanceInfo: {
     alignItems: "center",
     gap: 4,
-    marginBottom: 12,
-    zIndex: 2,
+    marginBottom: 20,
   },
   balanceLabel: {
     fontFamily: "Ubuntu_400Regular",
     fontSize: 14,
     letterSpacing: -0.28,
-    color: "#BEBEBE",
+    color: "#f2f2f2",
   },
   balanceValue: {
     fontFamily: "Ubuntu_700Bold",
@@ -69,6 +76,9 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     lineHeight: 36,
   },
+  pressableWrapper: {
+    width: "100%",
+  },
   withdrawBtn: {
     width: "100%",
     height: 48,
@@ -76,12 +86,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
-    zIndex: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
   },
   withdrawBtnText: {
     fontFamily: "Ubuntu_500Medium",
