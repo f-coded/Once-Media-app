@@ -27,8 +27,8 @@ export function WalletHeader() {
 
 const styles = StyleSheet.create({
   header: {
-    marginTop: 8,
-    marginBottom: 20,
+    marginTop: 10,
+    marginBottom: 14,
   },
   profileWrapper: {
     flexDirection: "column",
