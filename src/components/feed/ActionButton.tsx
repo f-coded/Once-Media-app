@@ -1,5 +1,5 @@
 import React, { useCallback } from "react";
-import { Text, Pressable } from "react-native";
+import { Text, Pressable, Platform } from "react-native";
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { font } from "../AuthUI";
@@ -36,7 +36,9 @@ export function ActionButton({ icon, count, label, onPress }: ActionButtonProps)
   }, [scale]);
 
   const handlePress = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
     onPress?.();
   }, [onPress]);
 
