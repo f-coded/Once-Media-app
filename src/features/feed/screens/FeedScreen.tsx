@@ -1,5 +1,6 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
+  Animated,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Platform,
@@ -161,6 +162,30 @@ export function FeedScreen({ onChatPress, onWalletPress }: { onChatPress?: () =>
   const activePost = posts.find((post) => post.id === activePostId);
   const isActiveVideoLoading = Boolean(activePost?.video && loadingPostId === activePostId);
 
+  // Parallax: as the comment sheet opens, the feed (active post) recedes and lifts,
+  // staying docked at the top of the sheet. Driven by showComments so it returns to
+  // full when the sheet is dragged/closed. Same 300ms as the sheet to stay connected.
+  const sheetProgress = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(sheetProgress, {
+      toValue: showComments ? 1 : 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [showComments, sheetProgress]);
+
+  // When the sheet opens it covers the bottom 75%, leaving a ~25% band at the top. The active post
+  // shrinks into that band and rests on the sheet's top edge. Only the post frame minimizes — its
+  // overlay UI (actions, caption, gradients) is hidden via the `minimized` prop on PostCard.
+  // MIN_FRAME_RATIO = how much of the 25% band the shrunken frame fills (tune to taste).
+  const TOP_BAND = windowHeight * 0.25;
+  const MIN_FRAME_RATIO = 0.85;
+  const minimizedScale = (TOP_BAND * MIN_FRAME_RATIO) / windowHeight;
+  const minimizedShift = TOP_BAND / 2 - windowHeight / 2; // center the frame within the top band
+
+  const feedScale = sheetProgress.interpolate({ inputRange: [0, 1], outputRange: [1, minimizedScale] });
+  const feedTranslateY = sheetProgress.interpolate({ inputRange: [0, 1], outputRange: [0, minimizedShift] });
+
   const handleCommentPress = useCallback(() => {
     setShowComments(true);
     setIsBlurActive(true);
@@ -215,11 +240,12 @@ export function FeedScreen({ onChatPress, onWalletPress }: { onChatPress?: () =>
         post={item}
         height={POST_HEIGHT}
         isActive={item.id === activePostId}
+        minimized={showComments}
         onCommentPress={handleCommentPress}
         onVideoLoadingChange={handleVideoLoadingChange}
       />
     </View>
-  ), [activePostId, handleCommentPress, handleVideoLoadingChange, POST_HEIGHT]);
+  ), [activePostId, showComments, handleCommentPress, handleVideoLoadingChange, POST_HEIGHT]);
 
   return (
     <View style={styles.root}>
@@ -228,9 +254,14 @@ export function FeedScreen({ onChatPress, onWalletPress }: { onChatPress?: () =>
         <FeedHeader />
 
         {/* Posts feed */}
-        <View
+        <Animated.View
           style={[
-            { flex: 1, overflow: "hidden" },
+            {
+              flex: 1,
+              overflow: "hidden",
+              borderRadius: isBlurActive ? 20 : 0,
+              transform: [{ translateY: feedTranslateY }, { scale: feedScale }],
+            },
             // Android: use the RN 0.76+ filter array (works great)
             // iOS: we use a BlurView overlay instead (filter not reliable on iOS)
             isBlurActive && Platform.OS === "android"
@@ -288,7 +319,7 @@ export function FeedScreen({ onChatPress, onWalletPress }: { onChatPress?: () =>
               pointerEvents="none"
             />
           )}
-        </View>
+        </Animated.View>
 
         {!isBlurActive && (
           <BottomNav

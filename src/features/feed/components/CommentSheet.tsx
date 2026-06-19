@@ -1,24 +1,24 @@
-import React, { forwardRef, useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Keyboard,
+  Animated,
+  BackHandler,
+  Dimensions,
+  FlatList,
+  PanResponder,
   Platform,
   Pressable,
   StyleSheet,
   Text,
-  useWindowDimensions,
+  TextInput,
   View,
-  BackHandler,
 } from "react-native";
+import {
+  KeyboardController,
+  useKeyboardState,
+} from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { BlurView } from "expo-blur";
-import BottomSheet, {
-  BottomSheetBackdrop,
-  BottomSheetFlatList,
-  BottomSheetFooter,
-  BottomSheetFooterProps,
-  BottomSheetTextInput,
-} from "@gorhom/bottom-sheet";
 
 import { font } from "@/features/auth/components/AuthUI";
 import { CloseIcon, SendIcon, EmptyCommentIcon } from "./FeedIcons";
@@ -32,141 +32,85 @@ type Comment = {
   replies: number;
 };
 
+// Kept for when real comment data is wired in. The list currently renders the
+// empty state on purpose (data={[]}).
 const COMMENTS: Comment[] = [
-  {
-    id: "1",
-    user: "Kelechi Obi",
-    avatar: "https://i.pravatar.cc/100?img=3",
-    text: "This looks like a beautiful property. Is it still available for viewing?",
-    time: "12:58 PM",
-    replies: 12,
-  },
-  {
-    id: "2",
-    user: "Dominic Sobozlai",
-    avatar: "https://i.pravatar.cc/100?img=5",
-    text: "I really like the layout and the outdoor space. Could you share the price and location details",
-    time: "12:58 PM",
-    replies: 12,
-  },
-  {
-    id: "3",
-    user: "Bukunmi Israel",
-    avatar: "https://i.pravatar.cc/100?img=9",
-    text: "The interior design looks great. Is the property newly built?",
-    time: "12:58 PM",
-    replies: 12,
-  },
-  {
-    id: "4",
-    user: "Bimbola Kasimawo",
-    avatar: "https://i.pravatar.cc/100?img=11",
-    text: "Love this listing. Can the agent arrange a weekend inspection?",
-    time: "12:58 PM",
-    replies: 5,
-  },
-  {
-    id: "5",
-    user: "Amara Eze",
-    avatar: "https://i.pravatar.cc/100?img=15",
-    text: "The lighting in this home is gorgeous. The balcony view is a serious plus.",
-    time: "1:05 PM",
-    replies: 3,
-  },
-  {
-    id: "6",
-    user: "Kelechi Obi",
-    avatar: "https://i.pravatar.cc/100?img=20",
-    text: "This looks like a beautiful property. Is it still available for viewing?",
-    time: "12:58 PM",
-    replies: 12,
-  },
-  {
-    id: "7",
-    user: "Kelechi Obi",
-    avatar: "https://i.pravatar.cc/100?img=24",
-    text: "This looks like a beautiful property. Is it still available for viewing?",
-    time: "12:58 PM",
-    replies: 12,
-  },
-  {
-    id: "8",
-    user: "Bukunmi Israel",
-    avatar: "https://i.pravatar.cc/100?img=30",
-    text: "The interior design looks great. Is the property newly built?",
-    time: "12:58 PM",
-    replies: 12,
-  },
+  // PLACEHOLDER_COMMENTS
 ];
 
-const COMMENT_SHEET_SNAP_RATIO = 0.30;
-const COMMENT_HEADER_HEIGHT = 48;
-const COMMENT_COMPOSER_ESTIMATED_HEIGHT = 82;
-const COMMENT_LIST_PLATFORM_MODIFIER = Platform.select({
-  android: {
-    contentBottomPadding: 0,
-    endSpacerBoost: 0,
-    minEndSpacer: 0,
-  },
-  ios: {
-    contentBottomPadding: 5,
-    endSpacerBoost: 0,
-    minEndSpacer: 100,
-  },
-  default: {
-    contentBottomPadding: 5,
-    endSpacerBoost: 0,
-    minEndSpacer: 10,
-  },
-})!;
+type ReplyType = "post author" | "comment by";
 
 type CommentSheetProps = {
   onClose: () => void;
   onCloseStart?: () => void;
 };
+export function CommentSheet({ onClose, onCloseStart }: CommentSheetProps) {
+  const { bottom: bottomInset } = useSafeAreaInsets();
 
-type ReplyType = "post author" | "comment by";
+  // Fixed sheet geometry: 70% of the INITIAL screen height, captured once via a ref.
+  // The sheet's TOP is pinned at TOP_OFFSET (the remaining 30%) and its bottom tracks
+  // the window bottom, so it can never grow past the top of the screen. When the keyboard
+  // shrinks the window (Android adjustResize), only the bottom rises — the top stays put.
+  const initialHeight = useRef(Dimensions.get("window").height).current;
+  const SHEET_HEIGHT = Math.round(initialHeight * 0.68);
+  const TOP_OFFSET = initialHeight - SHEET_HEIGHT;
 
-type ComposerHandle = {
-  focusReply: (type: ReplyType, name: string) => void;
-  blur: () => void;
-};
+  // Slide-in / slide-out animation (matches the wallet sheets' pattern).
+  const anim = useRef(new Animated.Value(0)).current;
+  const dragY = useRef(new Animated.Value(0)).current;
+  const isClosing = useRef(false);
 
-type CommentComposerFooterProps = BottomSheetFooterProps & {
-  controllerRef: React.Ref<ComposerHandle>;
-  onFocusChange?: (focused: boolean) => void;
-};
-
-const CommentComposerFooter = React.memo(function CommentComposerFooter({
-  controllerRef,
-  onFocusChange,
-  ...footerProps
-}: CommentComposerFooterProps) {
-  const { bottom: bottomInset } = useSafeAreaInsets(); 
-  const inputRef = useRef<any>(null);
   const [commentText, setCommentText] = useState("");
   const [isAdding, setIsAdding] = useState(false);
   const [replyType, setReplyType] = useState<ReplyType>("post author");
   const [replyName, setReplyName] = useState("Kelechi Obi");
+  const inputRef = useRef<TextInput>(null);
 
-  React.useImperativeHandle(controllerRef, () => ({
-    focusReply: (type: ReplyType, name: string) => {
-      setReplyType(type);
-      setReplyName(name);
-      setIsAdding(true);
-      requestAnimationFrame(() => inputRef.current?.focus());
-    },
-    blur: () => inputRef.current?.blur(),
-  }), [controllerRef]);
+  // Keyboard visibility for the composer's bottom padding. react-native-keyboard-controller
+  // tracks the real keyboard frame on the UI thread, so this stays correct across app
+  // background/resume — unlike the old manual Keyboard listeners, which desynced on resume
+  // (keyboard restored by the OS without re-firing show events, leaving the composer stuck).
+  const keyboardVisible = useKeyboardState((s) => s.isVisible);
+  const keyboardHeight = useKeyboardState((s) => s.height);
 
-  const blurComposer = useCallback(() => {
-    onFocusChange?.(false);
-    if (!commentText.trim()) {
-      setIsAdding(false);
-      setReplyType("post author");
-      setReplyName("Kelechi Obi");
-    }
-  }, [commentText, onFocusChange]);
+  // Animate in on mount.
+  useEffect(() => {
+    Animated.timing(anim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [anim]);
+
+  const closeSheet = useCallback(() => {
+    if (isClosing.current) return;
+    isClosing.current = true;
+    onCloseStart?.();
+    KeyboardController.dismiss();
+    inputRef.current?.blur();
+    Animated.timing(anim, {
+      toValue: 0,
+      duration: 250,
+      useNativeDriver: true,
+    }).start(() => onClose());
+  }, [anim, onClose, onCloseStart]);
+
+
+  // Android hardware back closes the sheet.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      closeSheet();
+      return true;
+    });
+    return () => sub.remove();
+  }, [closeSheet]);
+
+  const focusReply = useCallback((type: ReplyType, name: string) => {
+    setReplyType(type);
+    setReplyName(name);
+    setIsAdding(true);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }, []);
 
   const sendComment = useCallback(() => {
     if (!commentText.trim()) return;
@@ -174,314 +118,211 @@ const CommentComposerFooter = React.memo(function CommentComposerFooter({
     setIsAdding(false);
     setReplyType("post author");
     setReplyName("Kelechi Obi");
-    onFocusChange?.(false);
     inputRef.current?.blur();
-  }, [commentText, onFocusChange]);
-
-  return (
-    <BottomSheetFooter {...footerProps} bottomInset={Platform.OS === "ios" ? 0 : bottomInset}>
-      <View style={styles.composer}>
-        {isAdding && (
-          <Text style={styles.replying}>
-            Replying to {replyType}{" "}
-            <Text style={styles.replyName}>~{replyName}</Text>
-          </Text>
-        )}
-        <View style={styles.inputPill}>
-          <BottomSheetTextInput
-            ref={inputRef as any}
-            style={styles.input}
-            placeholder="Add Comment"
-            placeholderTextColor="#8E8E8E"
-            value={commentText}
-            onChangeText={setCommentText}
-            keyboardAppearance="light"
-            onFocus={() => {
-              setIsAdding(true);
-              onFocusChange?.(true);
-            }}
-            onBlur={blurComposer}
-            returnKeyType="send"
-            onSubmitEditing={sendComment}
-          />
-          {commentText.trim() ? (
-            <Pressable style={styles.send} onPress={sendComment}>
-              <SendIcon size={18} />
-            </Pressable>
-          ) : null}
-        </View>
-      </View>
-    </BottomSheetFooter>
-  );
-});
-
-export const CommentSheet = forwardRef<BottomSheet, CommentSheetProps>(({ onClose, onCloseStart }, ref) => {
-  const { height: screenHeight } = useWindowDimensions();
-  const snapPoints = useMemo(() => ["65%"], []);
-  const bottomSheetRef = useRef<BottomSheet>(null);
-  const composerRef = useRef<ComposerHandle>(null);
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
-  const [sheetReady, setSheetReady] = useState(false); // ← gate for scroll fix
-
-  const listEndSpacerHeight = useMemo(() => {
-    const visibleSheetHeight = screenHeight * COMMENT_SHEET_SNAP_RATIO;
-    const visibleListHeight = visibleSheetHeight - COMMENT_HEADER_HEIGHT - COMMENT_COMPOSER_ESTIMATED_HEIGHT;
-    return Math.max(
-      COMMENT_LIST_PLATFORM_MODIFIER.minEndSpacer,
-      Math.round(visibleListHeight + COMMENT_LIST_PLATFORM_MODIFIER.endSpacerBoost)
-    );
-  }, [screenHeight]);
-
-  React.useImperativeHandle(ref, () => bottomSheetRef.current!);
-
-  // Track keyboard visibility for blur effect
-  React.useEffect(() => {
-    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-    const showSub = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
-    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
-
-  const focusComposer = useCallback((type: ReplyType, name: string) => {
-    composerRef.current?.focusReply(type, name);
-  }, []);
-
-  const handleClose = useCallback(() => {
-    onCloseStart?.();
-    composerRef.current?.blur();
-    Keyboard.dismiss();
-    bottomSheetRef.current?.close();
-  }, [onCloseStart]);
-
-  // Handle Android hardware back button
-  React.useEffect(() => {
-    const onBackPress = () => {
-      handleClose();
-      return true;
-    };
-    const subscription = BackHandler.addEventListener("hardwareBackPress", onBackPress);
-    return () => subscription.remove();
-  }, [handleClose]);
-
-  const renderComment = useCallback(({ item }: { item: Comment }) => (
-    <View style={styles.commentBlock}>
-      <View style={styles.commentMeta}>
-        <Image source={{ uri: item.avatar }} style={styles.avatar} contentFit="cover" />
-        <Text style={styles.name} numberOfLines={1}>{item.user}</Text>
-        <View style={styles.metaDot} />
-        <Text style={styles.time}>{item.time}</Text>
-      </View>
-      <View style={styles.bubble}>
-        <Text style={styles.commentText}>{item.text}</Text>
-      </View>
-      <Pressable
-        style={styles.replyRow}
-        onPress={() => focusComposer("comment by", item.user)}
-        hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
-      >
-        <Text style={styles.reply}>Reply</Text>
-        <View style={styles.replyDot} />
-        <Text style={styles.replyCount}>{item.replies} Replies</Text>
-      </Pressable>
-    </View>
-  ), [focusComposer]);
-
-  const renderBackdrop = useCallback(
-    (props: any) => (
-      <Pressable
-        onPress={handleClose}
-        style={[props.style, { backgroundColor: "rgba(0,0,0,0)" }]}
-      />
-    ),
-    [handleClose]
-  );
-
-  const handleFocusChange = useCallback((focused: boolean) => {
-    setKeyboardVisible(focused);
-  }, []);
-
-  const renderFooter = useCallback(
-    (props: BottomSheetFooterProps) => (
-      <CommentComposerFooter {...props} controllerRef={composerRef} onFocusChange={handleFocusChange} />
-    ),
-    [handleFocusChange]
-  );
-
-  return (
-    <View style={styles.overlay} pointerEvents="box-none">
-      <BottomSheet
-        ref={bottomSheetRef}
-        index={0}
-        snapPoints={snapPoints}
-        enableDynamicSizing={false}
-        enablePanDownToClose={true}
-        enableOverDrag={false}
-        animateOnMount={true}
-        enableContentPanningGesture={false}
-        enableHandlePanningGesture={false}
-        keyboardBehavior="extend"
-        keyboardBlurBehavior="restore"
-        backgroundStyle={{ backgroundColor: "transparent" }}
-        handleComponent={() => null}
-        backdropComponent={renderBackdrop}
-        footerComponent={renderFooter}
-        onChange={(index) => {
-          // Only allow FlatList to render once sheet has fully settled at snap point
-          // This prevents Android gesture bridge race condition on cold start
-          if (index === 0 && !sheetReady) setSheetReady(true);
-          
-          // Unmount from FeedScreen after the closing animation finishes
-          if (index === -1) {
-            onClose();
+  }, [commentText]);
+  // Drag-to-close on the header only, so it never fights the list scroll.
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, g) => g.dy > 6 && Math.abs(g.dy) > Math.abs(g.dx),
+        onPanResponderMove: (_, g) => {
+          if (g.dy > 0) dragY.setValue(g.dy);
+        },
+        onPanResponderRelease: (_, g) => {
+          if (g.dy > 120 || g.vy > 0.8) {
+            closeSheet();
+          } else {
+            Animated.spring(dragY, {
+              toValue: 0,
+              useNativeDriver: true,
+              bounciness: 0,
+            }).start();
           }
-        }}
+        },
+      }),
+    [closeSheet, dragY]
+  );
+
+  const translateY = Animated.add(
+    anim.interpolate({ inputRange: [0, 1], outputRange: [SHEET_HEIGHT, 0] }),
+    dragY
+  );
+
+  const renderComment = useCallback(
+    ({ item }: { item: Comment }) => (
+      <View style={styles.commentBlock}>
+        <View style={styles.commentMeta}>
+          <Image source={{ uri: item.avatar }} style={styles.avatar} contentFit="cover" />
+          <Text style={styles.name} numberOfLines={1}>{item.user}</Text>
+          <View style={styles.metaDot} />
+          <Text style={styles.time}>{item.time}</Text>
+        </View>
+        <View style={styles.bubble}>
+          <Text style={styles.commentText}>{item.text}</Text>
+        </View>
+        <Pressable
+          style={styles.replyRow}
+          onPress={() => focusReply("comment by", item.user)}
+          hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+        >
+          <Text style={styles.reply}>Reply</Text>
+          <View style={styles.replyDot} />
+          <Text style={styles.replyCount}>{item.replies} Replies</Text>
+        </Pressable>
+      </View>
+    ),
+    [focusReply]
+  );
+
+  const composerPadBottom = keyboardVisible ? 8 : Math.max(12, bottomInset);
+
+  const SheetSurface = Platform.OS === "ios" ? BlurView : View;
+  const surfaceProps =
+    Platform.OS === "ios"
+      ? ({ intensity: 40, tint: "extraLight" } as const)
+      : {};
+  // Sheet bottom: on iOS lift by keyboard height; on Android the window resizes so stay at 0.
+  const sheetBottom = Platform.OS === "ios" ? 111 : 0;
+
+  return (
+    <View style={styles.overlay}>
+      {/* Transparent tap-to-close backdrop. The feed dim/blur is owned by FeedScreen. */}
+      <Pressable style={StyleSheet.absoluteFill} onPress={closeSheet} />
+
+      <Animated.View
+        style={[
+          styles.sheet,
+          { top: TOP_OFFSET, bottom: sheetBottom, transform: [{ translateY }] },
+        ]}
       >
-        {Platform.OS === "ios" ? (
-          <BlurView
-            intensity={40}
-            tint="extraLight"
-            style={[styles.sheetContent]}
-          >
-            {/* Header */}
-            <View style={styles.header}>
+        <SheetSurface {...(surfaceProps as any)} style={styles.surface}>
+          {/* Header — also the drag handle */}
+          <View style={styles.header} {...panResponder.panHandlers}>
+            <View style={styles.grabber} />
+            <View style={styles.headerRow}>
               <Text style={styles.title}>Comments</Text>
               <Pressable
                 style={styles.close}
-                onPress={handleClose}
+                onPress={closeSheet}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               >
                 <CloseIcon size={20} />
-              </Pressable>
-            </View> 
-
-            {sheetReady && (
-              <BottomSheetFlatList
-                style={styles.scroll}
-                data={[]} // Temporarily empty to show the empty state
-                renderItem={renderComment}
-                keyExtractor={(item) => item.id}
-                bounces={false}
-                removeClippedSubviews={false}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                overScrollMode="never"
-                contentContainerStyle={styles.scrollContent}
-                ListEmptyComponent={
-                  <View style={styles.emptyContainer}>
-                    <View style={styles.emptyIconWrapper}>
-                      <EmptyCommentIcon />
-                    </View>
-                    <Text style={styles.emptyTitle}>Be the First to Comment</Text>
-                    <Text style={styles.emptySubtitle}>No Comments Yet</Text>
-                  </View>
-                }
-                ListFooterComponent={
-                  <View style={[styles.scrollFooterSpacer, { height: listEndSpacerHeight }]} />
-                }
-              />
-            )}
-
-            {keyboardVisible && (
-              <BlurView
-                intensity={10}
-                tint="light"
-                experimentalBlurMethod="dimezisBlurView"
-                pointerEvents="none"
-                style={styles.commentsBlur}
-              />
-            )}
-          </BlurView>
-        ) : (
-          <View style={styles.sheetContent}>
-            {/* Header */}
-            <View style={styles.header}>
-              <Text style={styles.title}>Comments</Text>
-              <Pressable
-                style={styles.close}
-                onPress={handleClose}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              >
-                <CloseIcon size={20} />
-              </Pressable>
+                </Pressable>
+              </View>
             </View>
 
-            {/* FlatList only mounts after sheet is settled — fixes Android cold start scroll bug */}
-            {sheetReady && (
-              <BottomSheetFlatList
-                style={styles.scroll}
-                data={[]} // Temporarily empty to show the empty state
-                renderItem={renderComment}
-                keyExtractor={(item) => item.id}
-                bounces={false}
-                removeClippedSubviews={false}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                overScrollMode="never"
-                contentContainerStyle={styles.scrollContent}
-                ListEmptyComponent={
-                  <View style={styles.emptyContainer}>
-                    <View style={styles.emptyIconWrapper}>
-                      <EmptyCommentIcon />
-                    </View>
-                    <Text style={styles.emptyTitle}>Be the First to Comment</Text>
-                    <Text style={styles.emptySubtitle}>No Comments Yet</Text>
-                  </View>
-                }
-                ListFooterComponent={
-                  <View style={[styles.scrollFooterSpacer, { height: listEndSpacerHeight }]} />
-                }
-              />
+            <FlatList
+              style={styles.scroll}
+              data={[]} // Empty on purpose — shows the empty state until real data is wired in.
+              renderItem={renderComment}
+              keyExtractor={(item: Comment) => item.id}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={styles.scrollContent}
+            />
+
+            {/* Empty state — pinned to a fixed offset from the sheet top (which is itself pinned at
+                ~25% from the screen top), so it never shifts when the keyboard lifts the composer/list.
+                pointerEvents none so taps still reach the list/composer underneath. */}
+            {COMMENTS.length === 0 && (
+              <View
+                style={[styles.emptyOverlay, { top: Math.round(SHEET_HEIGHT * 0.18) }]}
+                pointerEvents="none"
+              >
+                <View style={styles.emptyIconWrapper}>
+                  <EmptyCommentIcon />
+                </View>
+                <Text style={styles.emptyTitle}>Be the First to Comment</Text>
+                <Text style={styles.emptySubtitle}>No Comments Yet</Text>
+              </View>
             )}
 
-            {keyboardVisible && (
-              <BlurView
-                intensity={2}
-                tint="light"
-                experimentalBlurMethod="dimezisBlurView"
-                pointerEvents="none"
-                style={styles.commentsBlur}
-              />
-            )}
-          </View>
-        )}
-      </BottomSheet>
+            {/* Composer — normal flow, sits on top of the keyboard natively */}
+            <View style={[styles.composer, { paddingBottom: composerPadBottom }]}>
+              {isAdding && (
+                <Text style={styles.replying}>
+                  Replying to {replyType}{" "}
+                  <Text style={styles.replyName}>~{replyName}</Text>
+                </Text>
+              )}
+              <View style={styles.inputPill}>
+                <TextInput
+                  ref={inputRef}
+                  style={styles.input}
+                  placeholder="Add Comment"
+                  placeholderTextColor="#8E8E8E"
+                  value={commentText}
+                  onChangeText={setCommentText}
+                  keyboardAppearance="light"
+                  onFocus={() => setIsAdding(true)}
+                  onBlur={() => {
+                    if (!commentText.trim()) {
+                      setIsAdding(false);
+                      setReplyType("post author");
+                      setReplyName("Kelechi Obi");
+                    }
+                  }}
+                  returnKeyType="send"
+                  onSubmitEditing={sendComment}
+                />
+                {commentText.trim() ? (
+                  <Pressable style={styles.send} onPress={sendComment}>
+                    <SendIcon size={18} />
+                  </Pressable>
+                ) : null}
+              </View>
+            </View>
+          </SheetSurface>
+        </Animated.View>
     </View>
   );
-});
-
+}
 const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 20,
+    justifyContent: "flex-end",
   },
-  sheetContent: {
+  kav: {
+    justifyContent: "flex-end",
+  },
+  sheet: {
+    // Absolute is required for the inline top/bottom anchors to take effect. The top is pinned
+    // at TOP_OFFSET (~25% from the top) and the bottom tracks the keyboard, so the sheet height
+    // is (containerHeight - top - bottom) and can never grow past the 25% line.
+    position: "absolute",
+    left: 0,
+    right: 0,
+    
+  },
+  surface: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.82)",
+    backgroundColor: "rgba(255, 255, 255, 0.94)",
     borderTopLeftRadius: 35,
     borderTopRightRadius: 35,
     overflow: "hidden",
   },
   header: {
-    position: "absolute",
-    top: 0,
-    paddingTop: 15,
-    left: 0,
-    right: 0,
-    height: 48,
-    flexDirection: "row",
-    alignItems: "center",
+    paddingTop: 8,
+    paddingBottom: 6,
     paddingHorizontal: 18,
     backgroundColor: "rgba(255, 255, 255, 0.96)",
+    borderTopLeftRadius: 35,
+    borderTopRightRadius: 35,
     zIndex: 5,
-    shadowColor: "#1f1e1eff",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: Platform.OS === "android" ? 0 : 3,
+  },
+  grabber: {
+    alignSelf: "center",
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#D9D9D9",
+    marginBottom: 10,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    height: 30,
   },
   title: {
     ...font("Ubuntu_500Medium", 18, "#0C0C0C"),
@@ -494,18 +335,15 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 64,
-    paddingBottom: COMMENT_LIST_PLATFORM_MODIFIER.contentBottomPadding,
+    paddingTop: 12,
+    paddingBottom: 12,
     flexGrow: 1,
   },
-  scrollFooterSpacer: {
-    flexShrink: 0,
-  },
-  emptyContainer: {
+  emptyOverlay: {
+    position: "absolute",
+    left: 0,
+    right: 0,
     alignItems: "center",
-    justifyContent: "center",
-    flex: 1,
-    marginTop: 40,
     paddingHorizontal: 20,
   },
   emptyIconWrapper: {
@@ -576,7 +414,8 @@ const styles = StyleSheet.create({
     ...font("Ubuntu_400Regular", 12, "#555555"),
   },
   composer: {
-    padding: 12,
+    paddingTop: 12,
+    paddingHorizontal: 12,
     backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
     borderTopColor: "#F2F2F2",
@@ -616,12 +455,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#E7F1FF",
   },
-  commentsBlur: {
-    position: "absolute",
-    top: 10,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 10,
-  },
 });
+
+
+
+

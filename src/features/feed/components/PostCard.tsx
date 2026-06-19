@@ -18,6 +18,10 @@ import {
 
 const { width: SCREEN_W } = Dimensions.get("window");
 
+// TEMP (parallax dev): render every post as solid black instead of its image/video.
+// Flip back to false to restore real media.
+const BLACK_POSTS = true;
+
 /* Map pin icon — exact outlined style from user's SVG */
 function MapPinIcon({ size = 16, color = "rgba(255,255,255,0.6)" }: { size?: number; color?: string }) {
   return (
@@ -74,6 +78,7 @@ type PostCardProps = {
   height: number;
   bottomInset?: number;
   isActive?: boolean;
+  minimized?: boolean;
   onCommentPress?: () => void;
   onVideoLoadingChange?: (postId: string, isLoading: boolean) => void;
 };
@@ -83,6 +88,7 @@ export function PostCard({
   height,
   bottomInset = 0,
   isActive = false,
+  minimized = false,
   onCommentPress,
   onVideoLoadingChange,
 }: PostCardProps) {
@@ -238,7 +244,9 @@ export function PostCard({
     <View style={[styles.container, { height }]}>
       {/* Background Media — tappable for double-tap */}
       <Pressable onPress={handleTap} style={StyleSheet.absoluteFill}>
-        {post.video ? (
+        {BLACK_POSTS ? (
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: "#000000" }]} />
+        ) : post.video ? (
           <>
             {!hasRenderedFrame && (
               <Image
@@ -287,7 +295,10 @@ export function PostCard({
         )}
       </Pressable>
 
-      {/* Heart burst overlay */}
+      {/* Overlays (actions, caption, gradients, cues) — hidden while minimized so only the
+          post frame shrinks onto the comment sheet. */}
+      {!minimized && (
+        <>
       <HeartBurst visible={showHeart} onFinish={() => setShowHeart(false)} />
 
       {post.video && (isManuallyPaused || showPlaybackCue) && (
@@ -421,6 +432,8 @@ export function PostCard({
             <Text style={styles.clipText}>Clip</Text>
           </Pressable>
         </View>
+      )}
+        </>
       )}
     </View>
   );

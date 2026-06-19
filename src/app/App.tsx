@@ -3,6 +3,7 @@ import "../../global.css";
 import { useState } from "react";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useFonts } from "expo-font";
 import { Ubuntu_400Regular } from "@expo-google-fonts/ubuntu/400Regular";
@@ -62,7 +63,8 @@ export default function App() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
+      <KeyboardProvider>
+        <SafeAreaProvider>
         {/* Feed → light icons (white, no bg scrim); splash → light; auth screens → dark */}
         <StatusBar
           style={showSplash || route === "feed" ? "light" : "dark"}
@@ -171,7 +173,8 @@ export default function App() {
             </View>
           </>
         )}
-      </SafeAreaProvider>
+        </SafeAreaProvider>
+      </KeyboardProvider>
     </GestureHandlerRootView>
   );
 }
