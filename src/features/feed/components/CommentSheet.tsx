@@ -181,8 +181,11 @@ export function CommentSheet({ onClose, onCloseStart }: CommentSheetProps) {
     Platform.OS === "ios"
       ? ({ intensity: 40, tint: "extraLight" } as const)
       : {};
-  // Sheet bottom: on iOS lift by keyboard height; on Android the window resizes so stay at 0.
-  const sheetBottom = Platform.OS === "ios" ? 111 : 0;
+  // Lift the sheet's bottom by the keyboard height on BOTH platforms so the composer rides
+  // on top of the keyboard. Under Android edge-to-edge (default in Expo SDK 54) the window no
+  // longer resizes for the keyboard, so we must lift manually here just like iOS. The height
+  // comes from react-native-keyboard-controller, which reports the real frame on both OSes.
+  const sheetBottom = keyboardHeight;
 
   return (
     <View style={styles.overlay}>
