@@ -8,6 +8,7 @@ import {
   View,
   StyleSheet,
   useWindowDimensions,
+  StatusBar,
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { BlurView } from "expo-blur";
@@ -176,7 +177,7 @@ export function FeedScreen({ onChatPress, onWalletPress }: { onChatPress?: () =>
   // center, so we solve scale + translateY to land the scaled frame in [dockTop, dockBottom].
   const SHEET_TOP = windowHeight * (1 - 0.68); // matches CommentSheet's 0.68 height ratio
   const GAP = 6; // small breathing room between the docked post and the sheet's rounded top
-  const dockTop = Math.max(insets.top, 0); // start right at the status bar (extreme top)
+  const dockTop = 0; // surpass status bar, start at the extreme top
   const dockBottom = SHEET_TOP - GAP;
   const dockHeight = Math.max(0, dockBottom - dockTop);
 
@@ -184,22 +185,26 @@ export function FeedScreen({ onChatPress, onWalletPress }: { onChatPress?: () =>
   // translateY shifts the (center-anchored) frame so its scaled box spans [dockTop, dockBottom].
   const minimizedShift = (dockTop + dockBottom) / 2 - windowHeight / 2;
 
-  const feedScale = sheetProgress.interpolate({ inputRange: [0, 1], outputRange: [1, minimizedScale] });
+  const feedScaleY = sheetProgress.interpolate({ inputRange: [0, 1], outputRange: [1, minimizedScale] });
+  const feedScaleX = sheetProgress.interpolate({ inputRange: [0, 1], outputRange: [1, 0.45] }); // wider breath width when minimized
   const feedTranslateY = sheetProgress.interpolate({ inputRange: [0, 1], outputRange: [0, minimizedShift] });
 
   const handleCommentPress = useCallback(() => {
     setShowComments(true);
     setIsBlurActive(true);
+    StatusBar.setHidden(true, "slide");
     // The sheet animates sheetProgress 0->1 itself on mount; we don't drive it here.
   }, []);
 
   const handleCommentCloseStart = useCallback(() => {
     setIsBlurActive(false);
+    StatusBar.setHidden(false, "slide");
   }, []);
 
   const handleCommentClose = useCallback(() => {
     setShowComments(false);
     setIsBlurActive(false);
+    StatusBar.setHidden(false, "slide");
   }, []);
 
   const handleScrollEnd = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -262,7 +267,11 @@ export function FeedScreen({ onChatPress, onWalletPress }: { onChatPress?: () =>
               flex: 1,
               overflow: "hidden",
               borderRadius: isBlurActive ? 20 : 0,
-              transform: [{ translateY: feedTranslateY }, { scale: feedScale }],
+              transform: [
+                { translateY: feedTranslateY },
+                { scaleY: feedScaleY },
+                { scaleX: feedScaleX },
+              ],
             },
             // Android: use the RN 0.76+ filter array (works great)
             // iOS: we use a BlurView overlay instead (filter not reliable on iOS)

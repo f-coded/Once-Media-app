@@ -5,12 +5,14 @@ import {
   Dimensions,
   Easing,
   FlatList,
+  LayoutAnimation,
   PanResponder,
   Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
+  UIManager,
   View,
 } from "react-native";
 import {
@@ -20,8 +22,37 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 
+if (Platform.OS === "android") {
+  if (UIManager.setLayoutAnimationEnabledExperimental) {
+    UIManager.setLayoutAnimationEnabledExperimental(true);
+  }
+}
+import { BlurView } from "expo-blur";
+
 import { font } from "@/features/auth/components/AuthUI";
 import { CloseIcon, SendIcon, EmptyCommentIcon } from "./FeedIcons";
+
+import Svg, { Path } from "react-native-svg";
+
+function ChevronDownIcon({ size = 14, color = "#434343", isExpanded = false }: { size?: number; color?: string; isExpanded?: boolean }) {
+  return (
+    <Svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      style={{ transform: [{ rotate: isExpanded ? "180deg" : "0deg" }] }}
+    >
+      <Path
+        d="M6 9L12 15L18 9"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
 
 type Comment = {
   id: string;
@@ -29,13 +60,61 @@ type Comment = {
   avatar: string;
   text: string;
   time: string;
-  replies: number;
+  repliesCount: number;
+  replies?: Comment[];
 };
 
-// Kept for when real comment data is wired in. The list currently renders the
-// empty state on purpose (data={[]}).
 const COMMENTS: Comment[] = [
-  // PLACEHOLDER_COMMENTS
+  {
+    id: "1",
+    user: "Kelechi Obi",
+    avatar: "https://i.pravatar.cc/100?img=3",
+    text: "This looks like a beautiful property. Is it still available for viewing?",
+    time: "12:58 PM",
+    repliesCount: 0,
+  },
+  {
+    id: "2",
+    user: "Dominic Sobozlai",
+    avatar: "https://i.pravatar.cc/100?img=5",
+    text: "How much for this",
+    time: "12:58 PM",
+    repliesCount: 2,
+    replies: [
+      {
+        id: "2-1",
+        user: "Kelechi Obi",
+        avatar: "https://i.pravatar.cc/100?img=3",
+        text: "13k",
+        time: "12:58 PM",
+        repliesCount: 0,
+      },
+      {
+        id: "2-2",
+        user: "Manigan Hasusu",
+        avatar: "https://i.pravatar.cc/100?img=12",
+        text: "13k",
+        time: "12:58 PM",
+        repliesCount: 0,
+      },
+    ],
+  },
+  {
+    id: "3",
+    user: "Bukunmi Israel",
+    avatar: "https://i.pravatar.cc/100?img=9",
+    text: "The interior design looks great. Is the property newly built?",
+    time: "12:58 PM",
+    repliesCount: 12,
+  },
+  {
+    id: "4",
+    user: "Bimbola Kasimawo",
+    avatar: "https://i.pravatar.cc/100?img=11",
+    text: "Interesting listing. Does the house come with parking and security?",
+    time: "12:58 PM",
+    repliesCount: 12,
+  },
 ];
 
 type ReplyType = "post author" | "comment by";
@@ -72,6 +151,23 @@ export function CommentSheet({ onClose, onCloseStart, progress }: CommentSheetPr
   const [replyType, setReplyType] = useState<ReplyType>("post author");
   const [replyName, setReplyName] = useState("Kelechi Obi");
   const inputRef = useRef<TextInput>(null);
+
+  const [comments, setComments] = useState<Comment[]>(COMMENTS);
+  const [expandedCommentIds, setExpandedCommentIds] = useState<Set<string>>(new Set());
+  const [replyParentId, setReplyParentId] = useState<string | null>(null);
+
+  const toggleReplies = useCallback((commentId: string) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandedCommentIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(commentId)) {
+        next.delete(commentId);
+      } else {
+        next.add(commentId);
+      }
+      return next;
+    });
+  }, []);
 
   // Keyboard visibility for the composer's bottom padding. react-native-keyboard-controller
   // tracks the real keyboard frame on the UI thread, so this stays correct across app
@@ -122,21 +218,64 @@ export function CommentSheet({ onClose, onCloseStart, progress }: CommentSheetPr
     return () => sub.remove();
   }, [closeSheet]);
 
-  const focusReply = useCallback((type: ReplyType, name: string) => {
+  const focusReply = useCallback((type: ReplyType, name: string, parentId?: string) => {
     setReplyType(type);
     setReplyName(name);
+    setReplyParentId(parentId || null);
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setIsAdding(true);
     requestAnimationFrame(() => inputRef.current?.focus());
   }, []);
 
+  const addReply = useCallback((commentsList: Comment[], parentId: string, newReply: Comment): Comment[] => {
+    return commentsList.map((c) => {
+      if (c.id === parentId) {
+        return {
+          ...c,
+          repliesCount: c.repliesCount + 1,
+          replies: [...(c.replies || []), newReply],
+        };
+      } else if (c.replies) {
+        return {
+          ...c,
+          replies: addReply(c.replies, parentId, newReply),
+        };
+      }
+      return c;
+    });
+  }, []);
+
   const sendComment = useCallback(() => {
     if (!commentText.trim()) return;
+
+    const newComment: Comment = {
+      id: Math.random().toString(),
+      user: "Kelechi Obi",
+      avatar: "https://i.pravatar.cc/100?img=3",
+      text: commentText,
+      time: "Just now",
+      repliesCount: 0,
+    };
+
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    if (replyParentId) {
+      setComments((prev) => addReply(prev, replyParentId, newComment));
+      setExpandedCommentIds((prev) => {
+        const next = new Set(prev);
+        next.add(replyParentId);
+        return next;
+      });
+    } else {
+      setComments((prev) => [newComment, ...prev]);
+    }
+
     setCommentText("");
     setIsAdding(false);
     setReplyType("post author");
     setReplyName("Kelechi Obi");
+    setReplyParentId(null);
     inputRef.current?.blur();
-  }, [commentText]);
+  }, [commentText, replyParentId, addReply]);
   // Drag-to-close on the header only, so it never fights the list scroll. As you drag down we
   // scrub the shared `progress` live (1 at rest -> 0 when dragged a full sheet-height down), so
   // the feed post grows back IN STEP with your finger - connected and flexible, not on a timer.
@@ -174,31 +313,63 @@ export function CommentSheet({ onClose, onCloseStart, progress }: CommentSheetPr
     outputRange: [initialHeight, 0],
   });
 
-  const renderComment = useCallback(
-    ({ item }: { item: Comment }) => (
-      <View style={styles.commentBlock}>
-        <View style={styles.commentMeta}>
-          <Image source={{ uri: item.avatar }} style={styles.avatar} contentFit="cover" />
-          <Text style={styles.name} numberOfLines={1}>{item.user}</Text>
-          <View style={styles.metaDot} />
-          <Text style={styles.time}>{item.time}</Text>
+  const renderCommentItem = useCallback((comment: Comment, isReply = false) => {
+    const isExpanded = expandedCommentIds.has(comment.id);
+    const hasReplies = comment.replies && comment.replies.length > 0;
+
+    return (
+      <View style={[styles.commentRow, isReply && styles.replyCommentRow]} key={comment.id}>
+        {/* Left Column: Avatar */}
+        <Image source={{ uri: comment.avatar }} style={styles.commentAvatar} contentFit="cover" />
+
+        {/* Right Column: Content Detail */}
+        <View style={styles.commentDetail}>
+          {/* Header row: name, dot, time */}
+          <View style={styles.commentMeta}>
+            <Text style={styles.name} numberOfLines={1}>{comment.user}</Text>
+            <View style={styles.metaDot} />
+            <Text style={styles.time}>{comment.time}</Text>
+          </View>
+
+          {/* Text content */}
+          <Text style={styles.commentText}>{comment.text}</Text>
+
+          {/* Action Row */}
+          <View style={styles.actionsRow}>
+            {/* Left side: Chevron + View replies */}
+            <Pressable
+              style={styles.leftActions}
+              onPress={() => comment.repliesCount > 0 && toggleReplies(comment.id)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <ChevronDownIcon size={14} color="#434343" isExpanded={isExpanded} />
+              <Text style={styles.actionText}>
+                {comment.repliesCount > 0 
+                  ? (isExpanded ? "Hide replies" : `View ${comment.repliesCount} replies`) 
+                  : "0 replies"
+                }
+              </Text>
+            </Pressable>
+
+            {/* Right side: Reply link */}
+            <Pressable
+              onPress={() => focusReply("comment by", comment.user, comment.id)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Text style={styles.actionText}>Reply</Text>
+            </Pressable>
+          </View>
+
+          {/* Nested Replies: Render inside parent's right column to indent them by exactly 28px */}
+          {isExpanded && hasReplies && (
+            <View style={styles.nestedRepliesContainer}>
+              {comment.replies!.map((reply) => renderCommentItem(reply, true))}
+            </View>
+          )}
         </View>
-        <View style={styles.bubble}>
-          <Text style={styles.commentText}>{item.text}</Text>
-        </View>
-        <Pressable
-          style={styles.replyRow}
-          onPress={() => focusReply("comment by", item.user)}
-          hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
-        >
-          <Text style={styles.reply}>Reply</Text>
-          <View style={styles.replyDot} />
-          <Text style={styles.replyCount}>{item.replies} Replies</Text>
-        </Pressable>
       </View>
-    ),
-    [focusReply]
-  );
+    );
+  }, [expandedCommentIds, toggleReplies, focusReply]);
 
   // Adjust the composer's padding bottom dynamically by the keyboard height to push the text input
   // above the keyboard. During closure, freeze the padding bottom at the snapshotted height.
@@ -207,6 +378,9 @@ export function CommentSheet({ onClose, onCloseStart, progress }: CommentSheetPr
   const composerPadBottom = closing
     ? (frozenBottom.current ? frozenBottom.current + 8 : Math.max(12, bottomInset))
     : (keyboardVisible ? keyboardHeight + 8 : Math.max(12, bottomInset));
+
+  // Dynamically calculate the offset needed to keep the replying state text clear of the blur/dim overlays
+  const composerHeightOffset = isAdding ? 80 : 58;
 
   // Plain View surface on BOTH platforms - exactly like the smooth wallet sheet. Previously this
   // was a BlurView on iOS, which had to re-composite the live blur of the (also-scaling) feed every
@@ -231,78 +405,117 @@ export function CommentSheet({ onClose, onCloseStart, progress }: CommentSheetPr
           {/* Header — also the drag handle */}
           <View style={styles.header} {...panResponder.panHandlers}>
             <View style={styles.headerRow}>
-              <Text style={styles.title}>Comments</Text>
+              <Text style={styles.title}>Comment</Text>
               <Pressable
                 style={styles.close}
                 onPress={closeSheet}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               >
                 <CloseIcon size={20} />
-                </Pressable>
-              </View>
+              </Pressable>
             </View>
+          </View>
 
-            <FlatList
-              style={styles.scroll}
-              data={[]} // Empty on purpose — shows the empty state until real data is wired in.
-              renderItem={renderComment}
-              keyExtractor={(item: Comment) => item.id}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={styles.scrollContent}
-            />
+          <FlatList
+            style={styles.scroll}
+            data={comments}
+            renderItem={({ item }) => renderCommentItem(item)}
+            keyExtractor={(item: Comment) => item.id}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.scrollContent}
+          />
 
-            {/* Empty state — pinned to a fixed offset from the sheet top (which is itself pinned at
-                ~25% from the screen top), so it never shifts when the keyboard lifts the composer/list.
-                pointerEvents none so taps still reach the list/composer underneath. */}
-            {COMMENTS.length === 0 && (
-              <View
-                style={[styles.emptyOverlay, { top: Math.round(SHEET_HEIGHT * 0.18) }]}
+          {/* Empty state — pinned to a fixed offset from the sheet top (which is itself pinned at
+              ~25% from the screen top), so it never shifts when the keyboard lifts the composer/list.
+              pointerEvents none so taps still reach the list/composer underneath. */}
+          {comments.length === 0 && (
+            <View
+              style={[styles.emptyOverlay, { top: Math.round(SHEET_HEIGHT * 0.16) }]}
+              pointerEvents="none"
+            >
+              <View style={styles.emptyIconWrapper}>
+                <EmptyCommentIcon />
+              </View>
+              <Text style={styles.emptyTitle}>Be the First to Comment</Text>
+              <Text style={styles.emptySubtitle}>No Comments Yet</Text>
+            </View>
+          )}
+
+          {keyboardVisible && (
+            <>
+              <BlurView
+                intensity={Platform.OS === "ios" ? 15 : 1}
+                tint="dark"
+                experimentalBlurMethod="dimezisBlurView"
+                style={[
+                  StyleSheet.absoluteFillObject,
+                  {
+                    top: 0,
+                    bottom: composerPadBottom + composerHeightOffset,
+                    zIndex: 8,
+                    borderTopLeftRadius: 35,
+                    borderTopRightRadius: 35,
+                  },
+                ]}
                 pointerEvents="none"
-              >
-                <View style={styles.emptyIconWrapper}>
-                  <EmptyCommentIcon />
-                </View>
-                <Text style={styles.emptyTitle}>Be the First to Comment</Text>
-                <Text style={styles.emptySubtitle}>No Comments Yet</Text>
-              </View>
-            )}
+              />
+              <View
+                style={[
+                  StyleSheet.absoluteFillObject,
+                  {
+                    top: 0,
+                    bottom: composerPadBottom + composerHeightOffset,
+                    backgroundColor: "rgba(20, 20, 20, 0.44)",
+                    zIndex: 9,
+                    borderTopLeftRadius: 20,
+                    borderTopRightRadius: 25,
+                  },
+                ]}
+                pointerEvents="none"
+              />
+            </>
+          )}
 
-            {/* Composer — normal flow, sits on top of the keyboard natively */}
-            <View style={[styles.composer, { paddingBottom: composerPadBottom }]}>
-              {isAdding && (
-                <Text style={styles.replying}>
-                  Replying to {replyType}{" "}
-                  <Text style={styles.replyName}>~{replyName}</Text>
-                </Text>
-              )}
-              <View style={styles.inputPill}>
-                <TextInput
-                  ref={inputRef}
-                  style={styles.input}
-                  placeholder="Add Comment"
-                  placeholderTextColor="#8E8E8E"
-                  value={commentText}
-                  onChangeText={setCommentText}
-                  keyboardAppearance="light"
-                  onFocus={() => setIsAdding(true)}
-                  onBlur={() => {
-                    if (!commentText.trim()) {
-                      setIsAdding(false);
-                      setReplyType("post author");
-                      setReplyName("Kelechi Obi");
-                    }
-                  }}
-                  returnKeyType="send"
-                  onSubmitEditing={sendComment}
-                />
-                {commentText.trim() ? (
-                  <Pressable style={styles.send} onPress={sendComment}>
-                    <SendIcon size={18} />
-                  </Pressable>
-                ) : null}
-              </View>
+          {/* Composer — normal flow, sits on top of the keyboard natively */}
+          <View style={[styles.composer, { paddingBottom: composerPadBottom }]}>
+            {isAdding && (
+              <Text style={styles.replying}>
+                Replying to {replyType}{" "}
+                <Text style={styles.replyName}>~{replyName}</Text>
+              </Text>
+            )}
+            <View style={styles.inputPill}>
+              <TextInput
+                ref={inputRef}
+                style={styles.input}
+                placeholder="Add Comment"
+                placeholderTextColor="#838383"
+                value={commentText}
+                onChangeText={setCommentText}
+                keyboardAppearance="light"
+                onFocus={() => {
+                  LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                  setIsAdding(true);
+                }}
+                onBlur={() => {
+                  if (!commentText.trim()) {
+                    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                    setIsAdding(false);
+                    setReplyType("post author");
+                    setReplyName("Kelechi Obi");
+                  }
+                }}
+                returnKeyType="send"
+                onSubmitEditing={sendComment}
+              />
+              {(isAdding || commentText.trim().length > 0) ? (
+                <Pressable style={styles.sendTextButton} onPress={sendComment}>
+                  <Text style={styles.sendText}>Send</Text>
+                </Pressable>
+              ) : null}
             </View>
+          </View>
           </SheetSurface>
         </Animated.View>
     </View>
@@ -387,62 +600,67 @@ const styles = StyleSheet.create({
   emptySubtitle: {
     ...font("Ubuntu_400Regular", 14, "#8E8E8E"),
   },
-  commentBlock: {
-    paddingBottom: 12,
+  commentRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 6,
+    marginBottom: 15,
+    width: "100%",
+  },
+  replyCommentRow: {
+    marginTop: 15,
+    marginBottom: 0,
+  },
+  commentAvatar: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "#1B17B3",
+  },
+  commentDetail: {
+    flex: 1,
   },
   commentMeta: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    marginBottom: 6,
-  },
-  avatar: {
-    width: 24,
-    height: 24,
-    borderRadius: 60,
-    backgroundColor: "#F2F2F2",
+    marginBottom: 4,
   },
   name: {
-    ...font("Ubuntu_500Medium", 16, "#434343"),
-    maxWidth: 190,
+    ...font("Ubuntu_500Medium", 14, "#838383"),
   },
   metaDot: {
     width: 4,
     height: 4,
-    borderRadius: 1.5,
-    backgroundColor: "#353540ff",
+    borderRadius: 2,
+    backgroundColor: "#838383",
   },
   time: {
-    ...font("Ubuntu_400Regular", 12, "#434343"),
-  },
-  bubble: {
-    alignSelf: "flex-start",
-    maxWidth: "100%",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
-    backgroundColor: "#F2F2F2",
+    ...font("Ubuntu_400Regular", 12, "#838383"),
   },
   commentText: {
-    ...font("Ubuntu_400Regular", 14, "#282828", 19),
+    ...font("Ubuntu_400Regular", 16, "#262525", 21),
+    letterSpacing: -0.32,
+    marginBottom: 6,
   },
-  replyRow: {
+  actionsRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
-    marginTop: 8,
+    justifyContent: "space-between",
+    width: "100%",
   },
-  reply: {
-    ...font("Ubuntu_500Medium", 14, "#1B17B3"),
+  leftActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
   },
-  replyDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 1.5,
-    backgroundColor: "#777777e7",
+  leftActionsPlaceholder: {
+    width: 1,
+    height: 1,
   },
-  replyCount: {
-    ...font("Ubuntu_400Regular", 12, "#555555"),
+  actionText: {
+    ...font("Ubuntu_500Medium", 14, "#434343"),
+    letterSpacing: -0.28,
   },
   composer: {
     paddingTop: 12,
@@ -450,6 +668,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
     borderTopColor: "#F2F2F2",
+    zIndex: 10,
   },
   replying: {
     ...font("Ubuntu_400Regular", 14, "#1B17B3"),
@@ -460,31 +679,34 @@ const styles = StyleSheet.create({
     ...font("Ubuntu_400Regular", 14, "#0f0e0eff"),
   },
   inputPill: {
-    minHeight: 45,
+    height: 45,
     marginHorizontal: 12,
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 12,
     paddingHorizontal: 14,
-    paddingVertical: 4,
-    borderRadius: 50,
-    backgroundColor: "#f2f2f2",
+    borderRadius: 20,
+    backgroundColor: "#F2F2F2",
+    borderWidth: 1,
+    borderColor: "rgba(242, 242, 242, 0.3)",
   },
   input: {
     flex: 1,
-    minHeight: 40,
-    paddingVertical: 10,
+    height: 45,
     fontFamily: "Ubuntu_400Regular",
-    fontSize: 14,
+    fontSize: 13,
     color: "#0C0C0C",
   },
-  send: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
+  sendTextButton: {
+    paddingLeft: 4,
     justifyContent: "center",
-    backgroundColor: "#E7F1FF",
+    alignItems: "center",
+  },
+  sendText: {
+    ...font("Ubuntu_500Medium", 14, "#1B17B3"),
+  },
+  nestedRepliesContainer: {
+    width: "100%",
   },
 });
 
