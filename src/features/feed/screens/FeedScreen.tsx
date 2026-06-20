@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import {
   Animated,
   NativeScrollEvent,
@@ -15,6 +15,7 @@ import { PostCard, PostData } from "@/features/feed/components/PostCard";
 import { FeedHeader } from "@/features/feed/components/FeedHeader";
 import { BottomNav, NAV_HEIGHT } from "@/shared/components/layout/BottomNav";
 import { CommentSheet } from "@/features/feed/components/CommentSheet";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 
 /* Local property images */
@@ -136,6 +137,7 @@ const MOCK_POSTS: PostData[] = [
 
 export function FeedScreen({ onChatPress, onWalletPress }: { onChatPress?: () => void; onWalletPress?: () => void }) {
   const { height: windowHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const [containerHeight, setContainerHeight] = useState(windowHeight);
   const POST_HEIGHT = containerHeight - NAV_HEIGHT;
 
@@ -162,26 +164,25 @@ export function FeedScreen({ onChatPress, onWalletPress }: { onChatPress?: () =>
   const activePost = posts.find((post) => post.id === activePostId);
   const isActiveVideoLoading = Boolean(activePost?.video && loadingPostId === activePostId);
 
-  // Parallax: as the comment sheet opens, the feed (active post) recedes and lifts,
-  // staying docked at the top of the sheet. Driven by showComments so it returns to
-  // full when the sheet is dragged/closed. Same 300ms as the sheet to stay connected.
+  // Parallax docking (TikTok/Reels style), driven by a SHARED Animated.Value that we hand to the
+  // CommentSheet. The sheet writes this value on mount, on every drag frame, and on close - the
+  // feed only READS it. So the post resizes live as you drag the sheet (connected + flexible),
+  // and follows the exact same close curve (no separate timer that lagged or snapped).
   const sheetProgress = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.timing(sheetProgress, {
-      toValue: showComments ? 1 : 0,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-  }, [showComments, sheetProgress]);
 
-  // When the sheet opens it covers the bottom 75%, leaving a ~25% band at the top. The active post
-  // shrinks into that band and rests on the sheet's top edge. Only the post frame minimizes — its
-  // overlay UI (actions, caption, gradients) is hidden via the `minimized` prop on PostCard.
-  // MIN_FRAME_RATIO = how much of the 25% band the shrunken frame fills (tune to taste).
-  const TOP_BAND = windowHeight * 0.25;
-  const MIN_FRAME_RATIO = 0.85;
-  const minimizedScale = (TOP_BAND * MIN_FRAME_RATIO) / windowHeight;
-  const minimizedShift = TOP_BAND / 2 - windowHeight / 2; // center the frame within the top band
+  // The CommentSheet covers the bottom 68%, so its top edge sits at 32% of the screen. The docked
+  // post fills from the very top (status bar) down to that edge (minus a small breathing gap), so
+  // it sits ON the sheet with no empty band. The transform scales the full-screen feed around its
+  // center, so we solve scale + translateY to land the scaled frame in [dockTop, dockBottom].
+  const SHEET_TOP = windowHeight * (1 - 0.68); // matches CommentSheet's 0.68 height ratio
+  const GAP = 6; // small breathing room between the docked post and the sheet's rounded top
+  const dockTop = Math.max(insets.top, 0); // start right at the status bar (extreme top)
+  const dockBottom = SHEET_TOP - GAP;
+  const dockHeight = Math.max(0, dockBottom - dockTop);
+
+  const minimizedScale = dockHeight / windowHeight;
+  // translateY shifts the (center-anchored) frame so its scaled box spans [dockTop, dockBottom].
+  const minimizedShift = (dockTop + dockBottom) / 2 - windowHeight / 2;
 
   const feedScale = sheetProgress.interpolate({ inputRange: [0, 1], outputRange: [1, minimizedScale] });
   const feedTranslateY = sheetProgress.interpolate({ inputRange: [0, 1], outputRange: [0, minimizedShift] });
@@ -189,6 +190,7 @@ export function FeedScreen({ onChatPress, onWalletPress }: { onChatPress?: () =>
   const handleCommentPress = useCallback(() => {
     setShowComments(true);
     setIsBlurActive(true);
+    // The sheet animates sheetProgress 0->1 itself on mount; we don't drive it here.
   }, []);
 
   const handleCommentCloseStart = useCallback(() => {
@@ -321,17 +323,20 @@ export function FeedScreen({ onChatPress, onWalletPress }: { onChatPress?: () =>
           )}
         </Animated.View>
 
-        {!isBlurActive && (
+        {/* Keep BottomNav MOUNTED always - unmounting it on open made it rebuild all four SVG
+            icon sets at close-start, adding JS jank right as the sheet slid past it (the bottom
+            "hang"). The sheet covers it while open; we just disable its touches then. */}
+        <View pointerEvents={isBlurActive ? "none" : "auto"}>
           <BottomNav
             activeTab={activeTab}
             isLoading={isActiveVideoLoading}
             onTabPress={handleTabPress}
           />
-        )}
+        </View>
 
         {/* Comment sheet — only mounted when active so it doesn't block touches */}
         {showComments && (
-          <CommentSheet onClose={handleCommentClose} onCloseStart={handleCommentCloseStart} />
+          <CommentSheet onClose={handleCommentClose} onCloseStart={handleCommentCloseStart} progress={sheetProgress} />
         )}
       </View>
     </View>

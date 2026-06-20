@@ -3,6 +3,7 @@ import {
   Animated,
   BackHandler,
   Dimensions,
+  Easing,
   FlatList,
   PanResponder,
   Platform,
@@ -18,7 +19,6 @@ import {
 } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
-import { BlurView } from "expo-blur";
 
 import { font } from "@/features/auth/components/AuthUI";
 import { CloseIcon, SendIcon, EmptyCommentIcon } from "./FeedIcons";
@@ -43,22 +43,29 @@ type ReplyType = "post author" | "comment by";
 type CommentSheetProps = {
   onClose: () => void;
   onCloseStart?: () => void;
+  // Shared 0->1 open progress, owned by FeedScreen. The sheet drives it (mount, drag, close)
+  // and the feed reads it so the post resizes LIVE with the sheet - connected, not on a timer.
+  progress: Animated.Value;
 };
-export function CommentSheet({ onClose, onCloseStart }: CommentSheetProps) {
+export function CommentSheet({ onClose, onCloseStart, progress }: CommentSheetProps) {
   const { bottom: bottomInset } = useSafeAreaInsets();
 
-  // Fixed sheet geometry: 70% of the INITIAL screen height, captured once via a ref.
+  // Fixed sheet geometry: 65% of the INITIAL screen height, captured once via a ref.
   // The sheet's TOP is pinned at TOP_OFFSET (the remaining 30%) and its bottom tracks
   // the window bottom, so it can never grow past the top of the screen. When the keyboard
   // shrinks the window (Android adjustResize), only the bottom rises — the top stays put.
   const initialHeight = useRef(Dimensions.get("window").height).current;
-  const SHEET_HEIGHT = Math.round(initialHeight * 0.68);
+  const SHEET_HEIGHT = Math.round(initialHeight * 0.65);
   const TOP_OFFSET = initialHeight - SHEET_HEIGHT;
 
-  // Slide-in / slide-out animation (matches the wallet sheets' pattern).
-  const anim = useRef(new Animated.Value(0)).current;
-  const dragY = useRef(new Animated.Value(0)).current;
+  // The sheet position is derived entirely from the shared `progress` value (0 = closed,
+  // 1 = fully open). Mount animates it 0->1, drag scrubs it live, close drives it ->0.
   const isClosing = useRef(false);
+  // During close we FREEZE the sheet's bottom at whatever keyboard height it had, so dismissing
+  // the keyboard doesn't thrash layout (bottom) while the native slide-down plays - that JS/layout
+  // collision was the "hang" at the bottom of the screen right before it finished closing.
+  const [closing, setClosing] = useState(false);
+  const frozenBottom = useRef(0);
 
   const [commentText, setCommentText] = useState("");
   const [isAdding, setIsAdding] = useState(false);
@@ -73,27 +80,37 @@ export function CommentSheet({ onClose, onCloseStart }: CommentSheetProps) {
   const keyboardVisible = useKeyboardState((s) => s.isVisible);
   const keyboardHeight = useKeyboardState((s) => s.height);
 
-  // Animate in on mount.
+  // Animate in on mount (ease-out so it settles softly without overshoot).
   useEffect(() => {
-    Animated.timing(anim, {
+    Animated.timing(progress, {
       toValue: 1,
       duration: 300,
+      easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
-  }, [anim]);
+  }, [progress]);
 
   const closeSheet = useCallback(() => {
     if (isClosing.current) return;
     isClosing.current = true;
+    // Snapshot the current keyboard lift and freeze it for the whole close, so the bottom
+    // style stays constant while we slide down (no layout thrash from the keyboard collapsing).
+    frozenBottom.current = keyboardHeight;
+    setClosing(true);
     onCloseStart?.();
     KeyboardController.dismiss();
     inputRef.current?.blur();
-    Animated.timing(anim, {
+
+    Animated.timing(progress, {
       toValue: 0,
-      duration: 250,
+      duration: 220,
+      easing: Easing.in(Easing.cubic),
       useNativeDriver: true,
-    }).start(() => onClose());
-  }, [anim, onClose, onCloseStart]);
+    }).start(() => {
+      progress.setValue(0);
+      onClose();
+    });
+  }, [progress, onClose, onCloseStart, keyboardHeight]);
 
 
   // Android hardware back closes the sheet.
@@ -120,33 +137,42 @@ export function CommentSheet({ onClose, onCloseStart }: CommentSheetProps) {
     setReplyName("Kelechi Obi");
     inputRef.current?.blur();
   }, [commentText]);
-  // Drag-to-close on the header only, so it never fights the list scroll.
+  // Drag-to-close on the header only, so it never fights the list scroll. As you drag down we
+  // scrub the shared `progress` live (1 at rest -> 0 when dragged a full sheet-height down), so
+  // the feed post grows back IN STEP with your finger - connected and flexible, not on a timer.
   const panResponder = useMemo(
     () =>
       PanResponder.create({
         onMoveShouldSetPanResponder: (_, g) => g.dy > 6 && Math.abs(g.dy) > Math.abs(g.dx),
         onPanResponderMove: (_, g) => {
-          if (g.dy > 0) dragY.setValue(g.dy);
+          if (g.dy > 0) {
+            const next = 1 - g.dy / SHEET_HEIGHT;
+            progress.setValue(next < 0 ? 0 : next);
+          }
         },
         onPanResponderRelease: (_, g) => {
           if (g.dy > 120 || g.vy > 0.8) {
             closeSheet();
           } else {
-            Animated.spring(dragY, {
-              toValue: 0,
+            // Spring back to fully-open; the feed follows the same value back up.
+            Animated.spring(progress, {
+              toValue: 1,
               useNativeDriver: true,
               bounciness: 0,
             }).start();
           }
         },
       }),
-    [closeSheet, dragY]
+    [closeSheet, progress, SHEET_HEIGHT]
   );
 
-  const translateY = Animated.add(
-    anim.interpolate({ inputRange: [0, 1], outputRange: [SHEET_HEIGHT, 0] }),
-    dragY
-  );
+  // Sheet slides on the SAME shared value: progress 1 -> translateY 0 (open), 0 -> initialHeight (off).
+  // Using initialHeight (full window height) instead of SHEET_HEIGHT guarantees that the sheet
+  // slides completely off-screen, preventing it from hanging above the bottom nav bar on Android.
+  const translateY = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [initialHeight, 0],
+  });
 
   const renderComment = useCallback(
     ({ item }: { item: Comment }) => (
@@ -174,18 +200,21 @@ export function CommentSheet({ onClose, onCloseStart }: CommentSheetProps) {
     [focusReply]
   );
 
-  const composerPadBottom = keyboardVisible ? 8 : Math.max(12, bottomInset);
+  // Adjust the composer's padding bottom dynamically by the keyboard height to push the text input
+  // above the keyboard. During closure, freeze the padding bottom at the snapshotted height.
+  // This keeps the sheet container's bottom at 0 permanently, allowing the white background to
+  // extend all the way to the bottom edge of the screen and preventing the feed from being seen behind.
+  const composerPadBottom = closing
+    ? (frozenBottom.current ? frozenBottom.current + 8 : Math.max(12, bottomInset))
+    : (keyboardVisible ? keyboardHeight + 8 : Math.max(12, bottomInset));
 
-  const SheetSurface = Platform.OS === "ios" ? BlurView : View;
-  const surfaceProps =
-    Platform.OS === "ios"
-      ? ({ intensity: 40, tint: "extraLight" } as const)
-      : {};
-  // Lift the sheet's bottom by the keyboard height on BOTH platforms so the composer rides
-  // on top of the keyboard. Under Android edge-to-edge (default in Expo SDK 54) the window no
-  // longer resizes for the keyboard, so we must lift manually here just like iOS. The height
-  // comes from react-native-keyboard-controller, which reports the real frame on both OSes.
-  const sheetBottom = keyboardHeight;
+  // Plain View surface on BOTH platforms - exactly like the smooth wallet sheet. Previously this
+  // was a BlurView on iOS, which had to re-composite the live blur of the (also-scaling) feed every
+  // frame as the sheet slid; the rounded header was the costliest part to recomposite, which is why
+  // it stuttered right where the title/X sit. The dim/blur behind the sheet is already owned by
+  // FeedScreen (isBlurActive), so the sheet's own blur was redundant as well as expensive.
+  const SheetSurface = View;
+  const surfaceProps = {};
 
   return (
     <View style={styles.overlay}>
@@ -195,13 +224,12 @@ export function CommentSheet({ onClose, onCloseStart }: CommentSheetProps) {
       <Animated.View
         style={[
           styles.sheet,
-          { top: TOP_OFFSET, bottom: sheetBottom, transform: [{ translateY }] },
+          { top: TOP_OFFSET, bottom: 0, transform: [{ translateY }] },
         ]}
       >
         <SheetSurface {...(surfaceProps as any)} style={styles.surface}>
           {/* Header — also the drag handle */}
           <View style={styles.header} {...panResponder.panHandlers}>
-            <View style={styles.grabber} />
             <View style={styles.headerRow}>
               <Text style={styles.title}>Comments</Text>
               <Pressable
@@ -300,7 +328,7 @@ const styles = StyleSheet.create({
   },
   surface: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.94)",
+    backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 35,
     borderTopRightRadius: 35,
     overflow: "hidden",
@@ -309,7 +337,7 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 6,
     paddingHorizontal: 18,
-    backgroundColor: "rgba(255, 255, 255, 0.96)",
+    backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 35,
     borderTopRightRadius: 35,
     zIndex: 5,
