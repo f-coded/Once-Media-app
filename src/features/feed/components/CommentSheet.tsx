@@ -129,13 +129,15 @@ type CommentSheetProps = {
 export function CommentSheet({ onClose, onCloseStart, progress }: CommentSheetProps) {
   const { bottom: bottomInset } = useSafeAreaInsets();
 
-  // Fixed sheet geometry: 65% of the INITIAL screen height, captured once via a ref.
-  // The sheet's TOP is pinned at TOP_OFFSET (the remaining 30%) and its bottom tracks
+  // Fixed sheet geometry: 68% of the INITIAL screen height, captured once via a ref.
+  // The sheet's TOP is pinned at TOP_OFFSET (the remaining 32%) and its bottom tracks
   // the window bottom, so it can never grow past the top of the screen. When the keyboard
   // shrinks the window (Android adjustResize), only the bottom rises — the top stays put.
   const initialHeight = useRef(Dimensions.get("window").height).current;
-  const SHEET_HEIGHT = Math.round(initialHeight * 0.65);
+  const SHEET_HEIGHT = Math.round(initialHeight * 0.68);
   const TOP_OFFSET = initialHeight - SHEET_HEIGHT;
+
+  const currentProgressVal = useRef(1); // track drag progress to scale closing animation duration
 
   // The sheet position is derived entirely from the shared `progress` value (0 = closed,
   // 1 = fully open). Mount animates it 0->1, drag scrubs it live, close drives it ->0.
@@ -197,13 +199,30 @@ export function CommentSheet({ onClose, onCloseStart, progress }: CommentSheetPr
     KeyboardController.dismiss();
     inputRef.current?.blur();
 
+    const remaining = currentProgressVal.current;
+
+    // If the user has already dragged the sheet nearly all the way down, skip the
+    // animation entirely and unmount instantly — no hang, no extra frames.
+    if (remaining <= 0.05) {
+      progress.setValue(0);
+      onClose();
+      return;
+    }
+
+    // Scale closing duration by the remaining distance to feel snappy and native.
+    const duration = Math.max(80, Math.round(remaining * 200));
+
     Animated.timing(progress, {
       toValue: 0,
-      duration: 220,
-      easing: Easing.in(Easing.cubic),
+      duration,
+      easing: Easing.in(Easing.quad), // accelerate offscreen — fast exit, no bottom decel
       useNativeDriver: true,
     }).start(() => {
       progress.setValue(0);
+      // Do NOT call setClosing(false) here. That would flip composerPadBottom from
+      // frozenBottom to 0 for one frame before unmount, causing a visible layout
+      // jump (the "hang" at the bottom edge). The component is about to unmount
+      // via onClose → setShowComments(false), so the state reset is unnecessary.
       onClose();
     });
   }, [progress, onClose, onCloseStart, keyboardHeight]);
@@ -285,12 +304,16 @@ export function CommentSheet({ onClose, onCloseStart, progress }: CommentSheetPr
         onMoveShouldSetPanResponder: (_, g) => g.dy > 6 && Math.abs(g.dy) > Math.abs(g.dx),
         onPanResponderMove: (_, g) => {
           if (g.dy > 0) {
-            const next = 1 - g.dy / SHEET_HEIGHT;
-            progress.setValue(next < 0 ? 0 : next);
+            // Multiply gesture displacement by 1.4 to make the drawer feel loose, light, and responsive
+            const next = 1 - (g.dy * 1.4) / SHEET_HEIGHT;
+            const clamped = Math.max(0, Math.min(1, next));
+            progress.setValue(clamped);
+            currentProgressVal.current = clamped;
           }
         },
         onPanResponderRelease: (_, g) => {
-          if (g.dy > 120 || g.vy > 0.8) {
+          // If dragged down past 15% (clamped progress < 0.85) or swiped down fast (velocity > 0.5), close it snappily.
+          if (currentProgressVal.current < 0.85 || g.vy > 0.5) {
             closeSheet();
           } else {
             // Spring back to fully-open; the feed follows the same value back up.
@@ -298,7 +321,9 @@ export function CommentSheet({ onClose, onCloseStart, progress }: CommentSheetPr
               toValue: 1,
               useNativeDriver: true,
               bounciness: 0,
-            }).start();
+            }).start(() => {
+              currentProgressVal.current = 1;
+            });
           }
         },
       }),

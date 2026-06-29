@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { View, Text, Pressable, Dimensions, StyleSheet } from "react-native";
+import { View, Text, Pressable, Dimensions, StyleSheet, Animated } from "react-native";
 import { useEvent } from "expo";
 import { Image } from "expo-image";
 import { useVideoPlayer, VideoView } from "expo-video";
@@ -79,16 +79,18 @@ type PostCardProps = {
   bottomInset?: number;
   isActive?: boolean;
   minimized?: boolean;
+  sheetProgress?: Animated.Value;
   onCommentPress?: () => void;
   onVideoLoadingChange?: (postId: string, isLoading: boolean) => void;
 };
 
-export function PostCard({
+export const PostCard = React.memo(function PostCard({
   post,
   height,
   bottomInset = 0,
   isActive = false,
   minimized = false,
+  sheetProgress,
   onCommentPress,
   onVideoLoadingChange,
 }: PostCardProps) {
@@ -102,6 +104,16 @@ export function PostCard({
   const [hasRenderedFrame, setHasRenderedFrame] = useState(false);
   const [mediaFit, setMediaFit] = useState<"cover" | "contain">("cover");
   const layout = post.layout ?? "vertical";
+
+  // Overlays (actions, captions, gradients) fade out as comment sheet opens (progress 0→1).
+  // On close, the fade-in is delayed (inputRange [0, 0.15, 1]) so the post card lands back
+  // to its normal full size first, then the overlays smoothly fade in.
+  const overlayOpacity = sheetProgress
+    ? sheetProgress.interpolate({
+        inputRange: [0, 0.15, 1],
+        outputRange: [1, 0, 0],
+      })
+    : 1;
 
   const player = useVideoPlayer(post.video || null, (player) => {
     player.loop = true;
@@ -245,7 +257,10 @@ export function PostCard({
       {/* Background Media — tappable for double-tap */}
       <Pressable onPress={handleTap} style={StyleSheet.absoluteFill}>
         {BLACK_POSTS ? (
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: "#000000" }]} />
+          <LinearGradient
+            colors={["#09072A", "#15127D", "#04040F"]}
+            style={StyleSheet.absoluteFill}
+          />
         ) : post.video ? (
           <>
             {!hasRenderedFrame && (
@@ -295,10 +310,12 @@ export function PostCard({
         )}
       </Pressable>
 
-      {/* Overlays (actions, caption, gradients, cues) — hidden while minimized so only the
-          post frame shrinks onto the comment sheet. */}
-      {!minimized && (
-        <>
+      {/* Overlays (actions, caption, gradients, cues) — fade out/in with the comment sheet
+          via sheetProgress-driven opacity on the native thread. */}
+      <Animated.View
+        style={[StyleSheet.absoluteFill, { opacity: overlayOpacity }]}
+        pointerEvents={minimized ? "none" : "box-none"}
+      >
       <HeartBurst visible={showHeart} onFinish={() => setShowHeart(false)} />
 
       {post.video && (isManuallyPaused || showPlaybackCue) && (
@@ -433,11 +450,10 @@ export function PostCard({
           </Pressable>
         </View>
       )}
-        </>
-      )}
+      </Animated.View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

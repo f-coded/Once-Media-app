@@ -160,6 +160,7 @@ export function FeedScreen({ onChatPress, onWalletPress }: { onChatPress?: () =>
   const [loadingPostId, setLoadingPostId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [showComments, setShowComments] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
   const [isBlurActive, setIsBlurActive] = useState(false);
 
   const activePost = posts.find((post) => post.id === activePostId);
@@ -191,18 +192,21 @@ export function FeedScreen({ onChatPress, onWalletPress }: { onChatPress?: () =>
 
   const handleCommentPress = useCallback(() => {
     setShowComments(true);
+    setIsMinimized(true);
     setIsBlurActive(true);
     StatusBar.setHidden(true, "slide");
     // The sheet animates sheetProgress 0->1 itself on mount; we don't drive it here.
   }, []);
 
   const handleCommentCloseStart = useCallback(() => {
+    setIsMinimized(false); // start expanding postcard and show overlays immediately!
     setIsBlurActive(false);
     StatusBar.setHidden(false, "slide");
   }, []);
 
   const handleCommentClose = useCallback(() => {
     setShowComments(false);
+    setIsMinimized(false);
     setIsBlurActive(false);
     StatusBar.setHidden(false, "slide");
   }, []);
@@ -247,12 +251,13 @@ export function FeedScreen({ onChatPress, onWalletPress }: { onChatPress?: () =>
         post={item}
         height={POST_HEIGHT}
         isActive={item.id === activePostId}
-        minimized={showComments}
+        minimized={isMinimized}
+        sheetProgress={sheetProgress}
         onCommentPress={handleCommentPress}
         onVideoLoadingChange={handleVideoLoadingChange}
       />
     </View>
-  ), [activePostId, showComments, handleCommentPress, handleVideoLoadingChange, POST_HEIGHT]);
+  ), [activePostId, isMinimized, sheetProgress, handleCommentPress, handleVideoLoadingChange, POST_HEIGHT]);
 
   return (
     <View style={styles.root}>
@@ -287,7 +292,8 @@ export function FeedScreen({ onChatPress, onWalletPress }: { onChatPress?: () =>
             data={posts}
             renderItem={renderPost}
             keyExtractor={(item) => item.id}
-            pagingEnabled
+            pagingEnabled={Platform.OS === "ios"}
+            disableIntervalMomentum={true}
             bounces
             alwaysBounceVertical
             overScrollMode="always"
@@ -295,6 +301,7 @@ export function FeedScreen({ onChatPress, onWalletPress }: { onChatPress?: () =>
             decelerationRate="fast"
             snapToInterval={POST_HEIGHT}
             snapToAlignment="start"
+            estimatedItemSize={POST_HEIGHT}
             onEndReached={handleEndReached}
             onEndReachedThreshold={0.8}
             onMomentumScrollEnd={handleScrollEnd}
