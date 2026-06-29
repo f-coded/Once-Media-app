@@ -331,11 +331,12 @@ export function CommentSheet({ onClose, onCloseStart, progress }: CommentSheetPr
   );
 
   // Sheet slides on the SAME shared value: progress 1 -> translateY 0 (open), 0 -> initialHeight (off).
-  // Using initialHeight (full window height) instead of SHEET_HEIGHT guarantees that the sheet
-  // slides completely off-screen, preventing it from hanging above the bottom nav bar on Android.
+  // Between 0.1 and 1.0 (the active drag range), it moves in perfect lockstep with the postcard
+  // to maintain a constant 6px gap. Below 0.1, it accelerates off-screen to initialHeight to be
+  // completely hidden below the bottom navigation bar.
   const translateY = progress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [initialHeight, 0],
+    inputRange: [0, 0.1, 1],
+    outputRange: [initialHeight, SHEET_HEIGHT * 0.9 + 6, 0],
   });
 
   const renderCommentItem = useCallback((comment: Comment, isReply = false) => {
