@@ -138,6 +138,9 @@ export function CommentSheet({ onClose, onCloseStart, progress }: CommentSheetPr
   const TOP_OFFSET = initialHeight - SHEET_HEIGHT;
 
   const currentProgressVal = useRef(1); // track drag progress to scale closing animation duration
+  const panStartProgress = useRef(1);    // track drag progress at the start of a gesture
+  const scrollOffset = useRef(0);        // track FlatList scroll position
+  const composerPadBottomRef = useRef(0);
 
   // The sheet position is derived entirely from the shared `progress` value (0 = closed,
   // 1 = fully open). Mount animates it 0->1, drag scrubs it live, close drives it ->0.
@@ -154,6 +157,9 @@ export function CommentSheet({ onClose, onCloseStart, progress }: CommentSheetPr
   const [replyName, setReplyName] = useState("Kelechi Obi");
   const inputRef = useRef<TextInput>(null);
 
+  const isAddingRef = useRef(false);
+  isAddingRef.current = isAdding;
+
   const [comments, setComments] = useState<Comment[]>(COMMENTS);
   const [expandedCommentIds, setExpandedCommentIds] = useState<Set<string>>(new Set());
   const [replyParentId, setReplyParentId] = useState<string | null>(null);
@@ -169,6 +175,10 @@ export function CommentSheet({ onClose, onCloseStart, progress }: CommentSheetPr
       }
       return next;
     });
+  }, []);
+
+  const handleScroll = useCallback((event: any) => {
+    scrollOffset.current = event.nativeEvent.contentOffset.y;
   }, []);
 
   // Keyboard visibility for the composer's bottom padding. react-native-keyboard-controller
@@ -226,6 +236,9 @@ export function CommentSheet({ onClose, onCloseStart, progress }: CommentSheetPr
       onClose();
     });
   }, [progress, onClose, onCloseStart, keyboardHeight]);
+
+  const closeSheetRef = useRef(closeSheet);
+  closeSheetRef.current = closeSheet;
 
 
   // Android hardware back closes the sheet.
@@ -295,28 +308,89 @@ export function CommentSheet({ onClose, onCloseStart, progress }: CommentSheetPr
     setReplyParentId(null);
     inputRef.current?.blur();
   }, [commentText, replyParentId, addReply]);
-  // Drag-to-close on the header only, so it never fights the list scroll. As you drag down we
-  // scrub the shared `progress` live (1 at rest -> 0 when dragged a full sheet-height down), so
-  // the feed post grows back IN STEP with your finger - connected and flexible, not on a timer.
+  // Drag-to-close handler enabled on the entire container, intelligently coordinate with scrolling.
   const panResponder = useMemo(
     () =>
       PanResponder.create({
-        onMoveShouldSetPanResponder: (_, g) => g.dy > 6 && Math.abs(g.dy) > Math.abs(g.dx),
-        onPanResponderMove: (_, g) => {
-          if (g.dy > 0) {
-            // Multiply gesture displacement by 1.4 to make the drawer feel loose, light, and responsive
-            const next = 1 - (g.dy * 1.4) / SHEET_HEIGHT;
-            const clamped = Math.max(0, Math.min(1, next));
-            progress.setValue(clamped);
-            currentProgressVal.current = clamped;
+        onMoveShouldSetPanResponderCapture: (e, g) => {
+          const dy = g.dy;
+          const dx = g.dx;
+          const isVertical = Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 2;
+
+          if (!isVertical) return false;
+
+          // If the sheet is already partially dragged down, capture all vertical gestures (both up and down)
+          if (currentProgressVal.current < 0.99) {
+            return true;
           }
+
+          // If fully open, only capture downward dragging
+          const isDraggingDown = dy > 0;
+          if (!isDraggingDown) return false;
+
+          const touchY = e.nativeEvent.pageY;
+
+          // 1. Header touch: always draggable down
+          const isHeaderTouch = touchY < TOP_OFFSET + 60;
+          if (isHeaderTouch) return true;
+
+          // 2. Composer touch: never draggable to avoid interfering with inputs/buttons
+          const composerTop = initialHeight - composerPadBottomRef.current - (isAddingRef.current ? 80 : 58);
+          const isComposerTouch = touchY > composerTop;
+          if (isComposerTouch) return false;
+
+          // 3. Body/List: only drag down if FlatList is scrolled to the top
+          return scrollOffset.current <= 0;
+        },
+        onMoveShouldSetPanResponder: (e, g) => {
+          const dy = g.dy;
+          const dx = g.dx;
+          const isVertical = Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 2;
+
+          if (!isVertical) return false;
+
+          if (currentProgressVal.current < 0.99) {
+            return true;
+          }
+
+          const isDraggingDown = dy > 0;
+          if (!isDraggingDown) return false;
+
+          const touchY = e.nativeEvent.pageY;
+          const isHeaderTouch = touchY < TOP_OFFSET + 60;
+          if (isHeaderTouch) return true;
+
+          const composerTop = initialHeight - composerPadBottomRef.current - (isAddingRef.current ? 80 : 58);
+          const isComposerTouch = touchY > composerTop;
+          if (isComposerTouch) return false;
+
+          return scrollOffset.current <= 0;
+        },
+        onPanResponderGrant: () => {
+          panStartProgress.current = currentProgressVal.current;
+        },
+        onPanResponderMove: (_, g) => {
+          const delta = (g.dy * 1.4) / SHEET_HEIGHT;
+          const next = panStartProgress.current - delta;
+          const clamped = Math.max(0, Math.min(1, next));
+          progress.setValue(clamped);
+          currentProgressVal.current = clamped;
         },
         onPanResponderRelease: (_, g) => {
-          // If dragged down past 15% (clamped progress < 0.85) or swiped down fast (velocity > 0.5), close it snappily.
-          if (currentProgressVal.current < 0.85 || g.vy > 0.5) {
-            closeSheet();
+          if (g.vy < -0.5) {
+            // Swipe up fast: spring back to fully-open
+            Animated.spring(progress, {
+              toValue: 1,
+              useNativeDriver: true,
+              bounciness: 0,
+            }).start(() => {
+              currentProgressVal.current = 1;
+            });
+          } else if (currentProgressVal.current < 0.85 || g.vy > 0.5) {
+            // Dragged down past 15% or swiped down fast: close
+            closeSheetRef.current();
           } else {
-            // Spring back to fully-open; the feed follows the same value back up.
+            // Otherwise spring back to fully-open
             Animated.spring(progress, {
               toValue: 1,
               useNativeDriver: true,
@@ -327,7 +401,7 @@ export function CommentSheet({ onClose, onCloseStart, progress }: CommentSheetPr
           }
         },
       }),
-    [closeSheet, progress, SHEET_HEIGHT]
+    [SHEET_HEIGHT, TOP_OFFSET, initialHeight, progress]
   );
 
   // Sheet slides on the SAME shared value: progress 1 -> translateY 0 (open), 0 -> initialHeight (off).
@@ -405,6 +479,8 @@ export function CommentSheet({ onClose, onCloseStart, progress }: CommentSheetPr
     ? (frozenBottom.current ? frozenBottom.current + 8 : Math.max(12, bottomInset))
     : (keyboardVisible ? keyboardHeight + 8 : Math.max(12, bottomInset));
 
+  composerPadBottomRef.current = composerPadBottom;
+
   // Dynamically calculate the offset needed to keep the replying state text clear of the blur/dim overlays
   const composerHeightOffset = isAdding ? 80 : 58;
 
@@ -426,10 +502,11 @@ export function CommentSheet({ onClose, onCloseStart, progress }: CommentSheetPr
           styles.sheet,
           { top: TOP_OFFSET, bottom: 0, transform: [{ translateY }] },
         ]}
+        {...panResponder.panHandlers}
       >
         <SheetSurface {...(surfaceProps as any)} style={styles.surface}>
-          {/* Header — also the drag handle */}
-          <View style={styles.header} {...panResponder.panHandlers}>
+          {/* Header */}
+          <View style={styles.header}>
             <View style={styles.headerRow}>
               <Text style={styles.title}>Comment</Text>
               <Pressable
@@ -450,6 +527,8 @@ export function CommentSheet({ onClose, onCloseStart, progress }: CommentSheetPr
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.scrollContent}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
           />
 
           {/* Empty state — pinned to a fixed offset from the sheet top (which is itself pinned at
