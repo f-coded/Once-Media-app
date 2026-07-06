@@ -33,6 +33,7 @@ import Reanimated, {
   useSharedValue,
   useAnimatedProps,
   withSpring,
+  type SharedValue,
 } from "react-native-reanimated";
 
 if (Platform.OS === "android") {
@@ -47,22 +48,29 @@ import { CloseIcon, EmptyCommentIcon } from "./FeedIcons";
 // ---------------------------------------------------------------------------
 // ElasticWave — mimics the Android 12 stretch-overscroll effect.
 // A translucent black bezier drip whose belly tracks the finger's X position.
-// Powered by Reanimated useAnimatedProps so the SVG `d` string updates on the
-// UI thread at 60fps with no JS bridge round-trips.
+// Sits BELOW the header row (topOffset), with a rounded U-shaped belly.
 // ---------------------------------------------------------------------------
 const AnimatedPath = Reanimated.createAnimatedComponent(Path);
 
 type ElasticWaveProps = {
   width: number;
   /** 0 = invisible, 1 = fully extended */
-  depth: Reanimated.SharedValue<number>;
+  depth: SharedValue<number>;
   /** Finger X position in absolute screen coords */
-  fingerX: Reanimated.SharedValue<number>;
+  fingerX: SharedValue<number>;
   /** How deep the drip grows at depth=1 (in px) */
   maxDepth?: number;
+  /** Vertical offset so the wave renders below the header title row, not over it */
+  topOffset?: number;
 };
 
-function ElasticWave({ width, depth, fingerX, maxDepth = 56 }: ElasticWaveProps) {
+function ElasticWave({
+  width,
+  depth,
+  fingerX,
+  maxDepth = 56,
+  topOffset = 0,
+}: ElasticWaveProps) {
   const animatedProps = useAnimatedProps(() => {
     const d = depth.value;
     if (d <= 0.01) {
@@ -73,25 +81,24 @@ function ElasticWave({ width, depth, fingerX, maxDepth = 56 }: ElasticWaveProps)
     // Clamp finger within safe bounds so the path never goes off-edge
     const cx = Math.max(width * 0.08, Math.min(width * 0.92, fingerX.value));
 
-    // How wide the "shoulders" of the drip are — narrows as depth increases for a
-    // more pointed tip at full extension, looser/flatter when barely bloomed
-    const spread = width * 0.32 * (1 - d * 0.25);
-    const shoulderY = amplitude * 0.48;
+    // Shoulders stay close to the top edge (small shoulderY) while the second
+    // control point sits near the tip height (amplitude) — this flattens the
+    // tangent at the belly so it reads as a rounded "U" instead of a pointed "V".
+    const spread = width * 0.34 * (1 - d * 0.2);
+    const shoulderY = amplitude * 0.12;
+    const controlY = amplitude * 0.96;
 
-    // Two cubic bezier arcs:
-    // 1. Right edge → belly tip (right shoulder as control point)
-    // 2. Belly tip → left edge  (left shoulder as control point)
     const pathD = [
       `M 0 0`,
       `L ${width} 0`,
-      `C ${width} ${shoulderY}, ${cx + spread} ${shoulderY}, ${cx} ${amplitude}`,
-      `C ${cx - spread} ${shoulderY}, 0 ${shoulderY}, 0 0`,
+      `C ${width} ${shoulderY}, ${cx + spread} ${controlY}, ${cx} ${amplitude}`,
+      `C ${cx - spread} ${controlY}, 0 ${shoulderY}, 0 0`,
       `Z`,
     ].join(" ");
 
-    // Opacity ramps up quickly then plateaus — feels like the surface is being
-    // pulled off rather than fading in uniformly
-    const opacity = Math.min(0.46, 0.1 + d * 0.48);
+    // Brighter / more visible than before — ramps up faster and reaches a
+    // higher ceiling so the stretch actually reads on screen.
+    const opacity = Math.min(0.62, 0.18 + d * 0.55);
     return { d: pathD, opacity };
   });
 
@@ -99,7 +106,7 @@ function ElasticWave({ width, depth, fingerX, maxDepth = 56 }: ElasticWaveProps)
     <Svg
       width={width}
       height={maxDepth + 8}
-      style={{ position: "absolute", top: 0, left: 0, zIndex: 4 }}
+      style={{ position: "absolute", top: topOffset, left: 0, zIndex: 4 }}
       pointerEvents="none"
     >
       <AnimatedPath animatedProps={animatedProps} fill="#000000" />
@@ -236,11 +243,14 @@ const LIST_TOP_THRESHOLD = 1;
 const BODY_PULL_DEAD_ZONE = 18;
 // Phase 2: bloom — wave grows 0→1 over the next N px
 const BODY_PULL_BLOOM_DISTANCE = 44;
-// Total pull before the whole sheet starts dragging down
+// Total pull before the whole sheet starts dragging down (only used once
+// hasStretchedOnce is true, on the "direct drag" pass)
 const BODY_SHEET_DRAG_START_DISTANCE = 80;
 const DRAG_SENSITIVITY = 1.4;
 const CLOSE_PROGRESS_THRESHOLD = 0.85;
 const CLOSE_VELOCITY_THRESHOLD = 500;
+// Header row height (paddingTop 8 + row height 30) — wave renders starting here
+const HEADER_CONTENT_HEIGHT = 38;
 
 type ReplyType = "post author" | "comment by";
 type SheetDragZone = "header" | "body" | "composer";
@@ -277,6 +287,12 @@ export function CommentSheet({ onClose, onCloseStart, progress }: CommentSheetPr
   const bodyPullPrimed = useRef(false);
   const bodyPullBaseTranslationY = useRef(0);
   const pastDeadZone = useRef(false);
+  // Two-stage pull cue: first pull-at-top only shows the stretch (no drag).
+  // Once released, this flips true so the NEXT pull drags immediately.
+  const hasStretchedOnce = useRef(false);
+  // Guards against the list's own momentum/deceleration fighting the pan
+  // gesture at the top edge, which is what caused the "shaky" feel.
+  const listMomentumActive = useRef(false);
 
   // Reanimated shared values for the elastic SVG wave
   const waveDepth = useSharedValue(0);   // 0 = flat, 1 = fully extended
@@ -298,6 +314,8 @@ export function CommentSheet({ onClose, onCloseStart, progress }: CommentSheetPr
   const [comments, setComments] = useState<Comment[]>(COMMENTS);
   const [expandedCommentIds, setExpandedCommentIds] = useState<Set<string>>(new Set());
   const [replyParentId, setReplyParentId] = useState<string | null>(null);
+  // Freezes the list so it can't shift/jitter while the sheet is being dragged
+  const [listScrollEnabled, setListScrollEnabled] = useState(true);
 
   const toggleReplies = useCallback((commentId: string) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -314,6 +332,14 @@ export function CommentSheet({ onClose, onCloseStart, progress }: CommentSheetPr
 
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     scrollOffset.current = Math.max(0, event.nativeEvent.contentOffset.y);
+  }, []);
+
+  const handleMomentumScrollBegin = useCallback(() => {
+    listMomentumActive.current = true;
+  }, []);
+
+  const handleMomentumScrollEnd = useCallback(() => {
+    listMomentumActive.current = false;
   }, []);
 
   const keyboardVisible = useKeyboardState((s) => s.isVisible);
@@ -440,49 +466,60 @@ export function CommentSheet({ onClose, onCloseStart, progress }: CommentSheetPr
           return;
         }
 
+        // The list may still be settling from a fling — ignore pulls until it's
+        // fully at rest so the gesture doesn't fight the scroll deceleration
+        // (this was the source of the shaky/jittery feel).
+        if (listMomentumActive.current) {
+          return;
+        }
+
         if (!bodyPullPrimed.current) {
           bodyPullPrimed.current = true;
           bodyPullBaseTranslationY.current = translationY;
           sheetDragStartProgress.current = currentProgressVal.current;
+          setListScrollEnabled(false);
         }
 
         const pullDistance = Math.max(0, translationY - bodyPullBaseTranslationY.current);
 
-        // Phase 1 — dead zone: silent, no visual yet
-        if (pullDistance < BODY_PULL_DEAD_ZONE) {
-          waveDepth.value = 0;
+        if (!hasStretchedOnce.current) {
+          // STAGE 1 — first pull at the top this session: hold the sheet's
+          // position and only show the stretch cue. Never drag the sheet,
+          // no matter how far the user pulls.
+          if (pullDistance < BODY_PULL_DEAD_ZONE) {
+            waveDepth.value = 0;
+            return;
+          }
+          pastDeadZone.current = true;
+          const bloomProgress = Math.min(
+            1,
+            (pullDistance - BODY_PULL_DEAD_ZONE) / BODY_PULL_BLOOM_DISTANCE
+          );
+          waveDepth.value = bloomProgress;
           return;
         }
 
-        // Phase 2 — bloom: wave grows 0→1
-        if (!pastDeadZone.current) {
-          pastDeadZone.current = true;
-        }
-        const bloomProgress = Math.min(
-          1,
-          (pullDistance - BODY_PULL_DEAD_ZONE) / BODY_PULL_BLOOM_DISTANCE
-        );
-        waveDepth.value = bloomProgress;
-
-        if (pullDistance < BODY_SHEET_DRAG_START_DISTANCE) return;
-
-        // Phase 3 — sheet drag kicks in
+        // STAGE 2 — user already saw the stretch cue once: drag the sheet
+        // immediately, no stretch shown this time.
         sheetDragActive.current = true;
         sheetDragStartProgress.current = currentProgressVal.current;
-        sheetDragStartTranslationY.current =
-          bodyPullBaseTranslationY.current + BODY_SHEET_DRAG_START_DISTANCE;
+        sheetDragStartTranslationY.current = bodyPullBaseTranslationY.current;
+        setListScrollEnabled(false);
       } else {
         resetBodyPullCue(false);
         sheetDragActive.current = true;
         sheetDragStartProgress.current = currentProgressVal.current;
         sheetDragStartTranslationY.current = translationY;
+        setListScrollEnabled(false);
       }
     }
 
-    applySheetDrag(
-      translationY - sheetDragStartTranslationY.current,
-      sheetDragStartProgress.current
-    );
+    if (sheetDragActive.current) {
+      applySheetDrag(
+        translationY - sheetDragStartTranslationY.current,
+        sheetDragStartProgress.current
+      );
+    }
   }, [applySheetDrag, getSheetDragZone, waveDepth, waveFingerX, resetBodyPullCue]);
 
   const handleSheetGestureStateChange = useCallback((event: PanGestureHandlerStateChangeEvent) => {
@@ -503,8 +540,16 @@ export function CommentSheet({ onClose, onCloseStart, progress }: CommentSheetPr
       (state === State.END || state === State.CANCELLED || state === State.FAILED)
     ) {
       const shouldFinishDrag = sheetDragActive.current;
+      // If this release was the first-ever stretch-only pull, unlock direct
+      // dragging for the next pull.
+      const wasFirstStretch = pastDeadZone.current && !hasStretchedOnce.current;
+      if (wasFirstStretch) {
+        hasStretchedOnce.current = true;
+      }
+
       sheetDragActive.current = false;
       resetBodyPullCue(true);
+      setListScrollEnabled(true);
 
       if (shouldFinishDrag) {
         finishSheetDrag(velocityY);
@@ -679,7 +724,7 @@ export function CommentSheet({ onClose, onCloseStart, progress }: CommentSheetPr
           ]}
         >
           <SheetSurface style={styles.surface}>
-            {/* Header — the ElasticWave SVG sits absolutely inside here */}
+            {/* Header */}
             <View style={styles.header}>
               <View style={styles.headerRow}>
                 <Text style={styles.title}>Comment</Text>
@@ -692,12 +737,14 @@ export function CommentSheet({ onClose, onCloseStart, progress }: CommentSheetPr
                 </Pressable>
               </View>
 
-              {/* The elastic bezier drip — belly follows thumb left/right */}
+              {/* The elastic bezier drip — sits BELOW the header row, belly
+                  follows thumb left/right */}
               <ElasticWave
                 width={SHEET_WIDTH}
                 depth={waveDepth}
                 fingerX={waveFingerX}
                 maxDepth={56}
+                topOffset={HEADER_CONTENT_HEIGHT}
               />
             </View>
 
@@ -709,9 +756,12 @@ export function CommentSheet({ onClose, onCloseStart, progress }: CommentSheetPr
               renderItem={({ item }) => renderCommentItem(item)}
               keyExtractor={(item: Comment) => item.id}
               showsVerticalScrollIndicator={false}
+              scrollEnabled={listScrollEnabled}
               keyboardShouldPersistTaps="handled"
               contentContainerStyle={styles.scrollContent}
               onScroll={handleScroll}
+              onMomentumScrollBegin={handleMomentumScrollBegin}
+              onMomentumScrollEnd={handleMomentumScrollEnd}
               scrollEventThrottle={16}
               bounces={false}
               alwaysBounceVertical={false}
