@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef } from "react";
 import {
   Animated,
+  LayoutChangeEvent,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Platform,
@@ -16,7 +17,6 @@ import { PostCard, PostData } from "@/features/feed/components/PostCard";
 import { FeedHeader } from "@/features/feed/components/FeedHeader";
 import { BottomNav, NAV_HEIGHT } from "@/shared/components/layout/BottomNav";
 import { CommentSheet } from "@/features/feed/components/CommentSheet";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 
 /* Local property images */
@@ -138,9 +138,9 @@ const MOCK_POSTS: PostData[] = [
 
 export function FeedScreen({ onChatPress, onWalletPress }: { onChatPress?: () => void; onWalletPress?: () => void }) {
   const { height: windowHeight } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
-  const [containerHeight, setContainerHeight] = useState(windowHeight);
-  const POST_HEIGHT = containerHeight - NAV_HEIGHT;
+  const [feedViewportHeight, setFeedViewportHeight] = useState(0);
+  const hasMeasuredFeed = feedViewportHeight > 0;
+  const POST_HEIGHT = Math.max(1, (hasMeasuredFeed ? feedViewportHeight : windowHeight) - NAV_HEIGHT);
 
   const [posts, setPosts] = useState(MOCK_POSTS);
   const [activeTab, setActiveTab] = useState<"home" | "market" | "chat" | "wallet">("home");
@@ -245,6 +245,14 @@ export function FeedScreen({ onChatPress, onWalletPress }: { onChatPress?: () =>
     });
   }, []);
 
+  const handleFeedLayout = useCallback((event: LayoutChangeEvent) => {
+    const nextHeight = Math.round(event.nativeEvent.layout.height);
+
+    setFeedViewportHeight((currentHeight) => (
+      Math.abs(currentHeight - nextHeight) > 1 ? nextHeight : currentHeight
+    ));
+  }, []);
+
   const renderPost = useCallback(({ item }: { item: PostData }) => (
     <View style={{ height: POST_HEIGHT }}>
       <PostCard
@@ -286,36 +294,37 @@ export function FeedScreen({ onChatPress, onWalletPress }: { onChatPress?: () =>
                 } as any)
               : null,
           ]}
-          onLayout={(e) => setContainerHeight(e.nativeEvent.layout.height)}
+          onLayout={handleFeedLayout}
         >
-          <FlashList
-            data={posts}
-            renderItem={renderPost}
-            keyExtractor={(item) => item.id}
-            pagingEnabled={Platform.OS === "ios"}
-            disableIntervalMomentum={true}
-            bounces
-            alwaysBounceVertical
-            overScrollMode="always"
-            showsVerticalScrollIndicator={false}
-            decelerationRate="fast"
-            snapToInterval={POST_HEIGHT}
-            snapToAlignment="start"
-            estimatedItemSize={POST_HEIGHT}
-            onEndReached={handleEndReached}
-            onEndReachedThreshold={0.8}
-            onMomentumScrollEnd={handleScrollEnd}
-            onScrollEndDrag={handleScrollEnd}
-            ListFooterComponent={<View style={{ height: NAV_HEIGHT }} />}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={handleRefresh}
-                tintColor="#1B17B3"
-                colors={["#1B17B3"]}
-              />
-            }
-          />
+          {hasMeasuredFeed && (
+            <FlashList
+              data={posts}
+              renderItem={renderPost}
+              keyExtractor={(item) => item.id}
+              pagingEnabled={Platform.OS === "ios"}
+              disableIntervalMomentum={true}
+              bounces
+              alwaysBounceVertical
+              overScrollMode="always"
+              showsVerticalScrollIndicator={false}
+              decelerationRate="fast"
+              snapToInterval={POST_HEIGHT}
+              snapToAlignment="start"
+              onEndReached={handleEndReached}
+              onEndReachedThreshold={0.8}
+              onMomentumScrollEnd={handleScrollEnd}
+              onScrollEndDrag={handleScrollEnd}
+              ListFooterComponent={<View style={{ height: NAV_HEIGHT }} />}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={handleRefresh}
+                  tintColor="#1B17B3"
+                  colors={["#1B17B3"]}
+                />
+              }
+            />
+          )}
 
           {/* iOS feed blur overlay — sits above the feed, below the sheet */}
           {isBlurActive && Platform.OS === "ios" && (
