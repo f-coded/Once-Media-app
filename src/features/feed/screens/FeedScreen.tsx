@@ -195,8 +195,16 @@ export function FeedScreen({ onChatPress, onWalletPress }: { onChatPress?: () =>
     setIsMinimized(true);
     setIsBlurActive(true);
     StatusBar.setHidden(true, "slide");
-    // The sheet animates sheetProgress 0->1 itself on mount; we don't drive it here.
-  }, []);
+    // Drive the open animation from HERE, in the same tick as the state above,
+    // instead of waiting for CommentSheet to mount and fire its own effect.
+    // That mount-lag was the "little bit of delay" before the post shrunk.
+    Animated.spring(sheetProgress, {
+      toValue: 1,
+      useNativeDriver: true,
+      bounciness: 0,
+      speed: 16,
+    }).start();
+  }, [sheetProgress]);
 
   const handleCommentCloseStart = useCallback(() => {
     setIsMinimized(false); // start expanding postcard and show overlays immediately!
@@ -360,9 +368,14 @@ export function FeedScreen({ onChatPress, onWalletPress }: { onChatPress?: () =>
         </View>
 
         {/* Comment sheet — only mounted when active so it doesn't block touches */}
-        {showComments && (
-          <CommentSheet onClose={handleCommentClose} onCloseStart={handleCommentCloseStart} progress={sheetProgress} />
-        )}
+        
+          <CommentSheet
+            visible={showComments}
+            onClose={handleCommentClose}
+            onCloseStart={handleCommentCloseStart}
+            progress={sheetProgress}
+          />
+     
       </View>
     </View>
   );

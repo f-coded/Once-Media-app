@@ -261,12 +261,28 @@ type SheetDragZone = "header" | "body" | "composer";
 type CommentSheetProps = {
   onClose: () => void;
   onCloseStart?: () => void;
-  // Shared 0→1 open progress, owned by FeedScreen. The sheet drives it (mount,
-  // drag, close) and the feed reads it so the post resizes LIVE with the sheet.
   progress: Animated.Value;
+  visible: boolean;
 };
 
-export function CommentSheet({ onClose, onCloseStart, progress }: CommentSheetProps) {
+export function CommentSheet({ onClose, onCloseStart, progress, visible }: CommentSheetProps) {
+
+  useEffect(() => {
+    const listenerId = progress.addListener(({ value }) => {
+      currentProgressVal.current = value;
+    });
+    return () => {
+      progress.removeListener(listenerId);
+    };
+  }, [progress]);
+
+  useEffect(() => {
+    if (visible) {
+      isClosing.current = false;
+      setClosing(false);
+    }
+  }, [visible]);
+  
   const { bottom: bottomInset } = useSafeAreaInsets();
 
   // Fixed sheet geometry: 68% of the INITIAL screen height, captured once via a ref.
@@ -345,15 +361,24 @@ export function CommentSheet({ onClose, onCloseStart, progress }: CommentSheetPr
   const keyboardVisible = useKeyboardState((s) => s.isVisible);
   const keyboardHeight = useKeyboardState((s) => s.height);
 
-  // Animate in on mount
-  useEffect(() => {
-    Animated.timing(progress, {
-      toValue: 1,
-      duration: 300,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
-  }, [progress]);
+  //Animate in on mount
+  // useEffect(() => {
+  //   Animated.timing(progress, {
+  //     toValue: 1,
+  //     duration: 300,
+  //     easing: Easing.out(Easing.cubic),
+  //     useNativeDriver: true,
+  //   }).start();
+  // }, [progress]);
+
+// NOTE: the open animation is no longer started here. FeedScreen fires it
+  // in the same tick it flips isMinimized/isBlurActive, so the post and the
+  // sheet move together with zero mount-lag between them.
+ 
+  // Keep currentProgressVal in sync with the REAL animated value at all times —
+  // FeedScreen now fires the open spring directly on the shared value, so this
+  // ref must listen rather than only be set from callbacks inside this file.
+  // Without this, closing/dragging mid-open used a stale ref and jumped.
 
   const closeSheet = useCallback(() => {
     if (isClosing.current) return;
@@ -366,6 +391,7 @@ export function CommentSheet({ onClose, onCloseStart, progress }: CommentSheetPr
 
     const remaining = currentProgressVal.current;
     if (remaining <= 0.05) {
+      if (!isClosing.current) return; // reopened before this finished — ignore stale close
       progress.setValue(0);
       onClose();
       return;
@@ -377,7 +403,8 @@ export function CommentSheet({ onClose, onCloseStart, progress }: CommentSheetPr
       duration,
       easing: Easing.in(Easing.quad),
       useNativeDriver: true,
-    }).start(() => {
+    }).start(({ finished }) => {
+      if (!finished || !isClosing.current) return;
       progress.setValue(0);
       onClose();
     });
@@ -558,14 +585,15 @@ export function CommentSheet({ onClose, onCloseStart, progress }: CommentSheetPr
   }, [finishSheetDrag, prepareSheetDrag, resetBodyPullCue]);
 
   // Android hardware back closes the sheet
-  useEffect(() => {
-    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
-      closeSheet();
-      return true;
-    });
-    return () => sub.remove();
-  }, [closeSheet]);
-
+useEffect(() => {
+  const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+    if (!visible) return false;
+    closeSheet();
+    return true;
+  });
+  return () => sub.remove();
+}, [closeSheet, visible]);
+  
   const focusReply = useCallback((type: ReplyType, name: string, parentId?: string) => {
     setReplyType(type);
     setReplyName(name);
@@ -706,7 +734,7 @@ export function CommentSheet({ onClose, onCloseStart, progress }: CommentSheetPr
   const SheetSurface = View;
 
   return (
-    <View style={styles.overlay}>
+    <View style={styles.overlay} pointerEvents={visible ? "auto" : "none"}>
       <Pressable style={StyleSheet.absoluteFill} onPress={closeSheet} />
 
       <PanGestureHandler
