@@ -269,13 +269,12 @@ export function FeedScreen({ onChatPress, onWalletPress }: { onChatPress?: () =>
         post={item}
         height={POST_HEIGHT}
         isActive={item.id === activePostId}
-        minimized={isMinimized}
         sheetProgress={sheetProgress}
         onCommentPress={handleCommentPress}
         onVideoLoadingChange={handleVideoLoadingChange}
       />
     </View>
-  ), [activePostId, isMinimized, sheetProgress, handleCommentPress, handleVideoLoadingChange, POST_HEIGHT]);
+  ), [activePostId, sheetProgress, handleCommentPress, handleVideoLoadingChange, POST_HEIGHT]);
 
   return (
     <View style={styles.root}>
