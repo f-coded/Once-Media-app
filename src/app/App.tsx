@@ -29,7 +29,7 @@ import { Platform, View, StyleSheet } from "react-native";
 
 if (Platform.OS === "android") {
   NavigationBar.setPositionAsync("absolute");
-  NavigationBar.setBackgroundColorAsync("#ffffff00"); // completely transparent
+  NavigationBar.setBackgroundColorAsync("#00000000"); // completely transparent
 }
 
 type Route =

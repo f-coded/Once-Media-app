@@ -17,6 +17,7 @@ import { PostCard, PostData } from "@/features/feed/components/PostCard";
 import { FeedHeader } from "@/features/feed/components/FeedHeader";
 import { BottomNav, NAV_HEIGHT } from "@/shared/components/layout/BottomNav";
 import { CommentSheet } from "@/features/feed/components/CommentSheet";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 
 /* Local property images */
@@ -138,6 +139,7 @@ const MOCK_POSTS: PostData[] = [
 
 export function FeedScreen({ onChatPress, onWalletPress }: { onChatPress?: () => void; onWalletPress?: () => void }) {
   const { height: windowHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const [feedViewportHeight, setFeedViewportHeight] = useState(0);
   const hasMeasuredFeed = feedViewportHeight > 0;
   const POST_HEIGHT = Math.max(1, (hasMeasuredFeed ? feedViewportHeight : windowHeight) - NAV_HEIGHT);
@@ -322,7 +324,7 @@ export function FeedScreen({ onChatPress, onWalletPress }: { onChatPress?: () =>
               onEndReachedThreshold={0.8}
               onMomentumScrollEnd={handleScrollEnd}
               onScrollEndDrag={handleScrollEnd}
-              ListFooterComponent={<View style={{ height: NAV_HEIGHT }} />}
+              ListFooterComponent={<View style={{ height: NAV_HEIGHT + insets.bottom }} />}
               refreshControl={
                 <RefreshControl
                   refreshing={refreshing}
@@ -359,7 +361,10 @@ export function FeedScreen({ onChatPress, onWalletPress }: { onChatPress?: () =>
         {/* Keep BottomNav MOUNTED always - unmounting it on open made it rebuild all four SVG
             icon sets at close-start, adding JS jank right as the sheet slid past it (the bottom
             "hang"). The sheet covers it while open; we just disable its touches then. */}
-        <View pointerEvents={isBlurActive ? "none" : "auto"}>
+        <View
+          pointerEvents={isBlurActive ? "none" : "auto"}
+          style={styles.bottomNavWrapper}
+        >
           <BottomNav
             activeTab={activeTab}
             isLoading={isActiveVideoLoading}
@@ -388,5 +393,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#0C0C0C",
+  },
+  bottomNavWrapper: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 20,
   },
 });
