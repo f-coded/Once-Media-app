@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  Modal,
   TextInput,
   Dimensions,
   Platform,
@@ -326,7 +325,7 @@ export function WithdrawModal({ visible, balance, onClose, onConfirmWithdrawal }
 
   const sheetTranslateY = anim.interpolate({
     inputRange: [0, 1],
-    outputRange: [SCREEN_HEIGHT, 0],
+    outputRange: [SCREEN_HEIGHT * 0.88, 0],
   });
 
   const sheetStyle = [
@@ -335,105 +334,95 @@ export function WithdrawModal({ visible, balance, onClose, onConfirmWithdrawal }
   ];
 
   return (
-    <>
-      <Modal
-        animationType="none"
-        transparent
-        visible={visible || renderModal}
-        onRequestClose={handleClose}
-        statusBarTranslucent
-      >
-        <View style={s.overlay}>
-          <Animated.View
-            style={[StyleSheet.absoluteFill, { opacity: backdropOpacity }]}
+     <View 
+      style={[StyleSheet.absoluteFillObject, s.modalRoot]} 
+      pointerEvents="box-none"
+    >
+    
+        <Animated.View style={[StyleSheet.absoluteFill, { opacity: backdropOpacity }]}>
+          {Platform.OS === "web" ? (
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.45)" }]} />
+          ) : (
+            <>
+              <BlurView
+                intensity={7}
+                tint="dark"
+                experimentalBlurMethod="dimezisBlurView"
+                style={StyleSheet.absoluteFill}
+              />
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0, 0, 0, 0.52)" }]} />
+            </>
+          )}
+          <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
+        </Animated.View>
+
+        <Animated.View style={[{ position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 999, elevation: 999 }, sheetStyle]}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            style={{ width: "100%" }}
           >
-            {Platform.OS === "web" ? (
-              <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.45)" }]} />
+            {currentView === "no_accounts" ? (
+              <NoAccountsView navigateTo={navigateTo} handleClose={handleClose} />
             ) : (
-              <>
-                <BlurView
-                  intensity={7}
-                  tint="dark"
-                  experimentalBlurMethod="dimezisBlurView"
-                  style={StyleSheet.absoluteFill}
-                />
-                <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0, 0, 0, 0.67)" }]} />
-              </>
+              <ScrollView
+                style={s.sheetScrollView}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={s.sheetScroll}
+                keyboardShouldPersistTaps="handled"
+              >
+                {currentView === "with_accounts" && (
+                  <WithAccountsView
+                    accounts={accounts}
+                    selectedAccountId={selectedAccountId}
+                    setSelectedAccountId={setSelectedAccountId}
+                    amount={amount}
+                    setAmount={setAmount}
+                    balance={balance}
+                    errorMessage={errorMessage}
+                    setErrorMessage={setErrorMessage}
+                    handleWithdrawFromAccount={handleWithdrawFromAccount}
+                    navigateTo={navigateTo}
+                    handleClose={handleClose}
+                    amountInputRef={amountInputRef}
+                    formatBalance={formatBalance}
+                  />
+                )}
+                {currentView === "add_account" && (
+                  <AddAccountView
+                    accounts={accounts}
+                    newBankName={newBankName}
+                    setNewBankName={setNewBankName}
+                    newAccountNumber={newAccountNumber}
+                    setNewAccountNumber={setNewAccountNumber}
+                    bankDropdownOpen={bankDropdownOpen}
+                    setBankDropdownOpen={setBankDropdownOpen}
+                    amount={amount}
+                    setAmount={setAmount}
+                    balance={balance}
+                    errorMessage={errorMessage}
+                    setErrorMessage={setErrorMessage}
+                    handleAddAccountAndWithdraw={handleAddAccountAndWithdraw}
+                    navigateTo={navigateTo}
+                    addAccNumberRef={addAccNumberRef}
+                    addAccAmountRef={addAccAmountRef}
+                    formatBalance={formatBalance}
+                  />
+                )}
+                {currentView === "manage_accounts" && (
+                  <ManageAccountsView
+                    accounts={accounts}
+                    handleSetDefault={handleSetDefault}
+                    handleDeleteAccount={handleDeleteAccount}
+                    navigateTo={navigateTo}
+                  />
+                )}
+              </ScrollView>
             )}
-            <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
-          </Animated.View>
-
-          <Animated.View style={sheetStyle}>
-            <KeyboardAvoidingView
-              behavior={Platform.OS === "ios" ? "padding" : undefined}
-              style={{ width: "100%" }}
-            >
-              {currentView === "no_accounts" ? (
-                <NoAccountsView navigateTo={navigateTo} handleClose={handleClose} />
-              ) : (
-                <ScrollView
-                  style={s.sheetScrollView}
-                  showsVerticalScrollIndicator={false}
-                  contentContainerStyle={s.sheetScroll}
-                  keyboardShouldPersistTaps="handled"
-                >
-                  {currentView === "with_accounts" && (
-                    <WithAccountsView
-                      accounts={accounts}
-                      selectedAccountId={selectedAccountId}
-                      setSelectedAccountId={setSelectedAccountId}
-                      amount={amount}
-                      setAmount={setAmount}
-                      balance={balance}
-                      errorMessage={errorMessage}
-                      setErrorMessage={setErrorMessage}
-                      handleWithdrawFromAccount={handleWithdrawFromAccount}
-                      navigateTo={navigateTo}
-                      handleClose={handleClose}
-                      amountInputRef={amountInputRef}
-                      formatBalance={formatBalance}
-                    />
-                  )}
-                  {currentView === "add_account" && (
-                    <AddAccountView
-                      accounts={accounts}
-                      newBankName={newBankName}
-                      setNewBankName={setNewBankName}
-                      newAccountNumber={newAccountNumber}
-                      setNewAccountNumber={setNewAccountNumber}
-                      bankDropdownOpen={bankDropdownOpen}
-                      setBankDropdownOpen={setBankDropdownOpen}
-                      amount={amount}
-                      setAmount={setAmount}
-                      balance={balance}
-                      errorMessage={errorMessage}
-                      setErrorMessage={setErrorMessage}
-                      handleAddAccountAndWithdraw={handleAddAccountAndWithdraw}
-                      navigateTo={navigateTo}
-                      addAccNumberRef={addAccNumberRef}
-                      addAccAmountRef={addAccAmountRef}
-                      formatBalance={formatBalance}
-                    />
-                  )}
-                  {currentView === "manage_accounts" && (
-                    <ManageAccountsView
-                      accounts={accounts}
-                      handleSetDefault={handleSetDefault}
-                      handleDeleteAccount={handleDeleteAccount}
-                      navigateTo={navigateTo}
-                    />
-                  )}
-                </ScrollView>
-              )}
-            </KeyboardAvoidingView>
-          </Animated.View>
-        </View>
-      </Modal>
-
-
-    </>
-  );
-}
+          </KeyboardAvoidingView>
+        </Animated.View>
+      </View>
+    );
+  }
 
 /* ══════════════════════════════════════════════════════════
    Extracted View Components (for performance & instant typing response)
@@ -861,6 +850,10 @@ const ManageAccountsView = React.memo(({
 
 const s = StyleSheet.create({
   /* ── Modal shell ── */
+ modalRoot: {
+  zIndex: 999,
+  elevation: 999,
+},
   overlay: {
     flex: 1,
     backgroundColor: "transparent",
