@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import Svg, { Path, Circle } from "react-native-svg";
 import { BlurView } from "expo-blur";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -26,13 +27,14 @@ export interface BankAccount {
   isDefault: boolean;
 }
 
-type ModalView = "no_accounts" | "with_accounts" | "add_account" | "manage_accounts";
+type ModalView = "no_accounts" | "with_accounts" | "add_account" | "manage_accounts" | "enter_pin" | "success";
 
 interface WithdrawModalProps {
   visible: boolean;
   balance: number;
   onClose: () => void;
   onConfirmWithdrawal: (amount: number, bankName: string, accountNumber: string) => void;
+  correctPin: string;
 }
 
 /* ── Inline SVG Icons ── */
@@ -41,6 +43,15 @@ function CloseIcon({ size = 20, color = "#0C0C0C" }: { size?: number; color?: st
   return (
     <Svg width={size} height={size} viewBox="0 0 18 18" fill="none">
       <Path d="M4.5 4.5L13.5 13.5M13.5 4.5L4.5 13.5" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function TickDoubleIcon({ size = 28, color = "#1B17B3" }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <Path d="M25.5459 7.7359C25.9194 8.78295 25.3956 9.49982 24.3815 10.206C23.5634 10.7757 22.5211 11.3929 21.4166 12.4482C20.3338 13.4827 19.2771 14.7287 18.338 15.9551C17.2 17.4412 16.1239 18.9934 15.1767 20.6097C14.8195 21.2219 14.1773 21.5924 13.4887 21.5832C12.8 21.5738 12.1674 21.1863 11.8256 20.5644C10.9521 18.9746 10.278 18.3468 9.96819 18.1213C9.10859 17.4956 8.1665 17.3874 8.1665 16.0224C8.1665 14.9055 9.03711 14.0002 10.111 14.0002C10.8796 14.031 11.5831 14.3602 12.1984 14.8081C12.5976 15.0987 13.0204 15.4829 13.4603 15.9888C13.9764 15.2261 14.5985 14.3462 15.2957 13.4356C16.3083 12.1133 17.5036 10.6947 18.7854 9.47001C20.0454 8.26615 21.5022 7.13927 23.0464 6.54346C24.0532 6.15498 25.1723 6.68884 25.5459 7.7359Z" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/>
+      <Path d="M5.17971 14.088C4.99486 14.0275 4.82778 13.9893 4.68144 13.9665C4.60844 13.955 4.54113 13.9475 4.47988 13.9428L4.31551 13.9363C3.22087 13.9363 2.3335 14.8493 2.3335 15.9755C2.3335 16.9947 3.06026 17.8392 4.0097 17.9905C4.0429 18.008 4.09676 18.0394 4.16991 18.0922C4.48569 18.3195 5.17278 18.9527 6.06317 20.5558C6.41149 21.183 7.05629 21.5737 7.7583 21.5832C8.23919 21.5896 8.69787 21.4161 9.05613 21.1078M17.5002 6.41663C15.9262 7.01746 14.4413 8.15384 13.157 9.36786C12.7085 9.79178 12.2705 10.2388 11.8467 10.6969" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/>
     </Svg>
   );
 }
@@ -64,7 +75,6 @@ function Buildings3Icon({ size = 28, color = "#0C0C0C" }: { size?: number; color
     </Svg>
   );
 }
-
 function InfoCircleIcon({ size = 18, color = "#1B17B3" }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 18 18" fill="none">
@@ -74,7 +84,6 @@ function InfoCircleIcon({ size = 18, color = "#1B17B3" }: { size?: number; color
     </Svg>
   );
 }
-
 function ChevronDownIcon({ size = 16, color = "#838383" }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
@@ -82,7 +91,6 @@ function ChevronDownIcon({ size = 16, color = "#838383" }: { size?: number; colo
     </Svg>
   );
 }
-
 function UserIcon({ size = 18, color = "#838383" }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 18 18" fill="none">
@@ -91,7 +99,6 @@ function UserIcon({ size = 18, color = "#838383" }: { size?: number; color?: str
     </Svg>
   );
 }
-
 function RadioOuter({ selected }: { selected: boolean }) {
   return (
     <View style={[s.radioOuter, selected && s.radioOuterSelected]}>
@@ -99,7 +106,6 @@ function RadioOuter({ selected }: { selected: boolean }) {
     </View>
   );
 }
-
 function PlusIcon({ size = 16, color = "#1B17B3" }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
@@ -107,7 +113,6 @@ function PlusIcon({ size = 16, color = "#1B17B3" }: { size?: number; color?: str
     </Svg>
   );
 }
-
 function SettingsIcon({ size = 20, color = "#1B17B3" }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
@@ -116,7 +121,6 @@ function SettingsIcon({ size = 20, color = "#1B17B3" }: { size?: number; color?:
     </Svg>
   );
 }
-
 function ThreeDotsIcon({ size = 16, color = "#838383" }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
@@ -155,12 +159,23 @@ function BankLogo({ bankName, size = 32, borderRadius }: { bankName: string; siz
    WithdrawModal — self-contained multi-state bottom sheet
    ══════════════════════════════════════════════════════════ */
 
-export function WithdrawModal({ visible, balance, onClose, onConfirmWithdrawal }: WithdrawModalProps) {
+export function WithdrawModal({ visible, balance, onClose, onConfirmWithdrawal, correctPin }: WithdrawModalProps) {
+  const insets = useSafeAreaInsets();
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [view, setView] = useState<ModalView>("no_accounts");
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [amount, setAmount] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+
+  const [pinInput, setPinInput] = useState("");
+  const [pinError, setPinError] = useState(false);
+  const tempWithdrawal = useRef<{
+    amount: number;
+    bankName: string;
+    accountNumber: string;
+    isNewAccount: boolean;
+    newAccountObj?: BankAccount;
+  } | null>(null);
 
   // Add-account form state
   const [newBankName, setNewBankName] = useState("");
@@ -206,6 +221,8 @@ export function WithdrawModal({ visible, balance, onClose, onConfirmWithdrawal }
     setNewBankName("");
     setNewAccountNumber("");
     setBankDropdownOpen(false);
+    setPinInput("");
+    setPinError(false);
     onClose();
   };
 
@@ -250,19 +267,23 @@ export function WithdrawModal({ visible, balance, onClose, onConfirmWithdrawal }
       accountNumber: newAccountNumber,
       isDefault: accounts.length === 0,
     };
-    const updatedAccounts = [...accounts, newAccount];
-    setAccounts(updatedAccounts);
-    setSelectedAccountId(newAccount.id);
 
-    // Execute withdrawal
-    onConfirmWithdrawal(amt, newBankName, newAccountNumber);
+    // Store in ref for confirmation after PIN check
+    tempWithdrawal.current = {
+      amount: amt,
+      bankName: newBankName,
+      accountNumber: newAccountNumber,
+      isNewAccount: true,
+      newAccountObj: newAccount,
+    };
 
-    // Reset form and go to with_accounts
     setNewBankName("");
     setNewAccountNumber("");
     setAmount("");
     setErrorMessage("");
-    setView("with_accounts");
+    setPinInput("");
+    setPinError(false);
+    setView("enter_pin");
   };
 
   /* ── Withdraw from existing account ── */
@@ -285,9 +306,60 @@ export function WithdrawModal({ visible, balance, onClose, onConfirmWithdrawal }
       return;
     }
 
-    onConfirmWithdrawal(amt, selectedAccount.bankName, selectedAccount.accountNumber);
+    // Store in ref for confirmation after PIN check
+    tempWithdrawal.current = {
+      amount: amt,
+      bankName: selectedAccount.bankName,
+      accountNumber: selectedAccount.accountNumber,
+      isNewAccount: false,
+    };
+
     setAmount("");
     setErrorMessage("");
+    setPinInput("");
+    setPinError(false);
+    setView("enter_pin");
+  };
+
+  /* ── PIN Keypress and confirm handlers ── */
+  const handlePinKeyPress = (val: string) => {
+    setPinError(false);
+    if (val === "backspace") {
+      setPinInput((prev) => prev.slice(0, -1));
+    } else {
+      if (pinInput.length < 4) {
+        setPinInput((prev) => prev + val);
+      }
+    }
+  };
+
+  const handlePinConfirm = () => {
+    if (pinInput.length < 4) {
+      setPinError(true);
+      return;
+    }
+
+    if (pinInput === correctPin) {
+      if (tempWithdrawal.current) {
+        const { amount: amt, bankName, accountNumber, isNewAccount, newAccountObj } = tempWithdrawal.current;
+        if (isNewAccount && newAccountObj) {
+          // Commit the new account creation to our accounts list
+          setAccounts((prev) => [...prev, newAccountObj]);
+          setSelectedAccountId(newAccountObj.id);
+        }
+        onConfirmWithdrawal(amt, bankName, accountNumber);
+      }
+      setPinInput("");
+      setPinError(false);
+      setView("success");
+    } else {
+      setPinError(true);
+      setPinInput("");
+    }
+  };
+
+  const handleSuccessDone = () => {
+    handleClose();
   };
 
   /* ── Manage accounts helpers ── */
@@ -328,8 +400,15 @@ export function WithdrawModal({ visible, balance, onClose, onConfirmWithdrawal }
     outputRange: [SCREEN_HEIGHT * 0.88, 0],
   });
 
+  const isCompactSheet = currentView === "no_accounts" || currentView === "success";
+  const isPinSheet = currentView === "enter_pin";
   const sheetStyle = [
-    currentView === "no_accounts" ? s.noAccountsSheet : s.sheet,
+    isPinSheet 
+      ? [s.pinSheet, { height: 492 + insets.bottom, paddingBottom: insets.bottom }] 
+      : [
+          isCompactSheet ? s.noAccountsSheet : s.sheet,
+          { paddingBottom: Math.max(16, insets.bottom) }
+        ],
     { transform: [{ translateY: sheetTranslateY }] }
   ];
 
@@ -345,12 +424,12 @@ export function WithdrawModal({ visible, balance, onClose, onConfirmWithdrawal }
           ) : (
             <>
               <BlurView
-                intensity={7}
+                intensity={3}
                 tint="dark"
                 experimentalBlurMethod="dimezisBlurView"
                 style={StyleSheet.absoluteFill}
               />
-              <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0, 0, 0, 0.52)" }]} />
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0, 0, 0, 0.55)" }]} />
             </>
           )}
           <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
@@ -361,9 +440,25 @@ export function WithdrawModal({ visible, balance, onClose, onConfirmWithdrawal }
             behavior={Platform.OS === "ios" ? "padding" : undefined}
             style={{ width: "100%" }}
           >
-            {currentView === "no_accounts" ? (
+            {currentView === "no_accounts" && (
               <NoAccountsView navigateTo={navigateTo} handleClose={handleClose} />
-            ) : (
+            )}
+            {currentView === "enter_pin" && (
+              <EnterPinView
+                pin={pinInput}
+                pinError={pinError}
+                onKeyPress={handlePinKeyPress}
+                onConfirm={handlePinConfirm}
+                handleClose={handleClose}
+              />
+            )}
+            {currentView === "success" && (
+              <WithdrawalSuccessView
+                onDone={handleSuccessDone}
+                handleClose={handleClose}
+              />
+            )}
+            {(currentView === "with_accounts" || currentView === "add_account" || currentView === "manage_accounts") && (
               <ScrollView
                 style={s.sheetScrollView}
                 showsVerticalScrollIndicator={false}
@@ -844,39 +939,124 @@ const ManageAccountsView = React.memo(({
   );
 });
 
+/* ── Enter PIN View (Bottom Sheet with custom numpad) ── */
+
+interface EnterPinViewProps {
+  pin: string;
+  pinError: boolean;
+  onKeyPress: (val: string) => void;
+  onConfirm: () => void;
+  handleClose: () => void;
+}
+
+function BackspaceIcon({ size = 22, color = "#0C0C0C" }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M15 9L9 15M9 9L15 15" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+      <Path d="M7.686 2.792A2 2 0 0 1 9.172 2.1H19.5A2.5 2.5 0 0 1 22 4.6v14.8a2.5 2.5 0 0 1-2.5 2.5H9.172a2 2 0 0 1-1.486-.664l-5.32-5.936a2.5 2.5 0 0 1 0-3.364l5.32-5.344Z" stroke={color} strokeWidth="1.5" />
+    </Svg>
+  );
+}
+
+const EnterPinView = React.memo(({ pin, pinError, onKeyPress, onConfirm, handleClose }: EnterPinViewProps) => {
+  return (
+    <View style={{ position: "relative", width: "100%"}}>
+      <View style={s.content}>
+        <Text style={s.title}>Enter Pin</Text>
+
+        <View style={s.nameImageContainer}>
+          {[0, 1, 2, 3].map((i) => {
+            const filled = i < pin.length;
+            return (
+              <View key={i} style={s.pinSlot}>
+                <Text style={s.pinSlotText}>{filled ? "*" : " "}</Text>
+              </View>
+            );
+          })}
+        </View>
+
+        {pinError && <Text style={s.pinErrorText}>Pin incorrect</Text>}
+
+        <View style={s.keypad}>
+          <View style={s.row}>
+            {["1", "2", "3"].map((item) => (
+              <TouchableOpacity key={item} style={s.key} activeOpacity={0.7} onPress={() => onKeyPress(item)}>
+                <Text style={s.keyLabel}>{item}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={s.row}>
+            {["4", "5", "6"].map((item) => (
+              <TouchableOpacity key={item} style={s.key} activeOpacity={0.7} onPress={() => onKeyPress(item)}>
+                <Text style={s.keyLabel}>{item}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={s.row}>
+            {["7", "8", "9"].map((item) => (
+              <TouchableOpacity key={item} style={s.key} activeOpacity={0.7} onPress={() => onKeyPress(item)}>
+                <Text style={s.keyLabel}>{item}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={s.row}>
+            <TouchableOpacity style={s.key} activeOpacity={0.7} onPress={() => onKeyPress("0")}>
+              <Text style={s.keyLabel}>0</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={s.key} activeOpacity={0.7} onPress={() => onKeyPress("backspace")}>
+              <BackspaceIcon size={22} color="#0C0C0C" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <TouchableOpacity style={s.confirmButton} activeOpacity={0.85} onPress={onConfirm}>
+          <Text style={s.confirmLabel}>Confirm</Text>
+        </TouchableOpacity>
+      </View>
+
+      <Pressable style={s.closeButton} onPress={handleClose} hitSlop={12}>
+        <CloseIcon size={24} color="#0C0C0C" />
+      </Pressable>
+    </View>
+  );
+});
+
+/* ── Withdrawal Success View ── */
+
+interface WithdrawalSuccessViewProps {
+  onDone: () => void;
+  handleClose: () => void;
+}
+
+const WithdrawalSuccessView = React.memo(({ onDone, handleClose }: WithdrawalSuccessViewProps) => (
+  <View style={s.successContainer}>
+    <Pressable style={s.successCloseBtn} onPress={handleClose} hitSlop={12}>
+      <CloseIcon size={24} color="#4A4A4A" />
+    </Pressable>
+
+    <View style={s.successBody}>
+      <View style={s.successIconCircle}>
+        <TickDoubleIcon size={28} color="#1B17B3" />
+      </View>
+      <View style={s.successTextBlock}>
+        <Text style={s.successTitle}>Withdrawal Successfully!</Text>
+        <Text style={s.successSubtitle}>
+          Your request is being processed and the funds should reflect in your account shortly.
+        </Text>
+      </View>
+    </View>
+
+    <TouchableOpacity style={s.successDoneBtn} activeOpacity={0.85} onPress={onDone}>
+      <Text style={s.successDoneBtnText}>Done</Text>
+    </TouchableOpacity>
+  </View>
+));
+
 /* ══════════════════════════════════════════════════════════
    STYLES
    ══════════════════════════════════════════════════════════ */
 
 const s = StyleSheet.create({
-  /* ── Modal shell ── */
- modalRoot: {
-  zIndex: 999,
-  elevation: 999,
-},
-  overlay: {
-    flex: 1,
-    backgroundColor: "transparent",
-    justifyContent: "flex-end",
-  },
-  sheet: {
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    paddingTop: 15,
-    maxHeight: SCREEN_HEIGHT * 0.88,
-  },
-  sheetScrollView: {
-    flexShrink: 1,
-  },
-  noAccountsSheet: {
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    paddingTop: 15,
-    paddingBottom: Platform.OS === "ios" ? 30 : 14,
-    paddingHorizontal: 18,
-  },
   sheetScroll: {
     paddingHorizontal: 18,
     paddingBottom: Platform.OS === "ios" ? 30 : 14,
@@ -914,9 +1094,9 @@ const s = StyleSheet.create({
   selectLabel: {
     fontFamily: "Ubuntu_400Regular",
     fontSize: 12,
-    lineHeight: 15,
+    lineHeight: 16,
     color: "#838383",
-    letterSpacing: -0.24,
+    letterSpacing: -0.28,
   },
   manageLinkRow: {
     flexDirection: "row",
@@ -1263,7 +1443,7 @@ const s = StyleSheet.create({
     color: "#1B17B3",
   },
 
-  /* ── Add Account View (Figma-matched) ── */
+  /* ── Add Account View ── */
   addAccContent: {
     gap: 18, 
   },
@@ -1411,7 +1591,7 @@ const s = StyleSheet.create({
     letterSpacing: -0.28,
     color: "#FFFFFF",
   },
-  /* ── Active accounts list (separate cards matching Figma) ── */
+  /* ── Active accounts list ── */
   activeAccountCard: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1503,5 +1683,226 @@ const s = StyleSheet.create({
   },
   popoverItemDelete: {
     color: "#FF3B3B",
+  },
+
+  /* ── Enter PIN Sheet ── */
+  pinSheet: {
+    backgroundColor: "#ffffff",
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    height: 492,
+    width: "100%",
+  },
+  content: {
+    alignItems: "center",
+    display: "flex",
+    flexDirection: "column",
+    gap: 16,
+    paddingHorizontal: 20,
+    paddingTop: 30,
+    width: "100%",
+  },
+  title: {
+    color: "#0C0C0C",
+    fontFamily: "Ubuntu_700Bold",
+    fontSize: 16,
+    fontWeight: "700",
+    letterSpacing: -0.32,
+    lineHeight: 21.6,
+    position: "relative",
+  },
+  nameImageContainer: {
+    height: 56,
+    width: 196,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 14,
+    borderWidth: 1.2,
+    borderColor: "#efefef",
+    borderRadius: 20,
+    backgroundColor: "#fcfcfcdc",
+    gap: 8,
+  },
+  pinSlot: {
+    backgroundColor: "#ffffff",
+    borderWidth: .5,
+    borderColor: "#efefef",
+    borderRadius: 12,
+    width: 36,
+    height: 36,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  pinSlotText: {
+    fontFamily: "Ubuntu_700Bold",
+    fontSize: 22,
+    color: "#0C0C0C",
+  },
+  pinErrorText: {
+    fontFamily: "Ubuntu_400Regular",
+    fontSize: 13,
+    color: "#FF3B30",
+    textAlign: "center",
+    marginTop: -4,
+    marginBottom: -4,
+  },
+  keypad: {
+    alignItems: "stretch",
+    backgroundColor: "#fcfcfc",
+    borderWidth: 0.5,
+    borderColor: "#efefef",
+    borderRadius: 30,
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+    padding: 8,
+    position: "relative",
+    width: "100%",
+  },
+  row: {
+    alignItems: "flex-start",
+    display: "flex",
+    flexDirection: "row",
+    gap: 8,
+    position: "relative",
+    width: "100%",
+  },
+  key: {
+    alignItems: "center",
+    backgroundColor: "#ffffff",
+    borderWidth: 0.5,
+    borderColor: "#efefef",
+    borderRadius: 20,
+    display: "flex",
+    flex: 1,
+    height: 56,
+    justifyContent: "center",
+    position: "relative",
+  },
+  keyLabel: {
+    color: "#0C0C0C",
+    fontFamily: "Ubuntu_700Bold",
+    fontSize: 16,
+    fontWeight: "700",
+    letterSpacing: -0.32,
+    lineHeight: 21.6,
+  },
+  confirmButton: {
+    alignItems: "center",
+    alignSelf: "stretch",
+    backgroundColor: "#1B17B3",
+    borderRadius: 22,
+    display: "flex",
+    height: 56,
+    justifyContent: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    position: "relative",
+    width: "100%",
+  },
+  confirmLabel: {
+    color: "#ffffff",
+    fontFamily: "Ubuntu_400Regular",
+    fontSize: 14,
+    fontWeight: "400",
+    letterSpacing: -0.28,
+  },
+  closeButton: {
+    display: "flex",
+    height: 24,
+    position: "absolute",
+    right: 20,
+    top: 20,
+    width: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  /* ── Modal shell ── */
+  modalRoot: {
+    zIndex: 999,
+    elevation: 999,
+  },
+  overlay: {
+    flex: 1,
+    backgroundColor: "transparent",
+    justifyContent: "flex-end",
+  },
+  sheet: {
+    backgroundColor: "#FCFCFC",
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingTop: 15,
+    maxHeight: SCREEN_HEIGHT * 0.88,
+  },
+  sheetScrollView: {
+    flexShrink: 1,
+  },
+  noAccountsSheet: {
+    backgroundColor: "#FCFCFC",
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingTop: 20,
+    paddingBottom: Platform.OS === "ios" ? 30 : 20,
+    paddingHorizontal: 18,
+  }, 
+
+  /* ── Withdrawal Success ── */
+  successContainer: {
+      alignItems: "center",
+    gap: 20,
+  },
+  successCloseBtn: {
+    position: "absolute",
+    top:  0,
+    right: 0,
+    zIndex: 10,
+  },
+  successBody: {
+    alignItems: "center",
+    gap: 11,
+  },
+  successTextBlock: {
+    alignItems: "center",
+    gap: 7,
+  },
+  successIconCircle: {
+    width: 45,
+    height: 45,
+    borderRadius: 60,
+    backgroundColor: "#E7F1FF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  successTitle: {
+    fontFamily: "Ubuntu_500Medium",
+    fontSize: 18,
+    letterSpacing: -0.36,
+    color: "#262525",
+    textAlign: "center",
+  },
+  successSubtitle: {
+    fontFamily: "Ubuntu_400Regular",
+    fontSize: 15,
+    lineHeight: 21,
+    letterSpacing: -0.3,
+    color: "#838383",
+    textAlign: "center",
+    width: 316,
+  },
+  successDoneBtn: {
+    width: "100%",
+    height: 50,
+    borderRadius: 30,
+    backgroundColor: "#1B17B3",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  successDoneBtnText: {
+    fontFamily: "Ubuntu_400Regular",
+    fontSize: 16,
+    color: "#FFFFFF",
+    letterSpacing: -0.32,
   },
 });

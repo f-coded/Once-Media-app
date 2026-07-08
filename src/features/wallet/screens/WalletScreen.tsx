@@ -50,6 +50,7 @@ export function WalletScreen({ onTabPress }: WalletScreenProps) {
   const [withdrawModalVisible, setWithdrawModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [hasPin, setHasPin] = useState(false);
+  const [userPin, setUserPin] = useState("1234");
   const [pinFlowVisible, setPinFlowVisible] = useState(false);
 
   /* ─── Balance Counter Anim ─── */
@@ -105,8 +106,9 @@ export function WalletScreen({ onTabPress }: WalletScreenProps) {
     }
   };
 
-  const handlePinCreated = () => {
+  const handlePinCreated = (pin: string) => {
     setHasPin(true);
+    setUserPin(pin);
     setPinFlowVisible(false);
     // Auto-open withdraw modal after setup for premium UX
     setWithdrawModalVisible(true);
@@ -196,6 +198,7 @@ export function WalletScreen({ onTabPress }: WalletScreenProps) {
         balance={balance}
         onClose={() => setWithdrawModalVisible(false)}
         onConfirmWithdrawal={handleConfirmWithdrawal}
+        correctPin={userPin}
       />
 
       {/* Withdrawal PIN flow */}

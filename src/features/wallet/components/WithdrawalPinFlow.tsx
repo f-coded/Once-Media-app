@@ -23,7 +23,7 @@ type PinStep = "prompt" | "create" | "confirm" | "success";
 interface WithdrawalPinFlowProps {
   visible: boolean;
   onClose: () => void;
-  onPinCreated: () => void;
+  onPinCreated: (pin: string) => void;
 }
 
 /* ── Inline SVG Icons ── */
@@ -178,7 +178,7 @@ export function WithdrawalPinFlow({ visible, onClose, onPinCreated }: Withdrawal
   };
 
   const handleDone = () => {
-    onPinCreated();
+    onPinCreated(createPin);
     onClose();
   };
 
@@ -206,12 +206,12 @@ return (
           ) : (
             <>
               <BlurView
-                intensity={7} 
+                intensity={2} 
                 tint="dark"
                 experimentalBlurMethod="dimezisBlurView"
                 style={StyleSheet.absoluteFill}
               />
-              <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0, 0, 0, 0.67)" }]} />
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0, 0, 0, 0.55)" }]} />
             </>
           )}
           {isBottomSheet && (
