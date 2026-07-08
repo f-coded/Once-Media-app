@@ -44,14 +44,22 @@ function BackArrowIcon({ size = 24, color = "#363636" }: { size?: number; color?
   );
 }
 
-function LockGridIcon({ size = 28, color = "#1B17B3" }: { size?: number; color?: string }) {
+function PasswordIcon({ size = 28, color = "#1B17B3" }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 28 28" fill="none">
-      <Rect x="3" y="3" width="8" height="8" rx="2" stroke={color} strokeWidth="1.5" />
-      <Rect x="17" y="3" width="8" height="8" rx="2" stroke={color} strokeWidth="1.5" />
-      <Rect x="3" y="17" width="8" height="8" rx="2" stroke={color} strokeWidth="1.5" />
-      <Circle cx="21" cy="21" r="3" stroke={color} strokeWidth="1.5" />
-      <Circle cx="21" cy="21" r="1" fill={color} />
+      <Path d="M25.6667 14C25.6667 9.60018 25.6667 7.4003 24.2999 6.03346C22.9331 4.66663 20.7332 4.66663 16.3334 4.66663H11.6667C7.26697 4.66663 5.06709 4.66663 3.70025 6.03346C2.33342 7.4003 2.33342 9.60018 2.33342 14C2.33342 18.3997 2.33342 20.5996 3.70025 21.9665C5.06709 23.3333 7.26697 23.3333 11.6667 23.3333H16.3334C20.7332 23.3333 22.9331 23.3333 24.2999 21.9665C25.6667 20.5996 25.6667 18.3997 25.6667 14Z" stroke={color} strokeWidth="1.75"/>
+      <Path d="M14.0001 11.6666V16.3333M16.0212 12.8333L11.9798 15.1666M11.98 12.8333L16.0215 15.1666" stroke={color} strokeWidth="1.75" strokeLinecap="round"/>
+      <Path d="M20.1456 11.6666V16.3333M22.1667 12.8333L18.1253 15.1666M18.1255 12.8333L22.167 15.1666" stroke={color} strokeWidth="1.75" strokeLinecap="round"/>
+      <Path d="M7.85384 11.6666V16.3333M9.875 12.8333L5.83355 15.1666M5.83382 12.8333L9.87528 15.1666" stroke={color} strokeWidth="1.75" strokeLinecap="round"/>
+    </Svg>
+  );
+}
+
+function TickDoubleIcon({ size = 28, color = "#1B17B3" }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <Path d="M25.5459 7.7359C25.9194 8.78295 25.3956 9.49982 24.3815 10.206C23.5634 10.7757 22.5211 11.3929 21.4166 12.4482C20.3338 13.4827 19.2771 14.7287 18.338 15.9551C17.2 17.4412 16.1239 18.9934 15.1767 20.6097C14.8195 21.2219 14.1773 21.5924 13.4887 21.5832C12.8 21.5738 12.1674 21.1863 11.8256 20.5644C10.9521 18.9746 10.278 18.3468 9.96819 18.1213C9.10859 17.4956 8.1665 17.3874 8.1665 16.0224C8.1665 14.9055 9.03711 14.0002 10.111 14.0002C10.8796 14.031 11.5831 14.3602 12.1984 14.8081C12.5976 15.0987 13.0204 15.4829 13.4603 15.9888C13.9764 15.2261 14.5985 14.3462 15.2957 13.4356C16.3083 12.1133 17.5036 10.6947 18.7854 9.47001C20.0454 8.26615 21.5022 7.13927 23.0464 6.54346C24.0532 6.15498 25.1723 6.68884 25.5459 7.7359Z" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/>
+      <Path d="M5.17971 14.088C4.99486 14.0275 4.82778 13.9893 4.68144 13.9665C4.60844 13.955 4.54113 13.9475 4.47988 13.9428L4.31551 13.9363C3.22087 13.9363 2.3335 14.8493 2.3335 15.9755C2.3335 16.9947 3.06026 17.8392 4.0097 17.9905C4.0429 18.008 4.09676 18.0394 4.16991 18.0922C4.48569 18.3195 5.17278 18.9527 6.06317 20.5558C6.41149 21.183 7.05629 21.5737 7.7583 21.5832C8.23919 21.5896 8.69787 21.4161 9.05613 21.1078M17.5002 6.41663C15.9262 7.01746 14.4413 8.15384 13.157 9.36786C12.7085 9.79178 12.2705 10.2388 11.8467 10.6969" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/>
     </Svg>
   );
 }
@@ -188,14 +196,8 @@ export function WithdrawalPinFlow({ visible, onClose, onPinCreated }: Withdrawal
 
   const isBottomSheet = step === "prompt" || step === "success";
 
-  return (
-    <Modal
-      animationType="none"
-      transparent
-      visible={visible || renderModal}
-      onRequestClose={handleClose}
-      statusBarTranslucent
-    >
+return (
+    <View style={[StyleSheet.absoluteFillObject, ps.modalRoot]} pointerEvents="box-none">
       <View style={ps.overlay}>
         {/* Blur backdrop */}
         <Animated.View style={[StyleSheet.absoluteFill, { opacity: backdropOpacity }]}>
@@ -218,28 +220,17 @@ export function WithdrawalPinFlow({ visible, onClose, onPinCreated }: Withdrawal
         </Animated.View>
 
         {isBottomSheet ? (
-          /* ── Bottom Sheet (Prompt / Success) ── */
           <Animated.View style={[ps.bottomSheet, { transform: [{ translateY: sheetTranslateY }] }]}>
             {step === "prompt" && (
-              <PromptView
-                onCreatePress={() => setStep("create")}
-                onClose={handleClose}
-              />
+              <PromptView onCreatePress={() => setStep("create")} onClose={handleClose} />
             )}
             {step === "success" && (
               <SuccessView onDone={handleDone} onClose={handleClose} />
             )}
           </Animated.View>
         ) : (
-          /* ── Full Screen (Create / Confirm) ── */
           <Animated.View
-            style={[
-              ps.fullScreen,
-              {
-                paddingTop: insets.top,
-                opacity: anim,
-              },
-            ]}
+            style={[ps.fullScreen, { paddingTop: insets.top, opacity: anim }]}
           >
             <KeyboardAvoidingView
               behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -269,7 +260,7 @@ export function WithdrawalPinFlow({ visible, onClose, onPinCreated }: Withdrawal
           </Animated.View>
         )}
       </View>
-    </Modal>
+    </View>
   );
 }
 
@@ -287,7 +278,7 @@ const PromptView = React.memo(({ onCreatePress, onClose }: { onCreatePress: () =
 
     <View style={ps.promptBody}>
       <View style={ps.promptIconCircle}>
-        <LockGridIcon size={28} color="#1B17B3" />
+        <PasswordIcon size={28} color="#1B17B3" />
       </View>
       <Text style={ps.promptTitle}>Create Your Withdrawal PIN</Text>
       <Text style={ps.promptSubtitle}>
@@ -310,7 +301,7 @@ const SuccessView = React.memo(({ onDone, onClose }: { onDone: () => void; onClo
 
     <View style={ps.promptBody}>
       <View style={ps.promptIconCircle}>
-        <LockGridIcon size={28} color="#1B17B3" />
+        <TickDoubleIcon size={28} color="#1B17B3" />
       </View>
       <Text style={ps.promptTitle}>PIN Created Successfully!</Text>
       <Text style={ps.promptSubtitle}>
@@ -431,6 +422,10 @@ const ConfirmPinView = React.memo(({ pin, setPin, errorMessage, onBack, onConfir
 
 const ps = StyleSheet.create({
   /* ── Modal shell ── */
+  modalRoot: {
+  zIndex: 1000,
+  elevation: 1000,
+},
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.01)",
