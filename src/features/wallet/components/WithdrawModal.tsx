@@ -404,7 +404,7 @@ export function WithdrawModal({ visible, balance, onClose, onConfirmWithdrawal, 
   const isPinSheet = currentView === "enter_pin";
   const sheetStyle = [
     isPinSheet 
-      ? [s.pinSheet, { height: 492 + insets.bottom, paddingBottom: insets.bottom }] 
+      ? [s.pinSheet, { minHeight: 492 + insets.bottom, paddingBottom: insets.bottom }] 
       : [
           isCompactSheet ? s.noAccountsSheet : s.sheet,
           { paddingBottom: Math.max(16, insets.bottom) }
@@ -1690,7 +1690,7 @@ const s = StyleSheet.create({
     backgroundColor: "#ffffff",
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
-    height: 492,
+    minHeight: 492,
     width: "100%",
   },
   content: {
