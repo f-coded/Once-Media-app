@@ -975,7 +975,13 @@ const EnterPinView = React.memo(({ pin, pinError, onKeyPress, onConfirm, handleC
           })}
         </View>
 
-        {pinError && <Text style={s.pinErrorText}>Pin incorrect</Text>}
+        <View style={s.pinErrorContainer}>
+          {pinError ? (
+            <Text style={s.pinErrorText}>Pin incorrect</Text>
+          ) : (
+            <Text style={s.pinErrorPlaceholder}> </Text>
+          )}
+        </View>
 
         <View style={s.keypad}>
           <View style={s.row}>
@@ -1697,7 +1703,7 @@ const s = StyleSheet.create({
     alignItems: "center",
     display: "flex",
     flexDirection: "column",
-    gap: 16,
+    gap: 12,
     paddingHorizontal: 20,
     paddingTop: 30,
     width: "100%",
@@ -1739,12 +1745,16 @@ const s = StyleSheet.create({
     fontSize: 22,
     color: "#0C0C0C",
   },
+  pinErrorContainer: {
+    height: 18,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   pinErrorText: {
     fontFamily: "Ubuntu_400Regular",
     fontSize: 13,
     color: "#FF3B30",
     textAlign: "center",
-    marginTop: -4,
     marginBottom: -4,
   },
   keypad: {
