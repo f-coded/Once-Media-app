@@ -279,9 +279,13 @@ export function FeedScreen({ onChatPress, onWalletPress }: { onChatPress?: () =>
   return (
     <View style={styles.root}>
       <View style={styles.container}>
-        {/* Feed header — floating */}
-        <FeedHeader />
 
+        {/* Feed header — floating */}
+       {!isBlurActive && <FeedHeader />}
+       
+        {/* <Animated.View style={[isBlurActive && Platform.OS === "android" ? { filter: [{ blur: 2 }] } : null]}>
+          <FeedHeader />
+        </Animated.View> */}
         {/* Posts feed */}
         <Animated.View
           style={[
