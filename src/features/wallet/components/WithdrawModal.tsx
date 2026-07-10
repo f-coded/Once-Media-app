@@ -404,7 +404,7 @@ export function WithdrawModal({ visible, balance, onClose, onConfirmWithdrawal, 
   const isPinSheet = currentView === "enter_pin";
   const sheetStyle = [
     isPinSheet 
-      ? [s.pinSheet, { minHeight: 492 + insets.bottom, paddingBottom: insets.bottom }] 
+      ? [s.pinSheet, { height: 492 + insets.bottom, paddingBottom: insets.bottom }] 
       : [
           isCompactSheet ? s.noAccountsSheet : s.sheet,
           { paddingBottom: Math.max(16, insets.bottom) }
@@ -964,23 +964,21 @@ const EnterPinView = React.memo(({ pin, pinError, onKeyPress, onConfirm, handleC
       <View style={s.content}>
         <Text style={s.title}>Enter Pin</Text>
 
-        <View style={s.nameImageContainer}>
-          {[0, 1, 2, 3].map((i) => {
-            const filled = i < pin.length;
-            return (
-              <View key={i} style={s.pinSlot}>
-                <Text style={s.pinSlotText}>{filled ? "*" : " "}</Text>
-              </View>
-            );
-          })}
-        </View>
+        <View style={{ position: "relative", alignItems: "center" }}>
+          <View style={s.nameImageContainer}>
+            {[0, 1, 2, 3].map((i) => {
+              const filled = i < pin.length;
+              return (
+                <View key={i} style={s.pinSlot}>
+                  <Text style={s.pinSlotText}>{filled ? "*" : " "}</Text>
+                </View>
+              );
+            })}
+          </View>
 
-        <View style={s.pinErrorContainer}>
-          {pinError ? (
-            <Text style={s.pinErrorText}>Pin incorrect</Text>
-          ) : (
-            <Text style={s.pinErrorPlaceholder}> </Text>
-          )}
+          <Text style={[s.pinErrorText, { opacity: pinError ? 1 : 0 }]}>
+            Pin incorrect
+          </Text>
         </View>
 
         <View style={s.keypad}>
@@ -1696,14 +1694,14 @@ const s = StyleSheet.create({
     backgroundColor: "#ffffff",
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
-    minHeight: 492,
+    height: 492,
     width: "100%",
   },
   content: {
     alignItems: "center",
     display: "flex",
     flexDirection: "column",
-    gap: 12,
+    gap: 16,
     paddingHorizontal: 20,
     paddingTop: 30,
     width: "100%",
@@ -1751,11 +1749,14 @@ const s = StyleSheet.create({
     alignItems: "center",
   },
   pinErrorText: {
+    position: "absolute",
+    top: 62,
+    left: 0,
+    right: 0,
     fontFamily: "Ubuntu_400Regular",
     fontSize: 13,
     color: "#FF3B30",
     textAlign: "center",
-    marginBottom: -4,
   },
   keypad: {
     alignItems: "stretch",
