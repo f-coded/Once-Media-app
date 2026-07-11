@@ -161,6 +161,7 @@ function BankLogo({ bankName, size = 32, borderRadius }: { bankName: string; siz
 
 export function WithdrawModal({ visible, balance, onClose, onConfirmWithdrawal, correctPin }: WithdrawModalProps) {
   const insets = useSafeAreaInsets();
+  const [viewAnim] = useState(() => new Animated.Value(0));
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [view, setView] = useState<ModalView>("no_accounts");
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
@@ -209,6 +210,15 @@ export function WithdrawModal({ visible, balance, onClose, onConfirmWithdrawal, 
       });
     }
   }, [visible]);
+
+  useEffect(() => {
+  viewAnim.setValue(0);
+  Animated.timing(viewAnim, {
+    toValue: 1,
+    duration: 280,
+    useNativeDriver: true,
+  }).start();
+}, [view, accounts]);
 
   /* ── Derived ── */
   const selectedAccount = accounts.find((a) => a.id === selectedAccountId) ?? null;
@@ -403,8 +413,8 @@ export function WithdrawModal({ visible, balance, onClose, onConfirmWithdrawal, 
   const isCompactSheet = currentView === "no_accounts" || currentView === "success";
   const isPinSheet = currentView === "enter_pin";
   const sheetStyle = [
-    isPinSheet 
-      ? [s.pinSheet, { height: 492 + insets.bottom, paddingBottom: insets.bottom }] 
+    isPinSheet
+       ? [s.pinSheet, { paddingBottom: 20 + insets.bottom }]
       : [
           isCompactSheet ? s.noAccountsSheet : s.sheet,
           { paddingBottom: Math.max(16, insets.bottom) }
@@ -436,88 +446,103 @@ export function WithdrawModal({ visible, balance, onClose, onConfirmWithdrawal, 
         </Animated.View>
 
         <Animated.View style={[{ position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 999, elevation: 999 }, sheetStyle]}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
-            style={{ width: "100%" }}
-          >
-            {currentView === "no_accounts" && (
-              <NoAccountsView navigateTo={navigateTo} handleClose={handleClose} />
-            )}
-            {currentView === "enter_pin" && (
-              <EnterPinView
-                pin={pinInput}
-                pinError={pinError}
-                onKeyPress={handlePinKeyPress}
-                onConfirm={handlePinConfirm}
-                handleClose={handleClose}
-              />
-            )}
-            {currentView === "success" && (
-              <WithdrawalSuccessView
-                onDone={handleSuccessDone}
-                handleClose={handleClose}
-              />
-            )}
-            {(currentView === "with_accounts" || currentView === "add_account" || currentView === "manage_accounts") && (
-              <ScrollView
-                style={s.sheetScrollView}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={s.sheetScroll}
-                keyboardShouldPersistTaps="handled"
-              >
-                {currentView === "with_accounts" && (
-                  <WithAccountsView
-                    accounts={accounts}
-                    selectedAccountId={selectedAccountId}
-                    setSelectedAccountId={setSelectedAccountId}
-                    amount={amount}
-                    setAmount={setAmount}
-                    balance={balance}
-                    errorMessage={errorMessage}
-                    setErrorMessage={setErrorMessage}
-                    handleWithdrawFromAccount={handleWithdrawFromAccount}
-                    navigateTo={navigateTo}
-                    handleClose={handleClose}
-                    amountInputRef={amountInputRef}
-                    formatBalance={formatBalance}
-                  />
-                )}
-                {currentView === "add_account" && (
-                  <AddAccountView
-                    accounts={accounts}
-                    newBankName={newBankName}
-                    setNewBankName={setNewBankName}
-                    newAccountNumber={newAccountNumber}
-                    setNewAccountNumber={setNewAccountNumber}
-                    bankDropdownOpen={bankDropdownOpen}
-                    setBankDropdownOpen={setBankDropdownOpen}
-                    amount={amount}
-                    setAmount={setAmount}
-                    balance={balance}
-                    errorMessage={errorMessage}
-                    setErrorMessage={setErrorMessage}
-                    handleAddAccountAndWithdraw={handleAddAccountAndWithdraw}
-                    navigateTo={navigateTo}
-                    addAccNumberRef={addAccNumberRef}
-                    addAccAmountRef={addAccAmountRef}
-                    formatBalance={formatBalance}
-                  />
-                )}
-                {currentView === "manage_accounts" && (
-                  <ManageAccountsView
-                    accounts={accounts}
-                    handleSetDefault={handleSetDefault}
-                    handleDeleteAccount={handleDeleteAccount}
-                    navigateTo={navigateTo}
-                  />
-                )}
-              </ScrollView>
-            )}
-          </KeyboardAvoidingView>
-        </Animated.View>
-      </View>
-    );
-  }
+        <KeyboardAvoidingView
+                    behavior={Platform.OS === "ios" ? "padding" : undefined}
+                    style={{ width: "100%" }}
+                  >
+                    <Animated.View
+                      style={{
+                        opacity: viewAnim,
+                        transform: [
+                          {
+                            translateY: viewAnim.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [16, 0],
+                            }),
+                          },
+                        ],
+                      }}
+                    >
+                    {currentView === "no_accounts" && (
+
+                      <NoAccountsView navigateTo={navigateTo} handleClose={handleClose} />
+                    )}
+                    {currentView === "enter_pin" && (
+                      <EnterPinView
+                        pin={pinInput}
+                        pinError={pinError}
+                        onKeyPress={handlePinKeyPress}
+                        onConfirm={handlePinConfirm}
+                        handleClose={handleClose}
+                      />
+                    )}
+                    {currentView === "success" && (
+                      <WithdrawalSuccessView
+                        onDone={handleSuccessDone}
+                        handleClose={handleClose}
+                      />
+                    )}
+                    {(currentView === "with_accounts" || currentView === "add_account" || currentView === "manage_accounts") && (
+                      <ScrollView
+                        style={s.sheetScrollView}
+                        showsVerticalScrollIndicator={false}
+                        contentContainerStyle={s.sheetScroll}
+                        keyboardShouldPersistTaps="handled"
+                      >
+                        {currentView === "with_accounts" && (
+                          <WithAccountsView
+                            accounts={accounts}
+                            selectedAccountId={selectedAccountId}
+                            setSelectedAccountId={setSelectedAccountId}
+                            amount={amount}
+                            setAmount={setAmount}
+                            balance={balance}
+                            errorMessage={errorMessage}
+                            setErrorMessage={setErrorMessage}
+                            handleWithdrawFromAccount={handleWithdrawFromAccount}
+                            navigateTo={navigateTo}
+                            handleClose={handleClose}
+                            amountInputRef={amountInputRef}
+                            formatBalance={formatBalance}
+                          />
+                        )}
+                        {currentView === "add_account" && (
+                          <AddAccountView
+                            accounts={accounts}
+                            newBankName={newBankName}
+                            setNewBankName={setNewBankName}
+                            newAccountNumber={newAccountNumber}
+                            setNewAccountNumber={setNewAccountNumber}
+                            bankDropdownOpen={bankDropdownOpen}
+                            setBankDropdownOpen={setBankDropdownOpen}
+                            amount={amount}
+                            setAmount={setAmount}
+                            balance={balance}
+                            errorMessage={errorMessage}
+                            setErrorMessage={setErrorMessage}
+                            handleAddAccountAndWithdraw={handleAddAccountAndWithdraw}
+                            navigateTo={navigateTo}
+                            addAccNumberRef={addAccNumberRef}
+                            addAccAmountRef={addAccAmountRef}
+                            formatBalance={formatBalance}
+                          />
+                        )}
+                        {currentView === "manage_accounts" && (
+                          <ManageAccountsView
+                            accounts={accounts}
+                            handleSetDefault={handleSetDefault}
+                            handleDeleteAccount={handleDeleteAccount}
+                            navigateTo={navigateTo}
+                          />
+                        )}
+                      </ScrollView>
+                    )}
+                    </Animated.View>
+                  </KeyboardAvoidingView>
+                </Animated.View>
+              </View>
+            );
+          }
 
 /* ══════════════════════════════════════════════════════════
    Extracted View Components (for performance & instant typing response)
@@ -960,26 +985,22 @@ function BackspaceIcon({ size = 22, color = "#0C0C0C" }: { size?: number; color?
 
 const EnterPinView = React.memo(({ pin, pinError, onKeyPress, onConfirm, handleClose }: EnterPinViewProps) => {
   return (
-    <View style={{ position: "relative", width: "100%"}}>
+    <View style={{ width: "100%" }}>
       <View style={s.content}>
         <Text style={s.title}>Enter Pin</Text>
 
-        <View style={{ position: "relative", alignItems: "center" }}>
-          <View style={s.nameImageContainer}>
-            {[0, 1, 2, 3].map((i) => {
-              const filled = i < pin.length;
-              return (
-                <View key={i} style={s.pinSlot}>
-                  <Text style={s.pinSlotText}>{filled ? "*" : " "}</Text>
-                </View>
-              );
-            })}
-          </View>
-
-          <Text style={[s.pinErrorText, { opacity: pinError ? 1 : 0 }]}>
-            Pin incorrect
-          </Text>
+        <View style={s.nameImageContainer}>
+          {[0, 1, 2, 3].map((i) => {
+            const filled = i < pin.length;
+            return (
+              <View key={i} style={s.pinSlot}>
+                <Text style={s.pinSlotText}>{filled ? "*" : " "}</Text>
+              </View>
+            );
+          })}
         </View>
+
+        {pinError && <Text style={s.pinErrorText}>Pin incorrect</Text>}
 
         <View style={s.keypad}>
           <View style={s.row}>
@@ -1032,29 +1053,71 @@ interface WithdrawalSuccessViewProps {
   handleClose: () => void;
 }
 
-const WithdrawalSuccessView = React.memo(({ onDone, handleClose }: WithdrawalSuccessViewProps) => (
-  <View style={s.successContainer}>
-    <Pressable style={s.successCloseBtn} onPress={handleClose} hitSlop={12}>
-      <CloseIcon size={24} color="#4A4A4A" />
-    </Pressable>
+const WithdrawalSuccessView = React.memo(({ onDone, handleClose }: WithdrawalSuccessViewProps) => {
+  const iconScale = useRef(new Animated.Value(0)).current;
+  const textOpacity = useRef(new Animated.Value(0)).current;
+  const textTranslateY = useRef(new Animated.Value(10)).current;
+  const btnOpacity = useRef(new Animated.Value(0)).current;
 
-    <View style={s.successBody}>
-      <View style={s.successIconCircle}>
-        <TickDoubleIcon size={28} color="#1B17B3" />
+  useEffect(() => {
+    Animated.sequence([
+      Animated.spring(iconScale, {
+        toValue: 1,
+        friction: 5,
+        tension: 80,
+        useNativeDriver: true,
+      }),
+      Animated.parallel([
+        Animated.timing(textOpacity, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+        Animated.timing(textTranslateY, {
+          toValue: 0,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.timing(btnOpacity, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  return (
+    <View style={s.successContainer}>
+      <Pressable style={s.successCloseBtn} onPress={handleClose} hitSlop={12}>
+        <CloseIcon size={24} color="#4A4A4A" />
+      </Pressable>
+
+      <View style={s.successBody}>
+        <Animated.View style={[s.successIconCircle, { transform: [{ scale: iconScale }] }]}>
+          <TickDoubleIcon size={28} color="#1B17B3" />
+        </Animated.View>
+        <Animated.View
+          style={[
+            s.successTextBlock,
+            { opacity: textOpacity, transform: [{ translateY: textTranslateY }] },
+          ]}
+        >
+          <Text style={s.successTitle}>Withdrawal Successfully!</Text>
+          <Text style={s.successSubtitle}>
+            Your request is being processed and the funds should reflect in your account shortly.
+          </Text>
+        </Animated.View>
       </View>
-      <View style={s.successTextBlock}>
-        <Text style={s.successTitle}>Withdrawal Successfully!</Text>
-        <Text style={s.successSubtitle}>
-          Your request is being processed and the funds should reflect in your account shortly.
-        </Text>
-      </View>
+
+      <Animated.View style={{ width: "100%", opacity: btnOpacity }}>
+        <TouchableOpacity style={s.successDoneBtn} activeOpacity={0.85} onPress={onDone}>
+          <Text style={s.successDoneBtnText}>Done</Text>
+        </TouchableOpacity>
+      </Animated.View>
     </View>
-
-    <TouchableOpacity style={s.successDoneBtn} activeOpacity={0.85} onPress={onDone}>
-      <Text style={s.successDoneBtnText}>Done</Text>
-    </TouchableOpacity>
-  </View>
-));
+  );
+});
 
 /* ══════════════════════════════════════════════════════════
    STYLES
@@ -1694,7 +1757,7 @@ const s = StyleSheet.create({
     backgroundColor: "#ffffff",
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
-    height: 492,
+    paddingBottom: 20,
     width: "100%",
   },
   content: {
@@ -1743,16 +1806,7 @@ const s = StyleSheet.create({
     fontSize: 22,
     color: "#0C0C0C",
   },
-  pinErrorContainer: {
-    height: 18,
-    justifyContent: "center",
-    alignItems: "center",
-  },
   pinErrorText: {
-    position: "absolute",
-    top: 62,
-    left: 0,
-    right: 0,
     fontFamily: "Ubuntu_400Regular",
     fontSize: 13,
     color: "#FF3B30",
