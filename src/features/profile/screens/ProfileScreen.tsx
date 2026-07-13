@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   View,
   Text,
@@ -7,10 +7,12 @@ import {
   FlatList,
   Platform,
   Dimensions,
+  Animated,
 } from "react-native";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path, Circle } from "react-native-svg";
+import { BlurView } from "expo-blur";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 // 3 columns, 1px divider between items (2 vertical gaps total)
@@ -59,8 +61,37 @@ interface ProfileScreenProps {
 export function ProfileScreen({ onBackPress }: ProfileScreenProps) {
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<"posts" | "saved">("posts");
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   const currentPosts = activeTab === "posts" ? MOCK_POSTS : MOCK_SAVED_POSTS;
+
+  // Header height logic
+  const NAV_BAR_HEIGHT = insets.top + 54;
+
+  // Scroll animations
+  const profileOpacity = scrollY.interpolate({
+    inputRange: [0, 50],
+    outputRange: [1, 0],
+    extrapolate: "clamp",
+  });
+
+  const headerTitleOpacity = scrollY.interpolate({
+    inputRange: [60, 110],
+    outputRange: [0, 1],
+    extrapolate: "clamp",
+  });
+
+  const headerTitleTranslateY = scrollY.interpolate({
+    inputRange: [60, 110],
+    outputRange: [12, 0],
+    extrapolate: "clamp",
+  });
+
+  const borderBottomOpacity = scrollY.interpolate({
+    inputRange: [0, 40],
+    outputRange: [0, 1],
+    extrapolate: "clamp",
+  });
 
   const renderHeader = () => (
     <View style={s.headerContainer}>
@@ -186,8 +217,45 @@ export function ProfileScreen({ onBackPress }: ProfileScreenProps) {
 
   return (
     <View style={[s.container, { backgroundColor: "#FFFFFF" }]}>
-      {/* Navigation Header */}
-      <View style={[s.navBar, { paddingTop: insets.top + 10 }]}>
+      {/* Grid of posts, offsets top padding to allow header components to scroll behind the floating glassmorphic navbar */}
+      <Animated.FlatList
+        data={currentPosts}
+        renderItem={renderGridItem}
+        keyExtractor={(item) => item.id}
+        numColumns={3}
+        ListHeaderComponent={renderHeader}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[s.listContent, { paddingTop: NAV_BAR_HEIGHT }]}
+        columnWrapperStyle={s.gridRow}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true }
+        )}
+        scrollEventThrottle={16}
+      />
+
+      {/* Floating Glassmorphism Navigation Header */}
+      <View style={[s.navBar, { paddingTop: insets.top + 15, height: NAV_BAR_HEIGHT }]}>
+        <BlurView
+          intensity={Platform.OS === "ios" ? 40 : 25}
+          tint="light"
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(255, 255, 255, 0.3)" }]} />
+
+        {/* Animated Bottom Border */}
+        <Animated.View
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              borderBottomWidth: 0.5,
+              borderBottomColor: "#E4E4E4",
+              opacity: borderBottomOpacity,
+            },
+          ]}
+          pointerEvents="none"
+        />
+
         <Pressable onPress={onBackPress} style={s.navLeft} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           {/* Vector.svg back arrow */}
           <Svg width={14} height={11} viewBox="0 0 14 11" fill="none">
@@ -199,8 +267,25 @@ export function ProfileScreen({ onBackPress }: ProfileScreenProps) {
               strokeLinejoin="round"
             />
           </Svg>
-          <Text style={s.navTitle}>Profile</Text>
+          <Animated.Text style={[s.navTitle, { opacity: profileOpacity }]}>
+            Profile
+          </Animated.Text>
         </Pressable>
+
+        {/* Centered User Name Transition */}
+        <View style={s.navCenterContainer} pointerEvents="none">
+          <Animated.Text
+            style={[
+              s.navCenterTitle,
+              {
+                opacity: headerTitleOpacity,
+                transform: [{ translateY: headerTitleTranslateY }],
+              },
+            ]}
+          >
+            Kelechi Obi
+          </Animated.Text>
+        </View>
 
         <Pressable style={s.settingsBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           {/* Settings Minimalistic.svg */}
@@ -214,18 +299,6 @@ export function ProfileScreen({ onBackPress }: ProfileScreenProps) {
           </Svg>
         </Pressable>
       </View>
-
-      {/* Grid of posts */}
-      <FlatList
-        data={currentPosts}
-        renderItem={renderGridItem}
-        keyExtractor={(item) => item.id}
-        numColumns={3}
-        ListHeaderComponent={renderHeader}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={s.listContent}
-        columnWrapperStyle={s.gridRow}
-      />
     </View>
   );
 }
@@ -235,22 +308,41 @@ const s = StyleSheet.create({
     flex: 1,
   },
   navBar: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 18,
-    paddingBottom: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E4E4E4",
-    backgroundColor: "#FFFFFF",
     zIndex: 10,
+    backgroundColor: "transparent",
+    overflow: "hidden",
   },
   navLeft: {
     flexDirection: "row",
     alignItems: "center",
     gap: 11,
+    zIndex: 2,
   },
   navTitle: {
+    fontFamily: "Ubuntu_500Medium",
+    fontSize: 16,
+    color: "#262525",
+    letterSpacing: -0.32,
+  },
+  navCenterContainer: {
+    position: "absolute",
+    left: 60,
+    right: 60,
+    bottom: 0,
+    top: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1,
+  },
+  navCenterTitle: {
     fontFamily: "Ubuntu_500Medium",
     fontSize: 16,
     color: "#262525",
@@ -261,6 +353,7 @@ const s = StyleSheet.create({
     height: 24,
     alignItems: "center",
     justifyContent: "center",
+    zIndex: 2,
   },
   listContent: {
     paddingBottom: 40,
