@@ -12,9 +12,10 @@ import {
   Animated,
   TouchableOpacity,
 } from "react-native";
-import Svg, { Path, Circle } from "react-native-svg";
+import Svg, { Path, Circle, Text as SvgText, Defs, LinearGradient, Stop } from "react-native-svg";
 import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import WavyProgressRing from "./WavyProgressRing";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -27,7 +28,7 @@ export interface BankAccount {
   isDefault: boolean;
 }
 
-type ModalView = "no_accounts" | "with_accounts" | "add_account" | "manage_accounts" | "enter_pin" | "success";
+type ModalView = "no_accounts" | "with_accounts" | "add_account" | "manage_accounts" | "enter_pin" | "processing" | "success";
 
 interface WithdrawModalProps {
   visible: boolean;
@@ -361,7 +362,8 @@ export function WithdrawModal({ visible, balance, onClose, onConfirmWithdrawal, 
       }
       setPinInput("");
       setPinError(false);
-      setView("success");
+      // Show processing spinner, the WavyProgressRing animation completion will advance to success
+      setView("processing");
     } else {
       setPinError(true);
       setPinInput("");
@@ -410,7 +412,7 @@ export function WithdrawModal({ visible, balance, onClose, onConfirmWithdrawal, 
     outputRange: [SCREEN_HEIGHT * 0.88, 0],
   });
 
-  const isCompactSheet = currentView === "no_accounts" || currentView === "success";
+  const isCompactSheet = currentView === "no_accounts" || currentView === "success" || currentView === "processing";
   const isPinSheet = currentView === "enter_pin";
   const sheetStyle = [
     isPinSheet
@@ -445,8 +447,16 @@ export function WithdrawModal({ visible, balance, onClose, onConfirmWithdrawal, 
           <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
         </Animated.View>
 
-        <Animated.View style={[{ position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 999, elevation: 999 }, sheetStyle]}>
-        <KeyboardAvoidingView
+        <Animated.View style={[{ position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 999, elevation: 999, overflow: "hidden", borderTopLeftRadius: 30, borderTopRightRadius: 30 }, sheetStyle]}>
+          {Platform.OS !== "web" && (
+            <BlurView
+              intensity={Platform.OS === "ios" ? 15 : 20}
+              tint="dark"
+              // experimentalBlurMethod="dimezisBlurView"
+              style={StyleSheet.absoluteFill}
+            />
+          )}
+          <KeyboardAvoidingView
                     behavior={Platform.OS === "ios" ? "padding" : undefined}
                     style={{ width: "100%" }}
                   >
@@ -474,6 +484,13 @@ export function WithdrawModal({ visible, balance, onClose, onConfirmWithdrawal, 
                         onKeyPress={handlePinKeyPress}
                         onConfirm={handlePinConfirm}
                         handleClose={handleClose}
+                      />
+                    )}
+                    {currentView === "processing" && (
+                      <ProcessingView
+                        onComplete={() => {
+                          setView("success");
+                        }}
                       />
                     )}
                     {currentView === "success" && (
@@ -1042,6 +1059,73 @@ const EnterPinView = React.memo(({ pin, pinError, onKeyPress, onConfirm, handleC
       <Pressable style={s.closeButton} onPress={handleClose} hitSlop={12}>
         <CloseIcon size={24} color="#0C0C0C" />
       </Pressable>
+    </View>
+  );
+});
+
+/* ── Processing View ── */
+
+interface ProcessingViewProps {
+  onComplete: () => void;
+}
+
+const AnimatedStop = Animated.createAnimatedComponent(Stop);
+
+const ProcessingView = React.memo(({ onComplete }: ProcessingViewProps) => {
+  const shimmerAnim = React.useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    Animated.loop(
+      Animated.timing(shimmerAnim, {
+        toValue: 1,
+        duration: 1200, // Faster movement!
+        useNativeDriver: false,
+      })
+    ).start();
+  }, []);
+
+  const offset1 = shimmerAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-0.6, 1.0],
+  });
+  const offset2 = shimmerAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-0.1, 1.5],
+  });
+  const offset3 = shimmerAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.4, 2.0],
+  });
+
+  return (
+    <View style={s.processingContainer}>
+      <WavyProgressRing
+        size={72}
+        strokeWidth={5}
+        color="#1B17B3"
+        progress={1.0}
+        onComplete={onComplete}
+      />
+      <Svg width={220} height={20}>
+        <Defs>
+          <LinearGradient id="shimmer" x1="0%" y1="0%" x2="100%" y2="0%">
+            <AnimatedStop offset={offset1} stopColor="#838383" />
+            <AnimatedStop offset={offset2} stopColor="#fffffff5" />
+            <AnimatedStop offset={offset3} stopColor="#838383" />
+          </LinearGradient>
+        </Defs>
+        <SvgText
+          fill="url(#shimmer)"
+          fontSize={14}
+          fontFamily="Ubuntu_400Regular"
+          x={110}
+          y={15}
+          textAnchor="middle"
+          letterSpacing={-0.28}
+        >
+          Processing withdrawal...
+        </SvgText>
+      </Svg>
     </View>
   );
 });
@@ -1754,7 +1838,7 @@ const s = StyleSheet.create({
 
   /* ── Enter PIN Sheet ── */
   pinSheet: {
-    backgroundColor: "#ffffff",
+    backgroundColor: "rgba(255, 255, 255, 0.8)",
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     paddingBottom: 20,
@@ -1895,7 +1979,7 @@ const s = StyleSheet.create({
     justifyContent: "flex-end",
   },
   sheet: {
-    backgroundColor: "#FCFCFC",
+    backgroundColor: "rgba(252, 252, 252, 0.8)",
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     paddingTop: 15,
@@ -1905,7 +1989,7 @@ const s = StyleSheet.create({
     flexShrink: 1,
   },
   noAccountsSheet: {
-    backgroundColor: "#FCFCFC",
+    backgroundColor: "rgba(252, 252, 252, 0.8)",
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     paddingTop: 20,
@@ -1969,5 +2053,19 @@ const s = StyleSheet.create({
     fontSize: 16,
     color: "#FFFFFF",
     letterSpacing: -0.32,
+  },
+
+  /* ── Processing ── */
+  processingContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 60,
+    gap: 16,
+  },
+  processingText: {
+    fontFamily: "Ubuntu_400Regular",
+    fontSize: 14,
+    color: "#838383",
+    letterSpacing: -0.28,
   },
 });
