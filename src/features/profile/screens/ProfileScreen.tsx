@@ -237,11 +237,12 @@ export function ProfileScreen({ onBackPress }: ProfileScreenProps) {
       {/* Floating Glassmorphism Navigation Header */}
       <View style={[s.navBar, { paddingTop: insets.top + 15, height: NAV_BAR_HEIGHT }]}>
         <BlurView
-          intensity={Platform.OS === "ios" ? 40 : 25}
+          intensity={Platform.OS === "ios" ? 80 : 60}
           tint="light"
+          experimentalBlurMethod="dimezisBlurView"
           style={StyleSheet.absoluteFill}
         />
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(255, 255, 255, 0.3)" }]} />
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(255, 255, 255, 0.30)" }]} />
 
         {/* Animated Bottom Border */}
         <Animated.View
@@ -318,7 +319,6 @@ const s = StyleSheet.create({
     paddingHorizontal: 18,
     zIndex: 10,
     backgroundColor: "transparent",
-    overflow: "hidden",
   },
   navLeft: {
     flexDirection: "row",
