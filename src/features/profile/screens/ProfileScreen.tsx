@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -82,10 +82,25 @@ export function ProfileScreen({ onBackPress }: ProfileScreenProps) {
   // Scroll Y offsets for controlling when header transitions occur
   const SCROLL_START_Y = 120; // Scroll offset where "Profile" finishes fading out and username starts fading in
   const SCROLL_END_Y = 170;   // Scroll offset where username is fully visible
+  const STICKY_TABS_Y = 290;  // Scroll offset where tabs wrapper reaches the navbar and becomes sticky
   // ==========================================
 
   // Total navbar height: safe area inset + 56px content height
   const NAV_BAR_HEIGHT = insets.top + 56;
+
+  const [isSticky, setIsSticky] = useState(false);
+
+  useEffect(() => {
+    const listenerId = scrollY.addListener(({ value }) => {
+      const active = value >= STICKY_TABS_Y;
+      if (active !== isSticky) {
+        setIsSticky(active);
+      }
+    });
+    return () => {
+      scrollY.removeListener(listenerId);
+    };
+  }, [isSticky]);
 
   // Scroll animations
   const profileOpacity = scrollY.interpolate({
@@ -108,6 +123,12 @@ export function ProfileScreen({ onBackPress }: ProfileScreenProps) {
 
   const borderBottomOpacity = scrollY.interpolate({
     inputRange: [0, 40],
+    outputRange: [0, 1],
+    extrapolate: "clamp",
+  });
+
+  const stickyTabsOpacity = scrollY.interpolate({
+    inputRange: [STICKY_TABS_Y - 5, STICKY_TABS_Y],
     outputRange: [0, 1],
     extrapolate: "clamp",
   });
@@ -253,6 +274,79 @@ export function ProfileScreen({ onBackPress }: ProfileScreenProps) {
         scrollEventThrottle={16}
       />
 
+      {/* Floating Glassmorphism Sticky Tabs (placed under the floating navbar) */}
+      <Animated.View
+        style={[
+          s.stickyTabsWrapper,
+          {
+            top: NAV_BAR_HEIGHT,
+            opacity: stickyTabsOpacity,
+          },
+        ]}
+        pointerEvents={isSticky ? "auto" : "none"}
+      >
+        <BlurView
+          intensity={Platform.OS === "ios" ? GLASS_BLUR_INTENSITY_IOS : GLASS_BLUR_INTENSITY_ANDROID}
+          tint="light"
+          experimentalBlurMethod="dimezisBlurView"
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(255, 255, 255, ${GLASS_WHITE_TINT_OPACITY})` }]} />
+        
+        <View style={s.tabsContainer}>
+          <Pressable
+            style={[s.tabButton, activeTab === "posts" && s.activeTabButton]}
+            onPress={() => setActiveTab("posts")}
+          >
+            {/* Posts Carousel Vertical unselected vs selected */}
+            <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
+              <Path
+                d="M4.1665 9.58333C4.1665 8.01198 4.1665 7.22631 4.65466 6.73816C5.14281 6.25 5.92849 6.25 7.49984 6.25H12.4998C14.0712 6.25 14.8569 6.25 15.345 6.73816C15.8332 7.22631 15.8332 8.01198 15.8332 9.58333V10.4167C15.8332 11.988 15.8332 12.7737 15.345 13.2618C14.8569 13.75 14.0712 13.75 12.4998 13.75H7.49984C5.92849 13.75 5.14281 13.75 4.65466 13.2618C4.1665 12.7737 4.1665 11.988 4.1665 10.4167V9.58333Z"
+                stroke={activeTab === "posts" ? "#262525" : "#838383"}
+                strokeWidth={1.25}
+              />
+              <Path
+                d="M15.8332 1.66663V2.08329C15.8332 3.23389 14.9004 4.16663 13.7498 4.16663H6.24984C5.09924 4.16663 4.1665 3.23389 4.1665 2.08329V1.66663"
+                stroke={activeTab === "posts" ? "#262525" : "#838383"}
+                strokeWidth={1.25}
+                strokeLinecap="round"
+              />
+              <Path
+                d="M15.8332 18.3334V17.9167C15.8332 16.7661 14.9004 15.8334 13.7498 15.8334H6.24984C5.09924 15.8334 4.1665 16.7661 4.1665 17.9167V18.3334"
+                stroke={activeTab === "posts" ? "#262525" : "#838383"}
+                strokeWidth={1.25}
+                strokeLinecap="round"
+              />
+            </Svg>
+            <Text style={[s.tabText, activeTab === "posts" && s.activeTabText]}>
+              Your Posts
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[s.tabButton, activeTab === "saved" && s.activeTabButton]}
+            onPress={() => setActiveTab("saved")}
+          >
+            {/* Bookmark unselected vs selected */}
+            <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
+              <Path
+                d="M17.5 13.409V9.24789C17.5 5.67405 17.5 3.88713 16.4017 2.77688C15.3033 1.66663 13.5355 1.66663 10 1.66663C6.46447 1.66663 4.6967 1.66663 3.59835 2.77688C2.5 3.88713 2.5 5.67405 2.5 9.24789V13.409C2.5 15.9895 2.5 17.2798 3.11176 17.8435C3.40351 18.1124 3.77179 18.2813 4.1641 18.3262C4.98668 18.4204 5.94728 17.5707 7.86847 15.8715C8.71768 15.1204 9.14229 14.7448 9.63356 14.6458C9.87548 14.5971 10.1245 14.5971 10.3664 14.6458C10.8577 14.7448 11.2823 15.1204 12.1315 15.8715C14.0527 17.5707 15.0133 18.4204 15.8359 18.3262C16.2282 18.2813 16.5965 18.1124 16.8882 17.8435C17.5 17.2798 17.5 15.9895 17.5 13.409Z"
+                stroke={activeTab === "saved" ? "#262525" : "#838383"}
+                strokeWidth={1.25}
+              <Path
+                d="M12.5 5H7.5"
+                stroke={activeTab === "saved" ? "#262525" : "#838383"}
+                strokeWidth={1.25}
+                strokeLinecap="round"
+              />
+            </Svg>
+            <Text style={[s.tabText, activeTab === "saved" && s.activeTabText]}>
+              Saved Posts
+            </Text>
+          </Pressable>
+        </View>
+      </Animated.View>
+
       {/* Floating Glassmorphism Navigation Header */}
       <View style={[s.navBar, { height: NAV_BAR_HEIGHT }]}>
         <BlurView
@@ -373,6 +467,17 @@ const s = StyleSheet.create({
     fontSize: 16,
     color: "#262525",
     letterSpacing: -0.32,
+  },
+  stickyTabsWrapper: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    zIndex: 9,
+    borderBottomWidth: 1,
+    borderBottomColor: "#D2D2D2",
+    paddingHorizontal: 86,
+    height: 48,
+    justifyContent: "center",
   },
   settingsBtn: {
     width: 24,
@@ -505,17 +610,18 @@ const s = StyleSheet.create({
     textAlign: "center",
     letterSpacing: -0.26,
     marginTop: 16,
-    paddingHorizontal: 12,
+    // paddingHorizontal: 12,
   },
   tabsWrapper: {
     width: "100%",
     borderBottomWidth: 1,
     borderBottomColor: "#D2D2D2",
-    paddingHorizontal: 18,
-    marginTop: 24,
+    paddingHorizontal: 86,
+  
   },
   tabsContainer: {
     flexDirection: "row",
+    gap: 29,
     width: "100%",
   },
   tabButton: {
