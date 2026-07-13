@@ -22,6 +22,7 @@ import { ConfirmPasswordScreen } from "@/features/auth/screens/ConfirmPasswordSc
 import { FeedScreen } from "@/features/feed/screens/FeedScreen";
 import { ChatScreen } from "@/features/chat/screens/ChatScreen";
 import { WalletScreen } from "@/features/wallet/screens/WalletScreen";
+import { ProfileScreen } from "@/features/profile/screens/ProfileScreen";
 import { AnimatedSplashScreen } from "@/shared/components/loaders/AnimatedSplashScreen";
 
 import * as NavigationBar from "expo-navigation-bar";
@@ -44,7 +45,8 @@ type Route =
   | "account-success"
   | "feed"
   | "chat"
-  | "wallet";
+  | "wallet"
+  | "profile";
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -144,12 +146,13 @@ export default function App() {
         {/* ── Tab screens: always mounted, show/hide via display ─────────────
              Keeps each screen alive in memory (like React Navigation tabs)
              so switching back to Home is instant — no remount lag.       */}
-        {(route === "feed" || route === "chat" || route === "wallet") && (
+        {(route === "feed" || route === "chat" || route === "wallet" || route === "profile") && (
           <>
             <View style={[StyleSheet.absoluteFill, { display: route === "feed" ? "flex" : "none" }]}>
               <FeedScreen
                 onChatPress={() => setRoute("chat")}
                 onWalletPress={() => setRoute("wallet")}
+                onProfilePress={() => setRoute("profile")}
               />
             </View>
 
@@ -170,6 +173,10 @@ export default function App() {
                   if (tab === "chat") setRoute("chat");
                 }}
               />
+            </View>
+
+            <View style={[StyleSheet.absoluteFill, { display: route === "profile" ? "flex" : "none" }]}>
+              <ProfileScreen onBackPress={() => setRoute("feed")} />
             </View>
           </>
         )}
