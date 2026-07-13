@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   Animated,
+  Easing,
   TouchableOpacity,
 } from "react-native";
 import Svg, { Path, Circle, Text as SvgText, Defs, LinearGradient, Stop } from "react-native-svg";
@@ -196,15 +197,18 @@ export function WithdrawModal({ visible, balance, onClose, onConfirmWithdrawal, 
   useEffect(() => {
     if (visible) {
       setRenderModal(true);
+      anim.setValue(0);
       Animated.timing(anim, {
         toValue: 1,
-        duration: 300,
+        duration: 360,
+        easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }).start();
     } else {
       Animated.timing(anim, {
         toValue: 0,
         duration: 250,
+        easing: Easing.in(Easing.cubic),
         useNativeDriver: true,
       }).start(() => {
         setRenderModal(false);
@@ -216,7 +220,8 @@ export function WithdrawModal({ visible, balance, onClose, onConfirmWithdrawal, 
   viewAnim.setValue(0);
   Animated.timing(viewAnim, {
     toValue: 1,
-    duration: 280,
+    duration: 300,
+    easing: Easing.out(Easing.cubic),
     useNativeDriver: true,
   }).start();
 }, [view, accounts]);
@@ -409,7 +414,7 @@ export function WithdrawModal({ visible, balance, onClose, onConfirmWithdrawal, 
 
   const sheetTranslateY = anim.interpolate({
     inputRange: [0, 1],
-    outputRange: [SCREEN_HEIGHT * 0.88, 0],
+    outputRange: [SCREEN_HEIGHT, 0],
   });
 
   const isCompactSheet = currentView === "no_accounts" || currentView === "success" || currentView === "processing";
@@ -448,11 +453,10 @@ export function WithdrawModal({ visible, balance, onClose, onConfirmWithdrawal, 
         </Animated.View>
 
         <Animated.View style={[{ position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 999, elevation: 999, overflow: "hidden", borderTopLeftRadius: 30, borderTopRightRadius: 30 }, sheetStyle]}>
-          {Platform.OS !== "web" && (
+          {currentView === "processing" && Platform.OS !== "web" && (
             <BlurView
-              intensity={Platform.OS === "ios" ? 15 : 20}
+              intensity={25}
               tint="dark"
-              // experimentalBlurMethod="dimezisBlurView"
               style={StyleSheet.absoluteFill}
             />
           )}
@@ -467,7 +471,7 @@ export function WithdrawModal({ visible, balance, onClose, onConfirmWithdrawal, 
                           {
                             translateY: viewAnim.interpolate({
                               inputRange: [0, 1],
-                              outputRange: [16, 0],
+                              outputRange: [28, 0],
                             }),
                           },
                         ],
@@ -1078,7 +1082,7 @@ const ProcessingView = React.memo(({ onComplete }: ProcessingViewProps) => {
     Animated.loop(
       Animated.timing(shimmerAnim, {
         toValue: 1,
-        duration: 1200, // Faster movement!
+        duration: 1200,
         useNativeDriver: false,
       })
     ).start();
@@ -1838,7 +1842,7 @@ const s = StyleSheet.create({
 
   /* ── Enter PIN Sheet ── */
   pinSheet: {
-    backgroundColor: "rgba(255, 255, 255, 0.8)",
+    backgroundColor: "#ffffff",
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     paddingBottom: 20,
@@ -1979,7 +1983,7 @@ const s = StyleSheet.create({
     justifyContent: "flex-end",
   },
   sheet: {
-    backgroundColor: "rgba(252, 252, 252, 0.8)",
+    backgroundColor: "#FCFCFC",
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     paddingTop: 15,
@@ -1989,7 +1993,7 @@ const s = StyleSheet.create({
     flexShrink: 1,
   },
   noAccountsSheet: {
-    backgroundColor: "rgba(252, 252, 252, 0.8)",
+    backgroundColor: "#FCFCFC",
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     paddingTop: 20,
