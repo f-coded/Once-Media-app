@@ -137,7 +137,7 @@ const MOCK_POSTS: PostData[] = [
   },
 ];
 
-export function FeedScreen({ onChatPress, onWalletPress }: { onChatPress?: () => void; onWalletPress?: () => void }) {
+export function FeedScreen({ onChatPress, onWalletPress, onProfilePress }: { onChatPress?: () => void; onWalletPress?: () => void; onProfilePress?: () => void }) {
   const { height: windowHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [feedViewportHeight, setFeedViewportHeight] = useState(0);
@@ -281,7 +281,7 @@ export function FeedScreen({ onChatPress, onWalletPress }: { onChatPress?: () =>
       <View style={styles.container}>
 
         {/* Feed header — floating */}
-       {!isBlurActive && <FeedHeader />}
+       {!isBlurActive && <FeedHeader onProfilePress={onProfilePress} />}
        
         {/* <Animated.View style={[isBlurActive && Platform.OS === "android" ? { filter: [{ blur: 2 }] } : null]}>
           <FeedHeader />

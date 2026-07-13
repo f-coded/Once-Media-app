@@ -5,17 +5,19 @@ import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PlusIcon } from "./FeedIcons";
 
-export function FeedHeader() {
+export function FeedHeader({ onProfilePress }: { onProfilePress?: () => void }) {
   const insets = useSafeAreaInsets();
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 9 }]}>
       <View style={styles.leftGroup}>
-        <Image
-          source={{ uri: "https://i.pravatar.cc/100?img=9" }}
-          style={styles.profileAvatar}
-          contentFit="cover"
-        />
+        <Pressable onPress={onProfilePress} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Image
+            source={{ uri: "https://i.pravatar.cc/100?img=9" }}
+            style={styles.profileAvatar}
+            contentFit="cover"
+          />
+        </Pressable>
         <Text style={styles.title}>Posts</Text>
       </View>
       <Pressable style={styles.newPostBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
