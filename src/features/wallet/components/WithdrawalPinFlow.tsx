@@ -113,9 +113,12 @@ export function WithdrawalPinFlow({ visible, onClose, onPinCreated }: Withdrawal
   const createInputRef = useRef<TextInput>(null);
   const confirmInputRef = useRef<TextInput>(null);
 
-  // Animation
+  // Modal open/close animation
   const [anim] = useState(() => new Animated.Value(0));
   const [renderModal, setRenderModal] = useState(visible);
+
+  // Per-step transition animation (matches WithdrawModal viewAnim)
+  const [viewAnim] = useState(() => new Animated.Value(1));
 
   useEffect(() => {
     if (visible) {
@@ -140,6 +143,16 @@ export function WithdrawalPinFlow({ visible, onClose, onPinCreated }: Withdrawal
       });
     }
   }, [visible]);
+
+  // Per-step transition: fade + slide-up on every step change
+  useEffect(() => {
+    viewAnim.setValue(0);
+    Animated.timing(viewAnim, {
+      toValue: 1,
+      duration: 280,
+      useNativeDriver: true,
+    }).start();
+  }, [step]);
 
   // Focus the hidden input when step changes
   useEffect(() => {
@@ -221,12 +234,26 @@ return (
 
         {isBottomSheet ? (
           <Animated.View style={[ps.bottomSheet, { transform: [{ translateY: sheetTranslateY }] }]}>
-            {step === "prompt" && (
-              <PromptView onCreatePress={() => setStep("create")} onClose={handleClose} />
-            )}
-            {step === "success" && (
-              <SuccessView onDone={handleDone} onClose={handleClose} />
-            )}
+            <Animated.View
+              style={{
+                opacity: viewAnim,
+                transform: [
+                  {
+                    translateY: viewAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [16, 0],
+                    }),
+                  },
+                ],
+              }}
+            >
+              {step === "prompt" && (
+                <PromptView onCreatePress={() => setStep("create")} onClose={handleClose} />
+              )}
+              {step === "success" && (
+                <SuccessView onDone={handleDone} onClose={handleClose} />
+              )}
+            </Animated.View>
           </Animated.View>
         ) : (
           <Animated.View
@@ -236,26 +263,41 @@ return (
               behavior={Platform.OS === "ios" ? "padding" : undefined}
               style={{ flex: 1 }}
             >
-              {step === "create" && (
-                <CreatePinView
-                  pin={createPin}
-                  setPin={(t) => { setCreatePin(t); setErrorMessage(""); }}
-                  errorMessage={errorMessage}
-                  onBack={handleClose}
-                  onCreatePress={handleCreatePin}
-                  inputRef={createInputRef}
-                />
-              )}
-              {step === "confirm" && (
-                <ConfirmPinView
-                  pin={confirmPin}
-                  setPin={(t) => { setConfirmPin(t); setErrorMessage(""); }}
-                  errorMessage={errorMessage}
-                  onBack={() => { setStep("create"); setConfirmPin(""); setErrorMessage(""); }}
-                  onConfirmPress={handleConfirmPin}
-                  inputRef={confirmInputRef}
-                />
-              )}
+              <Animated.View
+                style={{
+                  flex: 1,
+                  opacity: viewAnim,
+                  transform: [
+                    {
+                      translateY: viewAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [16, 0],
+                      }),
+                    },
+                  ],
+                }}
+              >
+                {step === "create" && (
+                  <CreatePinView
+                    pin={createPin}
+                    setPin={(t) => { setCreatePin(t); setErrorMessage(""); }}
+                    errorMessage={errorMessage}
+                    onBack={handleClose}
+                    onCreatePress={handleCreatePin}
+                    inputRef={createInputRef}
+                  />
+                )}
+                {step === "confirm" && (
+                  <ConfirmPinView
+                    pin={confirmPin}
+                    setPin={(t) => { setConfirmPin(t); setErrorMessage(""); }}
+                    errorMessage={errorMessage}
+                    onBack={() => { setStep("create"); setConfirmPin(""); setErrorMessage(""); }}
+                    onConfirmPress={handleConfirmPin}
+                    inputRef={confirmInputRef}
+                  />
+                )}
+              </Animated.View>
             </KeyboardAvoidingView>
           </Animated.View>
         )}
