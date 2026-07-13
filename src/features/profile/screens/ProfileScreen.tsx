@@ -13,7 +13,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path, Circle } from "react-native-svg";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const GRID_ITEM_SIZE = (SCREEN_WIDTH - 36) / 3; // 3 columns with padding
+// 3 columns, 1px divider between items (2 vertical gaps total)
+const GRID_ITEM_SIZE = (SCREEN_WIDTH - 2) / 3;
 
 /* Local assets */
 const AVATAR_KELECHI = require("../../../../assets/avatar-kelechi.png");
@@ -32,23 +33,23 @@ interface PostGridItem {
 
 const MOCK_POSTS: PostGridItem[] = [
   { id: "1", image: PROPERTY_IMG_4, views: "837" },
-  { id: "2", image: PROPERTY_IMG_2, views: "1.2k" },
-  { id: "3", image: PROPERTY_IMG_3, views: "945" },
-  { id: "4", image: PROPERTY_IMG, views: "3.4k" },
-  { id: "5", image: PROPERTY_IMG_5, views: "712" },
-  { id: "6", image: PROPERTY_IMG_6, views: "1.8k" },
-  { id: "7", image: PROPERTY_IMG_2, views: "2.1k" },
-  { id: "8", image: PROPERTY_IMG_3, views: "530" },
-  { id: "9", image: PROPERTY_IMG_4, views: "1.1k" },
-  { id: "10", image: PROPERTY_IMG_5, views: "890" },
-  { id: "11", image: PROPERTY_IMG_6, views: "1.5k" },
-  { id: "12", image: PROPERTY_IMG, views: "320" },
+  { id: "2", image: PROPERTY_IMG_2, views: "837" },
+  { id: "3", image: PROPERTY_IMG_3, views: "837" },
+  { id: "4", image: PROPERTY_IMG, views: "837" },
+  { id: "5", image: PROPERTY_IMG_5, views: "837" },
+  { id: "6", image: PROPERTY_IMG_6, views: "837" },
+  { id: "7", image: PROPERTY_IMG_2, views: "837" },
+  { id: "8", image: PROPERTY_IMG_3, views: "837" },
+  { id: "9", image: PROPERTY_IMG_4, views: "837" },
+  { id: "10", image: PROPERTY_IMG_5, views: "837" },
+  { id: "11", image: PROPERTY_IMG_6, views: "837" },
+  { id: "12", image: PROPERTY_IMG, views: "837" },
 ];
 
 const MOCK_SAVED_POSTS: PostGridItem[] = [
-  { id: "s1", image: PROPERTY_IMG, views: "1.5k" },
-  { id: "s2", image: PROPERTY_IMG_5, views: "820" },
-  { id: "s3", image: PROPERTY_IMG_6, views: "2.3k" },
+  { id: "s1", image: PROPERTY_IMG, views: "837" },
+  { id: "s2", image: PROPERTY_IMG_5, views: "837" },
+  { id: "s3", image: PROPERTY_IMG_6, views: "837" },
 ];
 
 interface ProfileScreenProps {
@@ -62,113 +63,106 @@ export function ProfileScreen({ onBackPress }: ProfileScreenProps) {
   const currentPosts = activeTab === "posts" ? MOCK_POSTS : MOCK_SAVED_POSTS;
 
   const renderHeader = () => (
-    <View style={s.profileHeader}>
-      <View style={s.avatarContainer}>
-        <Image source={AVATAR_KELECHI} style={s.avatar} contentFit="cover" />
-        <Pressable style={s.addStoryBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-            <Path
-              d="M12 5V19M5 12H19"
-              stroke="#FFFFFF"
-              strokeWidth={3}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </Svg>
-        </Pressable>
-      </View>
-
-      <View style={s.nameRow}>
-        <Text style={s.userName}>Kelechi Obi</Text>
-        <Pressable style={s.editBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={s.editBtnText}>Edit</Text>
-        </Pressable>
-      </View>
-
-      <View style={s.detailsRow}>
-        <Text style={s.detailText}>Ikorodu, Lagos</Text>
-        <View style={s.dot} />
-        <Text style={s.detailText}>Olafarid12@gmail.com</Text>
-      </View>
-
-      <View style={s.statsContainer}>
-        <View style={s.statCard}>
-          <Text style={s.statLabel}>Posts</Text>
-          <Text style={s.statValue}>327</Text>
+    <View style={s.headerContainer}>
+      <View style={s.profileHeader}>
+        <View style={s.avatarContainer}>
+          <Image source={AVATAR_KELECHI} style={s.avatar} contentFit="cover" />
+          <Pressable style={s.addStoryBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
+              <Path d="M6 12H18" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+              <Path d="M12 18V6" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+            </Svg>
+          </Pressable>
         </View>
-        <View style={s.statCard}>
-          <Text style={s.statLabel}>Likes</Text>
-          <Text style={s.statValue}>1,572</Text>
-        </View>
-        <View style={s.statCard}>
-          <Text style={s.statLabel}>Followers</Text>
-          <Text style={s.statValue}>1,572</Text>
-        </View>
-      </View>
 
-      <Text style={s.bioText}>
-        Sharing vibes, fashion, and everyday moments - life, unfiltered 🌟
-      </Text>
+        <View style={s.nameRow}>
+          <Text style={s.userName}>Kelechi Obi</Text>
+          <Pressable style={s.editBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Text style={s.editBtnText}>Edit</Text>
+          </Pressable>
+        </View>
+
+        <View style={s.detailsRow}>
+          <Text style={s.detailText}>Ikorodu, Lagos</Text>
+          <View style={s.dot} />
+          <Text style={s.detailText}>Olafarid12@gmail.com</Text>
+        </View>
+
+        <View style={s.statsContainer}>
+          <View style={s.statCard}>
+            <Text style={s.statLabel}>Posts</Text>
+            <Text style={s.statValue}>327</Text>
+          </View>
+          <View style={s.statCard}>
+            <Text style={s.statLabel}>Likes</Text>
+            <Text style={s.statValue}>1,572</Text>
+          </View>
+          <View style={s.statCard}>
+            <Text style={s.statLabel}>Followers</Text>
+            <Text style={s.statValue}>1,572</Text>
+          </View>
+        </View>
+
+        <Text style={s.bioText}>
+          Sharing vibes, fashion, and everyday moments - life, unfiltered 🌟
+        </Text>
+      </View>
 
       {/* Tabs */}
-      <View style={s.tabsContainer}>
-        <Pressable
-          style={[s.tabButton, activeTab === "posts" && s.activeTabButton]}
-          onPress={() => setActiveTab("posts")}
-        >
-          <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-            <Path
-              d="M4 5C4 4.44772 4.44772 4 5 4H9C9.55228 4 10 4.44772 10 5V9C10 9.55228 9.55228 10 9 10H5C4.44772 10 4 9.55228 4 9V5Z"
-              stroke={activeTab === "posts" ? "#262525" : "#838383"}
-              strokeWidth={1.8}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <Path
-              d="M14 5C14 4.44772 14.4477 4 15 4H19C19.5523 4 20 4.44772 20 5V9C20 9.55228 19.5523 10 19 10H15C14.4477 10 14 9.55228 14 9V5Z"
-              stroke={activeTab === "posts" ? "#262525" : "#838383"}
-              strokeWidth={1.8}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <Path
-              d="M4 15C4 14.4477 4.44772 14 5 14H9C9.55228 14 10 14.4477 10 15V19C10 19.5523 9.55228 20 9 20H5C4.44772 20 4 19.5523 4 19V15Z"
-              stroke={activeTab === "posts" ? "#262525" : "#838383"}
-              strokeWidth={1.8}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <Path
-              d="M14 15C14 14.4477 14.4477 14 15 14H19C19.5523 14 20 14.4477 20 15V19C20 19.5523 19.5523 20 19 20H15C14.4477 20 14 19.5523 14 19V15Z"
-              stroke={activeTab === "posts" ? "#262525" : "#838383"}
-              strokeWidth={1.8}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </Svg>
-          <Text style={[s.tabText, activeTab === "posts" && s.activeTabText]}>
-            Your Posts
-          </Text>
-        </Pressable>
+      <View style={s.tabsWrapper}>
+        <View style={s.tabsContainer}>
+          <Pressable
+            style={[s.tabButton, activeTab === "posts" && s.activeTabButton]}
+            onPress={() => setActiveTab("posts")}
+          >
+            {/* Posts Carousel Vertical unselected vs selected */}
+            <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
+              <path
+                d="M4.1665 9.58333C4.1665 8.01198 4.1665 7.22631 4.65466 6.73816C5.14281 6.25 5.92849 6.25 7.49984 6.25H12.4998C14.0712 6.25 14.8569 6.25 15.345 6.73816C15.8332 7.22631 15.8332 8.01198 15.8332 9.58333V10.4167C15.8332 11.988 15.8332 12.7737 15.345 13.2618C14.8569 13.75 14.0712 13.75 12.4998 13.75H7.49984C5.92849 13.75 5.14281 13.75 4.65466 13.2618C4.1665 12.7737 4.1665 11.988 4.1665 10.4167V9.58333Z"
+                stroke={activeTab === "posts" ? "#262525" : "#838383"}
+                strokeWidth="1.25"
+              />
+              <path
+                d="M15.8332 1.66663V2.08329C15.8332 3.23389 14.9004 4.16663 13.7498 4.16663H6.24984C5.09924 4.16663 4.1665 3.23389 4.1665 2.08329V1.66663"
+                stroke={activeTab === "posts" ? "#262525" : "#838383"}
+                strokeWidth="1.25"
+                strokeLinecap="round"
+              />
+              <path
+                d="M15.8332 18.3334V17.9167C15.8332 16.7661 14.9004 15.8334 13.7498 15.8334H6.24984C5.09924 15.8334 4.1665 16.7661 4.1665 17.9167V18.3334"
+                stroke={activeTab === "posts" ? "#262525" : "#838383"}
+                strokeWidth="1.25"
+                strokeLinecap="round"
+              />
+            </Svg>
+            <Text style={[s.tabText, activeTab === "posts" && s.activeTabText]}>
+              Your Posts
+            </Text>
+          </Pressable>
 
-        <Pressable
-          style={[s.tabButton, activeTab === "saved" && s.activeTabButton]}
-          onPress={() => setActiveTab("saved")}
-        >
-          <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-            <Path
-              d="M5 5C5 3.89543 5.89543 3 7 3H17C18.1046 3 19 3.89543 19 5V21L12 17.5L5 21V5Z"
-              stroke={activeTab === "saved" ? "#262525" : "#838383"}
-              strokeWidth={1.8}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              fill={activeTab === "saved" ? "none" : "none"}
-            />
-          </Svg>
-          <Text style={[s.tabText, activeTab === "saved" && s.activeTabText]}>
-            Saved Posts
-          </Text>
-        </Pressable>
+          <Pressable
+            style={[s.tabButton, activeTab === "saved" && s.activeTabButton]}
+            onPress={() => setActiveTab("saved")}
+          >
+            {/* Bookmark unselected vs selected */}
+            <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
+              <path
+                d="M17.5 13.409V9.24789C17.5 5.67405 17.5 3.88713 16.4017 2.77688C15.3033 1.66663 13.5355 1.66663 10 1.66663C6.46447 1.66663 4.6967 1.66663 3.59835 2.77688C2.5 3.88713 2.5 5.67405 2.5 9.24789V13.409C2.5 15.9895 2.5 17.2798 3.11176 17.8435C3.40351 18.1124 3.77179 18.2813 4.1641 18.3262C4.98668 18.4204 5.94728 17.5707 7.86847 15.8715C8.71768 15.1204 9.14229 14.7448 9.63356 14.6458C9.87548 14.5971 10.1245 14.5971 10.3664 14.6458C10.8577 14.7448 11.2823 15.1204 12.1315 15.8715C14.0527 17.5707 15.0133 18.4204 15.8359 18.3262C16.2282 18.2813 16.5965 18.1124 16.8882 17.8435C17.5 17.2798 17.5 15.9895 17.5 13.409Z"
+                stroke={activeTab === "saved" ? "#262525" : "#838383"}
+                strokeWidth="1.25"
+              />
+              <path
+                d="M12.5 5H7.5"
+                stroke={activeTab === "saved" ? "#262525" : "#838383"}
+                strokeWidth="1.25"
+                strokeLinecap="round"
+              />
+            </Svg>
+            <Text style={[s.tabText, activeTab === "saved" && s.activeTabText]}>
+              Saved Posts
+            </Text>
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -177,14 +171,12 @@ export function ProfileScreen({ onBackPress }: ProfileScreenProps) {
     <View style={s.gridItem}>
       <Image source={item.image} style={s.gridImage} contentFit="cover" />
       <View style={s.viewsOverlay}>
-        <Svg width={12} height={12} viewBox="0 0 24 24" fill="none" style={s.playIcon}>
-          <Path
-            d="M8 5V19L19 12L8 5Z"
-            fill="#FFFFFF"
-            stroke="#FFFFFF"
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
+        {/* Play.svg */}
+        <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
+          <path
+            d="M13.469 5.69754C16.1563 7.52436 17.5 8.43778 17.5 10C17.5 11.5623 16.1563 12.4757 13.469 14.3025C12.7272 14.8068 11.9914 15.2816 11.3153 15.6773C10.7221 16.0244 10.0503 16.3834 9.35484 16.7359C6.67383 18.0945 5.33332 18.7738 4.13104 18.0217C2.92875 17.2696 2.81949 15.6951 2.60095 12.5462C2.53915 11.6557 2.5 10.7827 2.5 10C2.5 9.2174 2.53915 8.3444 2.60095 7.45388C2.81949 4.30493 2.92875 2.73046 4.13104 1.97836C5.33332 1.22625 6.67383 1.90556 9.35484 3.26417C10.0503 3.61662 10.7221 3.97567 11.3153 4.32277C11.9914 4.71842 12.7272 5.19323 13.469 5.69754Z"
+            stroke="white"
+            strokeWidth="1.25"
           />
         </Svg>
         <Text style={s.viewsText}>{item.views}</Text>
@@ -197,11 +189,12 @@ export function ProfileScreen({ onBackPress }: ProfileScreenProps) {
       {/* Navigation Header */}
       <View style={[s.navBar, { paddingTop: insets.top + 10 }]}>
         <Pressable onPress={onBackPress} style={s.navLeft} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-          <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-            <Path
-              d="M15 19L8 12L15 5"
+          {/* Vector.svg back arrow */}
+          <Svg width={14} height={11} viewBox="0 0 14 11" fill="none">
+            <path
+              d="M12.5625 5.0625H0.5625M5.0625 9.5625L0.5625 5.0625L5.0625 0.5625"
               stroke="#262525"
-              strokeWidth={2.2}
+              strokeWidth="1.125"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
@@ -210,21 +203,14 @@ export function ProfileScreen({ onBackPress }: ProfileScreenProps) {
         </Pressable>
 
         <Pressable style={s.settingsBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+          {/* Settings Minimalistic.svg */}
           <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-            <Path
-              d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z"
+            <path
+              d="M7.84308 3.80211C9.8718 2.6007 10.8862 2 12 2C13.1138 2 14.1282 2.6007 16.1569 3.80211L16.8431 4.20846C18.8718 5.40987 19.8862 6.01057 20.4431 7C21 7.98943 21 9.19084 21 11.5937V12.4063C21 14.8092 21 16.0106 20.4431 17C19.8862 17.9894 18.8718 18.5901 16.8431 19.7915L16.1569 20.1979C14.1282 21.3993 13.1138 22 12 22C10.8862 22 9.8718 21.3993 7.84308 20.1979L7.15692 19.7915C5.1282 18.5901 4.11384 17.9894 3.55692 17C3 16.0106 3 14.8092 3 12.4063V11.5937C3 9.19084 3 7.98943 3.55692 7C4.11384 6.01057 5.1282 5.40987 7.15692 4.20846L7.84308 3.80211Z"
               stroke="#262525"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
+              strokeWidth="1.5"
             />
-            <Path
-              d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
-              stroke="#262525"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
+            <circle cx="12" cy="12" r="3" stroke="#1C274C" stroke-width="1.5" />
           </Svg>
         </Pressable>
       </View>
@@ -266,9 +252,9 @@ const s = StyleSheet.create({
   },
   navTitle: {
     fontFamily: "Ubuntu_500Medium",
-    fontSize: 18,
+    fontSize: 16,
     color: "#262525",
-    letterSpacing: -0.36,
+    letterSpacing: -0.32,
   },
   settingsBtn: {
     width: 24,
@@ -277,13 +263,16 @@ const s = StyleSheet.create({
     justifyContent: "center",
   },
   listContent: {
-    paddingHorizontal: 18,
     paddingBottom: 40,
+  },
+  headerContainer: {
+    width: "100%",
   },
   profileHeader: {
     alignItems: "center",
     paddingTop: 24,
     paddingBottom: 12,
+    paddingHorizontal: 18,
   },
   avatarContainer: {
     position: "relative",
@@ -304,11 +293,16 @@ const s = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: "#1B17B3",
+    backgroundColor: "#000000",
     borderWidth: 2,
     borderColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   nameRow: {
     flexDirection: "row",
@@ -394,12 +388,16 @@ const s = StyleSheet.create({
     marginTop: 16,
     paddingHorizontal: 12,
   },
-  tabsContainer: {
-    flexDirection: "row",
+  tabsWrapper: {
+    width: "100%",
     borderBottomWidth: 1,
     borderBottomColor: "#D2D2D2",
-    width: "100%",
+    paddingHorizontal: 18,
     marginTop: 24,
+  },
+  tabsContainer: {
+    flexDirection: "row",
+    width: "100%",
   },
   tabButton: {
     flex: 1,
@@ -426,14 +424,12 @@ const s = StyleSheet.create({
   },
   gridRow: {
     justifyContent: "flex-start",
-    gap: 9,
-    marginBottom: 9,
+    gap: 1,
+    marginBottom: 1,
   },
   gridItem: {
     width: GRID_ITEM_SIZE,
     height: GRID_ITEM_SIZE * 1.19, // Keep approximately 125x149 aspect ratio
-    borderRadius: 12,
-    overflow: "hidden",
     position: "relative",
     backgroundColor: "#F2F2F2",
   },
@@ -447,19 +443,15 @@ const s = StyleSheet.create({
     left: 8,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.4)",
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
     gap: 4,
-  },
-  playIcon: {
-    marginTop: 0.5,
   },
   viewsText: {
     fontFamily: "Ubuntu_400Regular",
-    fontSize: 11,
+    fontSize: 12,
     color: "#FFFFFF",
-    letterSpacing: -0.22,
+    letterSpacing: -0.24,
+    textShadowColor: "rgba(0, 0, 0, 0.4)",
+    textShadowOffset: { width: 0.5, height: 0.5 },
+    textShadowRadius: 1,
   },
 });
