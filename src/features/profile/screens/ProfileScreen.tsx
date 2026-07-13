@@ -46,6 +46,13 @@ const MOCK_POSTS: PostGridItem[] = [
   { id: "10", image: PROPERTY_IMG_5, views: "837" },
   { id: "11", image: PROPERTY_IMG_6, views: "837" },
   { id: "12", image: PROPERTY_IMG, views: "837" },
+  { id: "13", image: PROPERTY_IMG, views: "837" },
+  { id: "14", image: PROPERTY_IMG, views: "837" },
+  { id: "15", image: PROPERTY_IMG, views: "837" },
+  { id: "16", image: PROPERTY_IMG, views: "837" },
+  { id: "17", image: PROPERTY_IMG, views: "837" },
+  { id: "18", image: PROPERTY_IMG, views: "837" },
+  { id: "19", image: PROPERTY_IMG, views: "837" },
 ];
 
 const MOCK_SAVED_POSTS: PostGridItem[] = [
@@ -65,24 +72,36 @@ export function ProfileScreen({ onBackPress }: ProfileScreenProps) {
 
   const currentPosts = activeTab === "posts" ? MOCK_POSTS : MOCK_SAVED_POSTS;
 
-  // Header height logic
-  const NAV_BAR_HEIGHT = insets.top + 54;
+  // ==========================================
+  // CONFIGURABLE GLASSMORPHISM & TRANSITION SETTINGS
+  // ==========================================
+  const GLASS_BLUR_INTENSITY_IOS = 80;      // Blur intensity on iOS (0 to 100)
+  const GLASS_BLUR_INTENSITY_ANDROID = 40;  // Blur intensity on Android (requires prebuild/dev client with expo-blur)
+  const GLASS_WHITE_TINT_OPACITY = 0.30;    // Transparency of white overlay (0.30 = 30%)
+  
+  // Scroll Y offsets for controlling when header transitions occur
+  const SCROLL_START_Y = 120; // Scroll offset where "Profile" finishes fading out and username starts fading in
+  const SCROLL_END_Y = 170;   // Scroll offset where username is fully visible
+  // ==========================================
+
+  // Total navbar height: safe area inset + 56px content height
+  const NAV_BAR_HEIGHT = insets.top + 56;
 
   // Scroll animations
   const profileOpacity = scrollY.interpolate({
-    inputRange: [0, 50],
+    inputRange: [0, Math.max(0, SCROLL_START_Y - 40)],
     outputRange: [1, 0],
     extrapolate: "clamp",
   });
 
   const headerTitleOpacity = scrollY.interpolate({
-    inputRange: [60, 110],
+    inputRange: [SCROLL_START_Y, SCROLL_END_Y],
     outputRange: [0, 1],
     extrapolate: "clamp",
   });
 
   const headerTitleTranslateY = scrollY.interpolate({
-    inputRange: [60, 110],
+    inputRange: [SCROLL_START_Y, SCROLL_END_Y],
     outputRange: [12, 0],
     extrapolate: "clamp",
   });
@@ -235,14 +254,14 @@ export function ProfileScreen({ onBackPress }: ProfileScreenProps) {
       />
 
       {/* Floating Glassmorphism Navigation Header */}
-      <View style={[s.navBar, { paddingTop: insets.top + 15, height: NAV_BAR_HEIGHT }]}>
+      <View style={[s.navBar, { height: NAV_BAR_HEIGHT }]}>
         <BlurView
-          intensity={Platform.OS === "ios" ? 80 : 60}
+          intensity={Platform.OS === "ios" ? GLASS_BLUR_INTENSITY_IOS : GLASS_BLUR_INTENSITY_ANDROID}
           tint="light"
           experimentalBlurMethod="dimezisBlurView"
           style={StyleSheet.absoluteFill}
         />
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(255, 255, 255, 0.30)" }]} />
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(255, 255, 255, ${GLASS_WHITE_TINT_OPACITY})` }]} />
 
         {/* Animated Bottom Border */}
         <Animated.View
@@ -257,48 +276,51 @@ export function ProfileScreen({ onBackPress }: ProfileScreenProps) {
           pointerEvents="none"
         />
 
-        <Pressable onPress={onBackPress} style={s.navLeft} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-          {/* Vector.svg back arrow */}
-          <Svg width={14} height={11} viewBox="0 0 14 11" fill="none">
-            <Path
-              d="M12.5625 5.0625H0.5625M5.0625 9.5625L0.5625 5.0625L5.0625 0.5625"
-              stroke="#262525"
-              strokeWidth={1.125}
-              strokeLinecap="round"
-              strokeLinejoin="round"
+        {/* Status Bar safe area spacing container + centered content row */}
+        <View style={[s.navContent, { marginTop: insets.top }]}>
+          <Pressable onPress={onBackPress} style={s.navLeft} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+            {/* Vector.svg back arrow */}
+            <Svg width={14} height={11} viewBox="0 0 14 11" fill="none">
+              <Path
+                d="M12.5625 5.0625H0.5625M5.0625 9.5625L0.5625 5.0625L5.0625 0.5625"
+                stroke="#262525"
+                strokeWidth={1.125}
+                strokeLinecap="round"
+                strokeLinejoin="round"
             />
-          </Svg>
-          <Animated.Text style={[s.navTitle, { opacity: profileOpacity }]}>
-            Profile
-          </Animated.Text>
-        </Pressable>
+            </Svg>
+            <Animated.Text style={[s.navTitle, { opacity: profileOpacity }]}>
+              Profile
+            </Animated.Text>
+          </Pressable>
 
-        {/* Centered User Name Transition */}
-        <View style={s.navCenterContainer} pointerEvents="none">
-          <Animated.Text
-            style={[
-              s.navCenterTitle,
-              {
-                opacity: headerTitleOpacity,
-                transform: [{ translateY: headerTitleTranslateY }],
-              },
-            ]}
-          >
-            Kelechi Obi
-          </Animated.Text>
+          {/* Centered User Name Transition (centered in navContent space) */}
+          <View style={s.navCenterContainer} pointerEvents="none">
+            <Animated.Text
+              style={[
+                s.navCenterTitle,
+                {
+                  opacity: headerTitleOpacity,
+                  transform: [{ translateY: headerTitleTranslateY }],
+                },
+              ]}
+            >
+              Kelechi Obi
+            </Animated.Text>
+          </View>
+
+          <Pressable style={s.settingsBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+            {/* Settings Minimalistic.svg */}
+            <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M7.84308 3.80211C9.8718 2.6007 10.8862 2 12 2C13.1138 2 14.1282 2.6007 16.1569 3.80211L16.8431 4.20846C18.8718 5.40987 19.8862 6.01057 20.4431 7C21 7.98943 21 9.19084 21 11.5937V12.4063C21 14.8092 21 16.0106 20.4431 17C19.8862 17.9894 18.8718 18.5901 16.8431 19.7915L16.1569 20.1979C14.1282 21.3993 13.1138 22 12 22C10.8862 22 9.8718 21.3993 7.84308 20.1979L7.15692 19.7915C5.1282 18.5901 4.11384 17.9894 3.55692 17C3 16.0106 3 14.8092 3 12.4063V11.5937C3 9.19084 3 7.98943 3.55692 7C4.11384 6.01057 5.1282 5.40987 7.15692 4.20846L7.84308 3.80211Z"
+                stroke="#262525"
+                strokeWidth={1.5}
+              />
+              <Circle cx={12} cy={12} r={3} stroke="#1C274C" strokeWidth={1.5} />
+            </Svg>
+          </Pressable>
         </View>
-
-        <Pressable style={s.settingsBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-          {/* Settings Minimalistic.svg */}
-          <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-            <Path
-              d="M7.84308 3.80211C9.8718 2.6007 10.8862 2 12 2C13.1138 2 14.1282 2.6007 16.1569 3.80211L16.8431 4.20846C18.8718 5.40987 19.8862 6.01057 20.4431 7C21 7.98943 21 9.19084 21 11.5937V12.4063C21 14.8092 21 16.0106 20.4431 17C19.8862 17.9894 18.8718 18.5901 16.8431 19.7915L16.1569 20.1979C14.1282 21.3993 13.1138 22 12 22C10.8862 22 9.8718 21.3993 7.84308 20.1979L7.15692 19.7915C5.1282 18.5901 4.11384 17.9894 3.55692 17C3 16.0106 3 14.8092 3 12.4063V11.5937C3 9.19084 3 7.98943 3.55692 7C4.11384 6.01057 5.1282 5.40987 7.15692 4.20846L7.84308 3.80211Z"
-              stroke="#262525"
-              strokeWidth={1.5}
-            />
-            <Circle cx={12} cy={12} r={3} stroke="#1C274C" strokeWidth={1.5} />
-          </Svg>
-        </Pressable>
       </View>
     </View>
   );
@@ -313,12 +335,16 @@ const s = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
+    zIndex: 10,
+    backgroundColor: "transparent",
+  },
+  navContent: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    height: 56,
     paddingHorizontal: 18,
-    zIndex: 10,
-    backgroundColor: "transparent",
+    position: "relative",
   },
   navLeft: {
     flexDirection: "row",
@@ -336,8 +362,8 @@ const s = StyleSheet.create({
     position: "absolute",
     left: 60,
     right: 60,
-    bottom: 0,
     top: 0,
+    bottom: 0,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 1,
@@ -363,7 +389,7 @@ const s = StyleSheet.create({
   },
   profileHeader: {
     alignItems: "center",
-    paddingTop: 24,
+    paddingTop: 12,
     paddingBottom: 12,
     paddingHorizontal: 18,
   },
