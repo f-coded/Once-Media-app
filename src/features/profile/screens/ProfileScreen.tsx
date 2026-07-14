@@ -1,14 +1,22 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   View,
   Text,
   StyleSheet,
   Pressable,
-  FlatList,
   Platform,
   Dimensions,
   Animated,
+  ScrollView,
+  BackHandler,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from "react-native";
+import {
+  PanGestureHandler,
+  State,
+  PanGestureHandlerStateChangeEvent,
+} from "react-native-gesture-handler";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path, Circle } from "react-native-svg";
@@ -46,13 +54,14 @@ const MOCK_POSTS: PostGridItem[] = [
   { id: "10", image: PROPERTY_IMG_5, views: "837" },
   { id: "11", image: PROPERTY_IMG_6, views: "837" },
   { id: "12", image: PROPERTY_IMG, views: "837" },
-  { id: "13", image: PROPERTY_IMG, views: "837" },
-  { id: "14", image: PROPERTY_IMG, views: "837" },
-  { id: "15", image: PROPERTY_IMG, views: "837" },
+  { id: "13", image: PROPERTY_IMG_4, views: "837" },
+  { id: "14", image: PROPERTY_IMG_5, views: "837" },
+  { id: "15", image: PROPERTY_IMG_6, views: "837" },
   { id: "16", image: PROPERTY_IMG, views: "837" },
-  { id: "17", image: PROPERTY_IMG, views: "837" },
-  { id: "18", image: PROPERTY_IMG, views: "837" },
-  { id: "19", image: PROPERTY_IMG, views: "837" },
+  { id: "17", image: PROPERTY_IMG_4, views: "837" },
+  { id: "18", image: PROPERTY_IMG_5, views: "837" },
+  { id: "19", image: PROPERTY_IMG_6, views: "837" },
+  { id: "20", image: PROPERTY_IMG, views: "837" },
 ];
 
 const MOCK_SAVED_POSTS: PostGridItem[] = [
@@ -62,78 +71,28 @@ const MOCK_SAVED_POSTS: PostGridItem[] = [
 ];
 
 interface ProfileScreenProps {
+  isActive?: boolean;
   onBackPress?: () => void;
 }
 
-export function ProfileScreen({ onBackPress }: ProfileScreenProps) {
-  const insets = useSafeAreaInsets();
-  const [activeTab, setActiveTab] = useState<"posts" | "saved">("posts");
-  const scrollY = useRef(new Animated.Value(0)).current;
+// Fixed dimensions for tab line sliding calculations
+const TAB_CONTAINER_WIDTH = SCREEN_WIDTH - 172; // width of tabs row with 86px margins
+const TAB_WIDTH = (TAB_CONTAINER_WIDTH - 29) / 2; // two tabs with a 29px gap between them
+const INDICATOR_TRAVEL_DISTANCE = TAB_WIDTH + 29; // translation range between tab centers
 
-  const currentPosts = activeTab === "posts" ? MOCK_POSTS : MOCK_SAVED_POSTS;
+interface StableProfileHeaderProps {
+  activeTab: "posts" | "saved";
+  setActiveTab: (tab: "posts" | "saved") => void;
+  tabIndicatorX: Animated.Value | Animated.AnimatedInterpolation<number>;
+}
 
-  // ==========================================
-  // CONFIGURABLE GLASSMORPHISM & TRANSITION SETTINGS
-  // ==========================================
-  const GLASS_BLUR_INTENSITY_IOS = 80;      // Blur intensity on iOS (0 to 100)
-  const GLASS_BLUR_INTENSITY_ANDROID = 40;  // Blur intensity on Android (requires prebuild/dev client with expo-blur)
-  const GLASS_WHITE_TINT_OPACITY = 0.30;    // Transparency of white overlay (0.30 = 30%)
-  
-  // Scroll Y offsets for controlling when header transitions occur
-  const SCROLL_START_Y = 120; // Scroll offset where "Profile" finishes fading out and username starts fading in
-  const SCROLL_END_Y = 170;   // Scroll offset where username is fully visible
-  const STICKY_TABS_Y = 290;  // Scroll offset where tabs wrapper reaches the navbar and becomes sticky
-  // ==========================================
-
-  // Total navbar height: safe area inset + 56px content height
-  const NAV_BAR_HEIGHT = insets.top + 56;
-
-  const [isSticky, setIsSticky] = useState(false);
-
-  useEffect(() => {
-    const listenerId = scrollY.addListener(({ value }) => {
-      const active = value >= STICKY_TABS_Y;
-      if (active !== isSticky) {
-        setIsSticky(active);
-      }
-    });
-    return () => {
-      scrollY.removeListener(listenerId);
-    };
-  }, [isSticky]);
-
-  // Scroll animations
-  const profileOpacity = scrollY.interpolate({
-    inputRange: [0, Math.max(0, SCROLL_START_Y - 40)],
-    outputRange: [1, 0],
-    extrapolate: "clamp",
-  });
-
-  const headerTitleOpacity = scrollY.interpolate({
-    inputRange: [SCROLL_START_Y, SCROLL_END_Y],
-    outputRange: [0, 1],
-    extrapolate: "clamp",
-  });
-
-  const headerTitleTranslateY = scrollY.interpolate({
-    inputRange: [SCROLL_START_Y, SCROLL_END_Y],
-    outputRange: [12, 0],
-    extrapolate: "clamp",
-  });
-
-  const borderBottomOpacity = scrollY.interpolate({
-    inputRange: [0, 40],
-    outputRange: [0, 1],
-    extrapolate: "clamp",
-  });
-
-  const stickyTabsOpacity = scrollY.interpolate({
-    inputRange: [STICKY_TABS_Y - 5, STICKY_TABS_Y],
-    outputRange: [0, 1],
-    extrapolate: "clamp",
-  });
-
-  const renderHeader = () => (
+// Stable header component to prevent avatar unmounting/re-rendering glitch on tab toggling
+const StableProfileHeader = React.memo(({
+  activeTab,
+  setActiveTab,
+  tabIndicatorX,
+}: StableProfileHeaderProps) => {
+  return (
     <View style={s.headerContainer}>
       <View style={s.profileHeader}>
         <View style={s.avatarContainer}>
@@ -183,10 +142,10 @@ export function ProfileScreen({ onBackPress }: ProfileScreenProps) {
       <View style={s.tabsWrapper}>
         <View style={s.tabsContainer}>
           <Pressable
-            style={[s.tabButton, activeTab === "posts" && s.activeTabButton]}
+            style={s.tabButton}
             onPress={() => setActiveTab("posts")}
           >
-            {/* Posts Carousel Vertical unselected vs selected */}
+            {/* Posts Carousel Vertical icon */}
             <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
               <Path
                 d="M4.1665 9.58333C4.1665 8.01198 4.1665 7.22631 4.65466 6.73816C5.14281 6.25 5.92849 6.25 7.49984 6.25H12.4998C14.0712 6.25 14.8569 6.25 15.345 6.73816C15.8332 7.22631 15.8332 8.01198 15.8332 9.58333V10.4167C15.8332 11.988 15.8332 12.7737 15.345 13.2618C14.8569 13.75 14.0712 13.75 12.4998 13.75H7.49984C5.92849 13.75 5.14281 13.75 4.65466 13.2618C4.1665 12.7737 4.1665 11.988 4.1665 10.4167V9.58333Z"
@@ -212,10 +171,10 @@ export function ProfileScreen({ onBackPress }: ProfileScreenProps) {
           </Pressable>
 
           <Pressable
-            style={[s.tabButton, activeTab === "saved" && s.activeTabButton]}
+            style={s.tabButton}
             onPress={() => setActiveTab("saved")}
           >
-            {/* Bookmark unselected vs selected */}
+            {/* Bookmark icon */}
             <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
               <Path
                 d="M17.5 13.409V9.24789C17.5 5.67405 17.5 3.88713 16.4017 2.77688C15.3033 1.66663 13.5355 1.66663 10 1.66663C6.46447 1.66663 4.6967 1.66663 3.59835 2.77688C2.5 3.88713 2.5 5.67405 2.5 9.24789V13.409C2.5 15.9895 2.5 17.2798 3.11176 17.8435C3.40351 18.1124 3.77179 18.2813 4.1641 18.3262C4.98668 18.4204 5.94728 17.5707 7.86847 15.8715C8.71768 15.1204 9.14229 14.7448 9.63356 14.6458C9.87548 14.5971 10.1245 14.5971 10.3664 14.6458C10.8577 14.7448 11.2823 15.1204 12.1315 15.8715C14.0527 17.5707 15.0133 18.4204 15.8359 18.3262C16.2282 18.2813 16.5965 18.1124 16.8882 17.8435C17.5 17.2798 17.5 15.9895 17.5 13.409Z"
@@ -233,16 +192,202 @@ export function ProfileScreen({ onBackPress }: ProfileScreenProps) {
               Saved Posts
             </Text>
           </Pressable>
+
+          {/* Smooth sliding indicator line */}
+          <Animated.View
+            style={[
+              s.activeLineIndicator,
+              {
+                width: TAB_WIDTH,
+                transform: [{ translateX: tabIndicatorX }],
+              },
+            ]}
+          />
         </View>
       </View>
     </View>
   );
+});
+StableProfileHeader.displayName = "StableProfileHeader";
 
-  const renderGridItem = ({ item }: { item: PostGridItem }) => (
-    <View style={s.gridItem}>
+export function ProfileScreen({ onBackPress, isActive }: ProfileScreenProps) {
+  const insets = useSafeAreaInsets();
+  const [activeTab, setActiveTab] = useState<"posts" | "saved">("posts");
+
+  // Ref pointers and anim values
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const scrollX = useRef(new Animated.Value(0)).current;
+  const pagerRef = useRef<ScrollView>(null);
+
+  // Custom mount entry slide from right to left
+  const screenTranslateX = useRef(new Animated.Value(SCREEN_WIDTH)).current;
+
+  // Track if scroll was initiated programmatically by tapping a tab button
+  const isManualTapRef = useRef(false);
+
+  // Whenever the active state changes, we slide in or snap out cleanly
+  useEffect(() => {
+    if (isActive) {
+      screenTranslateX.stopAnimation();
+      screenTranslateX.setValue(SCREEN_WIDTH);
+      Animated.spring(screenTranslateX, {
+        toValue: 0,
+        tension: 38,
+        friction: 8,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      // Guarantee screen is fully translated off-screen when inactive to prevent blank screen glitches
+      screenTranslateX.stopAnimation();
+      screenTranslateX.setValue(SCREEN_WIDTH);
+    }
+  }, [isActive]);
+
+  const handleBack = useCallback(() => {
+    screenTranslateX.stopAnimation();
+    Animated.timing(screenTranslateX, {
+      toValue: SCREEN_WIDTH,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      onBackPress?.();
+    });
+  }, [onBackPress]);
+
+  // ── Hardware back button support ──────────────────────────────────
+  useEffect(() => {
+    if (!isActive) return;
+    const subscription = BackHandler.addEventListener("hardwarePress" as any, () => {
+      handleBack();
+      return true;
+    });
+    return () => {
+      subscription.remove();
+    };
+  }, [isActive, handleBack]);
+
+  // ── Swipe-to-close: decisive, no proportional drag ──────────────────────
+  // Wrapped structurally around ONLY the header/navbar/sticky-tabs views below
+  // (never the grid pager), so it can't compete with grid paging or vertical
+  // scroll. activeOffsetX/failOffsetY let taps and vertical scrolls pass
+  // straight through to their normal handlers untouched.
+  const onHeaderSwipeStateChange = useCallback(
+    (event: PanGestureHandlerStateChangeEvent) => {
+      const { state, translationX, velocityX } = event.nativeEvent;
+      if (state === State.END) {
+        const isDecisiveSwipe = translationX > 28 || velocityX > 480;
+        if (isDecisiveSwipe) {
+          handleBack();
+        }
+      }
+    },
+    [handleBack]
+  );
+
+  // Calculate dynamic grid heights so parent ScrollView scrolls them fully
+  const postsGridHeight = Math.ceil(MOCK_POSTS.length / 3) * (GRID_ITEM_SIZE * 1.19 + 1);
+  const savedGridHeight = Math.ceil(MOCK_SAVED_POSTS.length / 3) * (GRID_ITEM_SIZE * 1.19 + 1);
+  const activeGridHeight = activeTab === "posts" ? postsGridHeight : savedGridHeight;
+
+  // Smooth height transition when swapping tabs.
+  // NOTE: activeTab now only changes at a committed moment (tap, or drag-end
+  // commit below) — never mid-drag — so this never races against a live
+  // native scroll gesture anymore.
+  const pagerHeightAnim = useRef(new Animated.Value(postsGridHeight)).current;
+  useEffect(() => {
+    Animated.timing(pagerHeightAnim, {
+      toValue: activeGridHeight,
+      duration: 250,
+      useNativeDriver: false,
+    }).start();
+  }, [activeGridHeight]);
+
+  // Tab indicator — state-driven, snaps to discrete positions on activeTab changes.
+  // The indicator line does not follow raw scroll position during swiping;
+  // instead, it only animates when the target page switches/commits.
+  const tabIndicatorX = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(tabIndicatorX, {
+      toValue: activeTab === "posts" ? 0 : INDICATOR_TRAVEL_DISTANCE,
+      duration: 220,
+      useNativeDriver: true,
+    }).start();
+  }, [activeTab]);
+
+  // Tapping tab button initiates smooth pager scroll (reference-memoized)
+  const handleTabChange = useCallback((tab: "posts" | "saved") => {
+    isManualTapRef.current = true;
+    setActiveTab(tab);
+    if (pagerRef.current) {
+      pagerRef.current.scrollTo({
+        x: tab === "posts" ? 0 : SCREEN_WIDTH,
+        animated: true,
+      });
+    }
+  }, []);
+
+
+
+  // ==========================================
+  // CONFIGURABLE GLASSMORPHISM & TRANSITION SETTINGS
+  // ==========================================
+  const GLASS_BLUR_INTENSITY_IOS = 80;      // Blur intensity on iOS (0 to 100)
+  const GLASS_BLUR_INTENSITY_ANDROID = 30;  // Blur intensity on Android
+  const GLASS_WHITE_TINT_OPACITY = 0.30;    // Transparency of white overlay (0.30 = 30%)
+
+  const SCROLL_START_Y = 120;
+  const SCROLL_END_Y = 170;
+  const STICKY_TABS_Y = 290;
+  // ==========================================
+
+  const NAV_BAR_HEIGHT = insets.top + 56;
+
+  const [isSticky, setIsSticky] = useState(false);
+  const isStickyRef = useRef(false);
+
+  useEffect(() => {
+    const listenerId = scrollY.addListener(({ value }) => {
+      const active = value >= STICKY_TABS_Y;
+      if (active !== isStickyRef.current) {
+        isStickyRef.current = active;
+        setIsSticky(active);
+      }
+    });
+    return () => {
+      scrollY.removeListener(listenerId);
+    };
+  }, []);
+
+  // Scroll animations
+  const profileOpacity = scrollY.interpolate({
+    inputRange: [0, Math.max(0, SCROLL_START_Y - 40)],
+    outputRange: [1, 0],
+    extrapolate: "clamp",
+  });
+
+  const headerTitleOpacity = scrollY.interpolate({
+    inputRange: [SCROLL_START_Y, SCROLL_END_Y],
+    outputRange: [0, 1],
+    extrapolate: "clamp",
+  });
+
+  const headerTitleTranslateY = scrollY.interpolate({
+    inputRange: [SCROLL_START_Y, SCROLL_END_Y],
+    outputRange: [12, 0],
+    extrapolate: "clamp",
+  });
+
+  const stickyTabsOpacity = scrollY.interpolate({
+    inputRange: [STICKY_TABS_Y - 5, STICKY_TABS_Y],
+    outputRange: [0, 1],
+    extrapolate: "clamp",
+  });
+
+  const renderGridItem = (item: PostGridItem) => (
+    <View key={item.id} style={s.gridItem}>
       <Image source={item.image} style={s.gridImage} contentFit="cover" />
       <View style={s.viewsOverlay}>
-        {/* Play.svg */}
         <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
           <Path
             d="M13.469 5.69754C16.1563 7.52436 17.5 8.43778 17.5 10C17.5 11.5623 16.1563 12.4757 13.469 14.3025C12.7272 14.8068 11.9914 15.2816 11.3153 15.6773C10.7221 16.0244 10.0503 16.3834 9.35484 16.7359C6.67383 18.0945 5.33332 18.7738 4.13104 18.0217C2.92875 17.2696 2.81949 15.6951 2.60095 12.5462C2.53915 11.6557 2.5 10.7827 2.5 10C2.5 9.2174 2.53915 8.3444 2.60095 7.45388C2.81949 4.30493 2.92875 2.73046 4.13104 1.97836C5.33332 1.22625 6.67383 1.90556 9.35484 3.26417C10.0503 3.61662 10.7221 3.97567 11.3153 4.32277C11.9914 4.71842 12.7272 5.19323 13.469 5.69754Z"
@@ -256,174 +401,247 @@ export function ProfileScreen({ onBackPress }: ProfileScreenProps) {
   );
 
   return (
-    <View style={[s.container, { backgroundColor: "#FFFFFF" }]}>
-      {/* Grid of posts, offsets top padding to allow header components to scroll behind the floating glassmorphic navbar */}
-      <Animated.FlatList
-        data={currentPosts}
-        renderItem={renderGridItem}
-        keyExtractor={(item) => item.id}
-        numColumns={3}
-        ListHeaderComponent={renderHeader}
+    <Animated.View
+      style={[
+        s.container,
+        {
+          transform: [{ translateX: screenTranslateX }],
+          backgroundColor: "#FFFFFF",
+        },
+      ]}
+    >
+      {/* Outer vertical scroll frame containing header, inline tabs, and the horizontal post grids */}
+      <Animated.ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[s.listContent, { paddingTop: NAV_BAR_HEIGHT }]}
-        columnWrapperStyle={s.gridRow}
+        contentContainerStyle={{ paddingTop: NAV_BAR_HEIGHT, paddingBottom: 40 }}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
           { useNativeDriver: true }
         )}
         scrollEventThrottle={16}
-      />
+      >
+        <PanGestureHandler
+          onHandlerStateChange={onHeaderSwipeStateChange}
+          activeOffsetX={[-1000, 15]}
+          failOffsetY={[-12, 12]}
+        >
+          <View>
+            <StableProfileHeader
+              activeTab={activeTab}
+              setActiveTab={handleTabChange}
+              tabIndicatorX={tabIndicatorX}
+            />
+          </View>
+        </PanGestureHandler>
+
+        {/* Dynamic height container wrapping the horizontal grid pager */}
+        <Animated.View style={{ height: pagerHeightAnim, overflow: "hidden" }}>
+          <Animated.ScrollView
+            ref={pagerRef}
+            horizontal
+            pagingEnabled={true}
+            decelerationRate="fast"
+            bounces={false}
+            overScrollMode="never"
+            showsHorizontalScrollIndicator={false}
+            onScroll={Animated.event(
+              [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+              {
+                useNativeDriver: true,
+                listener: (event: any) => {
+                  if (isManualTapRef.current) return;
+                  const offsetX = event.nativeEvent.contentOffset.x;
+                  const threshold = SCREEN_WIDTH / 2;
+                  const target = offsetX < threshold ? "posts" : "saved";
+                  if (target !== activeTab) {
+                    setActiveTab(target);
+                  }
+                }
+              }
+            )}
+            onScrollBeginDrag={() => {
+              isManualTapRef.current = false;
+            }}
+            onMomentumScrollEnd={() => {
+              isManualTapRef.current = false;
+            }}
+            scrollEventThrottle={16}
+          >
+            {/* Grid Pane: Your Posts */}
+            <View style={{ width: SCREEN_WIDTH }}>
+              <View style={s.gridContainer}>
+                {MOCK_POSTS.map(renderGridItem)}
+              </View>
+            </View>
+
+            {/* Grid Pane: Saved Posts */}
+            <View style={{ width: SCREEN_WIDTH }}>
+              <View style={s.gridContainer}>
+                {MOCK_SAVED_POSTS.map(renderGridItem)}
+              </View>
+            </View>
+          </Animated.ScrollView>
+        </Animated.View>
+      </Animated.ScrollView>
 
       {/* Floating Glassmorphism Sticky Tabs (placed under the floating navbar) */}
-      <Animated.View
-        style={[
-          s.stickyTabsWrapper,
-          {
-            top: NAV_BAR_HEIGHT,
-            opacity: stickyTabsOpacity,
-          },
-        ]}
-        pointerEvents={isSticky ? "auto" : "none"}
+      <PanGestureHandler
+        onHandlerStateChange={onHeaderSwipeStateChange}
+        activeOffsetX={[-1000, 15]}
+        failOffsetY={[-12, 12]}
       >
-        <BlurView
-          intensity={Platform.OS === "ios" ? GLASS_BLUR_INTENSITY_IOS : GLASS_BLUR_INTENSITY_ANDROID}
-          tint="light"
-          experimentalBlurMethod="dimezisBlurView"
-          style={StyleSheet.absoluteFill}
-        />
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(255, 255, 255, ${GLASS_WHITE_TINT_OPACITY})` }]} />
-        
-        <View style={s.tabsContainer}>
-          <Pressable
-            style={[s.tabButton, activeTab === "posts" && s.activeTabButton]}
-            onPress={() => setActiveTab("posts")}
-          >
-            {/* Posts Carousel Vertical unselected vs selected */}
-            <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
-              <Path
-                d="M4.1665 9.58333C4.1665 8.01198 4.1665 7.22631 4.65466 6.73816C5.14281 6.25 5.92849 6.25 7.49984 6.25H12.4998C14.0712 6.25 14.8569 6.25 15.345 6.73816C15.8332 7.22631 15.8332 8.01198 15.8332 9.58333V10.4167C15.8332 11.988 15.8332 12.7737 15.345 13.2618C14.8569 13.75 14.0712 13.75 12.4998 13.75H7.49984C5.92849 13.75 5.14281 13.75 4.65466 13.2618C4.1665 12.7737 4.1665 11.988 4.1665 10.4167V9.58333Z"
-                stroke={activeTab === "posts" ? "#262525" : "#838383"}
-                strokeWidth={1.25}
-              />
-              <Path
-                d="M15.8332 1.66663V2.08329C15.8332 3.23389 14.9004 4.16663 13.7498 4.16663H6.24984C5.09924 4.16663 4.1665 3.23389 4.1665 2.08329V1.66663"
-                stroke={activeTab === "posts" ? "#262525" : "#838383"}
-                strokeWidth={1.25}
-                strokeLinecap="round"
-              />
-              <Path
-                d="M15.8332 18.3334V17.9167C15.8332 16.7661 14.9004 15.8334 13.7498 15.8334H6.24984C5.09924 15.8334 4.1665 16.7661 4.1665 17.9167V18.3334"
-                stroke={activeTab === "posts" ? "#262525" : "#838383"}
-                strokeWidth={1.25}
-                strokeLinecap="round"
-              />
-            </Svg>
-            <Text style={[s.tabText, activeTab === "posts" && s.activeTabText]}>
-              Your Posts
-            </Text>
-          </Pressable>
-
-          <Pressable
-            style={[s.tabButton, activeTab === "saved" && s.activeTabButton]}
-            onPress={() => setActiveTab("saved")}
-          >
-            {/* Bookmark unselected vs selected */}
-            <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
-              <Path
-                d="M17.5 13.409V9.24789C17.5 5.67405 17.5 3.88713 16.4017 2.77688C15.3033 1.66663 13.5355 1.66663 10 1.66663C6.46447 1.66663 4.6967 1.66663 3.59835 2.77688C2.5 3.88713 2.5 5.67405 2.5 9.24789V13.409C2.5 15.9895 2.5 17.2798 3.11176 17.8435C3.40351 18.1124 3.77179 18.2813 4.1641 18.3262C4.98668 18.4204 5.94728 17.5707 7.86847 15.8715C8.71768 15.1204 9.14229 14.7448 9.63356 14.6458C9.87548 14.5971 10.1245 14.5971 10.3664 14.6458C10.8577 14.7448 11.2823 15.1204 12.1315 15.8715C14.0527 17.5707 15.0133 18.4204 15.8359 18.3262C16.2282 18.2813 16.5965 18.1124 16.8882 17.8435C17.5 17.2798 17.5 15.9895 17.5 13.409Z"
-                stroke={activeTab === "saved" ? "#262525" : "#838383"}
-                strokeWidth={1.25}
-              />
-              <Path
-                d="M12.5 5H7.5"
-                stroke={activeTab === "saved" ? "#262525" : "#838383"}
-                strokeWidth={1.25}
-                strokeLinecap="round"
-              />
-            </Svg>
-            <Text style={[s.tabText, activeTab === "saved" && s.activeTabText]}>
-              Saved Posts
-            </Text>
-          </Pressable>
-        </View>
-      </Animated.View>
-
-      {/* Floating Glassmorphism Navigation Header */}
-      <View style={[s.navBar, { height: NAV_BAR_HEIGHT }]}>
-        <BlurView
-          intensity={Platform.OS === "ios" ? GLASS_BLUR_INTENSITY_IOS : GLASS_BLUR_INTENSITY_ANDROID}
-          tint="light"
-          experimentalBlurMethod="dimezisBlurView"
-          style={StyleSheet.absoluteFill}
-        />
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(255, 255, 255, ${GLASS_WHITE_TINT_OPACITY})` }]} />
-
-        {/* Animated Bottom Border */}
         <Animated.View
           style={[
-            StyleSheet.absoluteFill,
+            s.stickyTabsWrapper,
             {
-              borderBottomWidth: 0.5,
-              borderBottomColor: "#E4E4E4",
-              opacity: borderBottomOpacity,
+              top: NAV_BAR_HEIGHT,
+              opacity: stickyTabsOpacity,
             },
           ]}
-          pointerEvents="none"
-        />
+          pointerEvents={isSticky ? "auto" : "none"}
+        >
+          <BlurView
+            intensity={Platform.OS === "ios" ? GLASS_BLUR_INTENSITY_IOS : GLASS_BLUR_INTENSITY_ANDROID}
+            tint="light"
+            experimentalBlurMethod="dimezisBlurView"
+            style={StyleSheet.absoluteFill}
+          />
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(255, 255, 255, ${GLASS_WHITE_TINT_OPACITY})` }]} />
 
-        {/* Status Bar safe area spacing container + centered content row */}
-        <View style={[s.navContent, { marginTop: insets.top }]}>
-          <Pressable onPress={onBackPress} style={s.navLeft} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-            {/* Vector.svg back arrow */}
-            <Svg width={14} height={11} viewBox="0 0 14 11" fill="none">
-              <Path
-                d="M12.5625 5.0625H0.5625M5.0625 9.5625L0.5625 5.0625L5.0625 0.5625"
-                stroke="#262525"
-                strokeWidth={1.125}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            />
-            </Svg>
-            <Animated.Text style={[s.navTitle, { opacity: profileOpacity }]}>
-              Profile
-            </Animated.Text>
-          </Pressable>
+          <View style={s.tabsContainer}>
+            <Pressable style={s.tabButton} onPress={() => handleTabChange("posts")}>
+              <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
+                <Path
+                  d="M4.1665 9.58333C4.1665 8.01198 4.1665 7.22631 4.65466 6.73816C5.14281 6.25 5.92849 6.25 7.49984 6.25H12.4998C14.0712 6.25 14.8569 6.25 15.345 6.73816C15.8332 7.22631 15.8332 8.01198 15.8332 9.58333V10.4167C15.8332 11.988 15.8332 12.7737 15.345 13.2618C14.8569 13.75 14.0712 13.75 12.4998 13.75H7.49984C5.92849 13.75 5.14281 13.75 4.65466 13.2618C4.1665 12.7737 4.1665 11.988 4.1665 10.4167V9.58333Z"
+                  stroke={activeTab === "posts" ? "#262525" : "#838383"}
+                  strokeWidth={1.25}
+                />
+                <Path
+                  d="M15.8332 1.66663V2.08329C15.8332 3.23389 14.9004 4.16663 13.7498 4.16663H6.24984C5.09924 4.16663 4.1665 3.23389 4.1665 2.08329V1.66663"
+                  stroke={activeTab === "posts" ? "#262525" : "#838383"}
+                  strokeWidth={1.25}
+                  strokeLinecap="round"
+                />
+                <Path
+                  d="M15.8332 18.3334V17.9167C15.8332 16.7661 14.9004 15.8334 13.7498 15.8334H6.24984C5.09924 15.8334 4.1665 16.7661 4.1665 17.9167V18.3334"
+                  stroke={activeTab === "posts" ? "#262525" : "#838383"}
+                  strokeWidth={1.25}
+                  strokeLinecap="round"
+                />
+              </Svg>
+              <Text style={[s.tabText, activeTab === "posts" && s.activeTabText]}>
+                Your Posts
+              </Text>
+            </Pressable>
 
-          {/* Centered User Name Transition (centered in navContent space) */}
-          <View style={s.navCenterContainer} pointerEvents="none">
-            <Animated.Text
+            <Pressable style={s.tabButton} onPress={() => handleTabChange("saved")}>
+              <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
+                <Path
+                  d="M17.5 13.409V9.24789C17.5 5.67405 17.5 3.88713 16.4017 2.77688C15.3033 1.66663 13.5355 1.66663 10 1.66663C6.46447 1.66663 4.6967 1.66663 3.59835 2.77688C2.5 3.88713 2.5 5.67405 2.5 9.24789V13.409C2.5 15.9895 2.5 17.2798 3.11176 17.8435C3.40351 18.1124 3.77179 18.2813 4.1641 18.3262C4.98668 18.4204 5.94728 17.5707 7.86847 15.8715C8.71768 15.1204 9.14229 14.7448 9.63356 14.6458C9.87548 14.5971 10.1245 14.5971 10.3664 14.6458C10.8577 14.7448 11.2823 15.1204 12.1315 15.8715C14.0527 17.5707 15.0133 18.4204 15.8359 18.3262C16.2282 18.2813 16.5965 18.1124 16.8882 17.8435C17.5 17.2798 17.5 15.9895 17.5 13.409Z"
+                  stroke={activeTab === "saved" ? "#262525" : "#838383"}
+                  strokeWidth={1.25}
+                />
+                <Path
+                  d="M12.5 5H7.5"
+                  stroke={activeTab === "saved" ? "#262525" : "#838383"}
+                  strokeWidth={1.25}
+                  strokeLinecap="round"
+                />
+              </Svg>
+              <Text style={[s.tabText, activeTab === "saved" && s.activeTabText]}>
+                Saved Posts
+              </Text>
+            </Pressable>
+
+            {/* Smooth sliding indicator line */}
+            <Animated.View
               style={[
-                s.navCenterTitle,
+                s.activeLineIndicator,
                 {
-                  opacity: headerTitleOpacity,
-                  transform: [{ translateY: headerTitleTranslateY }],
+                  width: TAB_WIDTH,
+                  transform: [{ translateX: tabIndicatorX }],
                 },
               ]}
-            >
-              Kelechi Obi
-            </Animated.Text>
+            />
           </View>
+        </Animated.View>
+      </PanGestureHandler>
 
-          <Pressable style={s.settingsBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-            {/* Settings Minimalistic.svg */}
-            <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-              <Path
-                d="M7.84308 3.80211C9.8718 2.6007 10.8862 2 12 2C13.1138 2 14.1282 2.6007 16.1569 3.80211L16.8431 4.20846C18.8718 5.40987 19.8862 6.01057 20.4431 7C21 7.98943 21 9.19084 21 11.5937V12.4063C21 14.8092 21 16.0106 20.4431 17C19.8862 17.9894 18.8718 18.5901 16.8431 19.7915L16.1569 20.1979C14.1282 21.3993 13.1138 22 12 22C10.8862 22 9.8718 21.3993 7.84308 20.1979L7.15692 19.7915C5.1282 18.5901 4.11384 17.9894 3.55692 17C3 16.0106 3 14.8092 3 12.4063V11.5937C3 9.19084 3 7.98943 3.55692 7C4.11384 6.01057 5.1282 5.40987 7.15692 4.20846L7.84308 3.80211Z"
-                stroke="#262525"
-                strokeWidth={1.5}
-              />
-              <Circle cx={12} cy={12} r={3} stroke="#1C274C" strokeWidth={1.5} />
-            </Svg>
-          </Pressable>
+      {/* Floating Glassmorphism Navigation Header */}
+      <PanGestureHandler
+        onHandlerStateChange={onHeaderSwipeStateChange}
+        activeOffsetX={[-1000, 15]}
+        failOffsetY={[-12, 12]}
+      >
+        <View style={[s.navBar, { height: NAV_BAR_HEIGHT }]}>
+          <BlurView
+            intensity={Platform.OS === "ios" ? GLASS_BLUR_INTENSITY_IOS : GLASS_BLUR_INTENSITY_ANDROID}
+            tint="light"
+            experimentalBlurMethod="dimezisBlurView"
+            style={StyleSheet.absoluteFill}
+          />
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(255, 255, 255, ${GLASS_WHITE_TINT_OPACITY})` }]} />
+
+          {/* Status Bar safe area spacing container + centered content row */}
+          <View style={[s.navContent, { marginTop: insets.top }]}>
+            <Pressable onPress={handleBack} style={s.navLeft} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+              {/* Vector.svg back arrow */}
+              <Svg width={14} height={11} viewBox="0 0 14 11" fill="none">
+                <Path
+                  d="M12.5625 5.0625H0.5625M5.0625 9.5625L0.5625 5.0625L5.0625 0.5625"
+                  stroke="#262525"
+                  strokeWidth={1.125}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
+              <Animated.Text style={[s.navTitle, { opacity: profileOpacity }]}>
+                Profile
+              </Animated.Text>
+            </Pressable>
+
+            {/* Centered User Name Transition (centered in navContent space) */}
+            <View style={s.navCenterContainer} pointerEvents="none">
+              <Animated.Text
+                style={[
+                  s.navCenterTitle,
+                  {
+                    opacity: headerTitleOpacity,
+                    transform: [{ translateY: headerTitleTranslateY }],
+                  },
+                ]}
+              >
+                Kelechi Obi
+              </Animated.Text>
+            </View>
+
+            <Pressable style={s.settingsBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+              {/* Settings Minimalistic.svg */}
+              <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M7.84308 3.80211C9.8718 2.6007 10.8862 2 12 2C13.1138 2 14.1282 2.6007 16.1569 3.80211L16.8431 4.20846C18.8718 5.40987 19.8862 6.01057 20.4431 7C21 7.98943 21 9.19084 21 11.5937V12.4063C21 14.8092 21 16.0106 20.4431 17C19.8862 17.9894 18.8718 18.5901 16.8431 19.7915L16.1569 20.1979C14.1282 21.3993 13.1138 22 12 22C10.8862 22 9.8718 21.3993 7.84308 20.1979L7.15692 19.7915C5.1282 18.5901 4.11384 17.9894 3.55692 17C3 16.0106 3 14.8092 3 12.4063V11.5937C3 9.19084 3 7.98943 3.55692 7C4.11384 6.01057 5.1282 5.40987 7.15692 4.20846L7.84308 3.80211Z"
+                  stroke="#262525"
+                  strokeWidth={1.5}
+                />
+                <Circle cx={12} cy={12} r={3} stroke="#1C274C" strokeWidth={1.5} />
+              </Svg>
+            </Pressable>
+          </View>
         </View>
-      </View>
-    </View>
+      </PanGestureHandler>
+    </Animated.View>
   );
 }
 
 const s = StyleSheet.create({
   container: {
     flex: 1,
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 100,
   },
   navBar: {
     position: "absolute",
@@ -487,9 +705,6 @@ const s = StyleSheet.create({
     justifyContent: "center",
     zIndex: 2,
   },
-  listContent: {
-    paddingBottom: 40,
-  },
   headerContainer: {
     width: "100%",
   },
@@ -518,16 +733,11 @@ const s = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: "#000000",
+    backgroundColor: "#000000dd",
     borderWidth: 2,
     borderColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
   },
   nameRow: {
     flexDirection: "row",
@@ -611,19 +821,18 @@ const s = StyleSheet.create({
     textAlign: "center",
     letterSpacing: -0.26,
     marginTop: 16,
-    // paddingHorizontal: 12,
   },
   tabsWrapper: {
     width: "100%",
     borderBottomWidth: 1,
     borderBottomColor: "#D2D2D2",
     paddingHorizontal: 86,
-  
   },
   tabsContainer: {
     flexDirection: "row",
     gap: 29,
     width: "100%",
+    position: "relative",
   },
   tabButton: {
     flex: 1,
@@ -632,11 +841,6 @@ const s = StyleSheet.create({
     justifyContent: "center",
     gap: 6,
     paddingVertical: 12,
-    borderBottomWidth: 2,
-    borderBottomColor: "transparent",
-  },
-  activeTabButton: {
-    borderBottomColor: "#000000",
   },
   tabText: {
     fontFamily: "Ubuntu_400Regular",
@@ -648,10 +852,17 @@ const s = StyleSheet.create({
     fontFamily: "Ubuntu_500Medium",
     color: "#262525",
   },
-  gridRow: {
-    justifyContent: "flex-start",
+  activeLineIndicator: {
+    position: "absolute",
+    bottom: 0,
+    height: 2,
+    backgroundColor: "#000000",
+  },
+  gridContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 1,
-    marginBottom: 1,
+    width: SCREEN_WIDTH,
   },
   gridItem: {
     width: GRID_ITEM_SIZE,
@@ -666,7 +877,7 @@ const s = StyleSheet.create({
   viewsOverlay: {
     position: "absolute",
     bottom: 8,
-    left: 8,
+    right: 8,
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
@@ -680,4 +891,4 @@ const s = StyleSheet.create({
     textShadowOffset: { width: 0.5, height: 0.5 },
     textShadowRadius: 1,
   },
-});
+});  

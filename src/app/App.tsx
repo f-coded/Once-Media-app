@@ -58,6 +58,7 @@ export default function App() {
   const [route, setRoute] = useState<Route>("login");
   const [selectedRole, setSelectedRole] = useState("House Hunter");
   const [showSplash, setShowSplash] = useState(true);
+  const [profileOrigin, setProfileOrigin] = useState<Route>("feed");
 
   if (!fontsLoaded) {
     return null;
@@ -148,15 +149,18 @@ export default function App() {
              so switching back to Home is instant — no remount lag.       */}
         {(route === "feed" || route === "chat" || route === "wallet" || route === "profile") && (
           <>
-            <View style={[StyleSheet.absoluteFill, { display: route === "feed" ? "flex" : "none" }]}>
+            <View style={[StyleSheet.absoluteFill, { display: route === "feed" || (route === "profile" && profileOrigin === "feed") ? "flex" : "none" }]}>
               <FeedScreen
                 onChatPress={() => setRoute("chat")}
                 onWalletPress={() => setRoute("wallet")}
-                onProfilePress={() => setRoute("profile")}
+                onProfilePress={() => {
+                  setProfileOrigin("feed");
+                  setRoute("profile");
+                }}
               />
             </View>
 
-            <View style={[StyleSheet.absoluteFill, { display: route === "chat" ? "flex" : "none" }]}>
+            <View style={[StyleSheet.absoluteFill, { display: route === "chat" || (route === "profile" && profileOrigin === "chat") ? "flex" : "none" }]}>
               <ChatScreen
                 activeTab="chat"
                 onTabPress={(tab) => {
@@ -166,7 +170,7 @@ export default function App() {
               />
             </View>
 
-            <View style={[StyleSheet.absoluteFill, { display: route === "wallet" ? "flex" : "none" }]}>
+            <View style={[StyleSheet.absoluteFill, { display: route === "wallet" || (route === "profile" && profileOrigin === "wallet") ? "flex" : "none" }]}>
               <WalletScreen
                 onTabPress={(tab) => {
                   if (tab === "home") setRoute("feed");
@@ -176,7 +180,10 @@ export default function App() {
             </View>
 
             <View style={[StyleSheet.absoluteFill, { display: route === "profile" ? "flex" : "none" }]}>
-              <ProfileScreen onBackPress={() => setRoute("feed")} />
+              <ProfileScreen
+                isActive={route === "profile"}
+                onBackPress={() => setRoute(profileOrigin)}
+              />
             </View>
           </>
         )}
