@@ -11,7 +11,11 @@ export function FeedHeader({ onProfilePress }: { onProfilePress?: () => void }) 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 9 }]}>
       <View style={styles.leftGroup}>
-        <Pressable onPress={onProfilePress} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <Pressable 
+          onPress={onProfilePress} 
+          style={styles.profilePressable}
+          hitSlop={{ top: 35, bottom: 35, left: 35, right: 35 }}
+        >
           <Image
             source={{ uri: "https://i.pravatar.cc/100?img=9" }}
             style={styles.profileAvatar}
@@ -48,7 +52,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 18,
+    paddingHorizontal: 15,
     paddingBottom: 10,
   },
   title: {
@@ -60,7 +64,13 @@ const styles = StyleSheet.create({
   leftGroup: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 5,
+  },
+  profilePressable: {
+    width: 52,
+    height: 52,
+    alignItems: "center",
+    justifyContent: "center",
   },
   profileAvatar: {
     width: 36,

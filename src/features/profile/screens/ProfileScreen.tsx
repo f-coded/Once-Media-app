@@ -11,6 +11,7 @@ import {
   BackHandler,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  Easing,
 } from "react-native";
 import {
   PanGestureHandler,
@@ -72,7 +73,9 @@ const MOCK_SAVED_POSTS: PostGridItem[] = [
 
 interface ProfileScreenProps {
   isActive?: boolean;
+  isShifted?: boolean;
   onBackPress?: () => void;
+  onSettingsPress?: () => void;
 }
 
 // Fixed dimensions for tab line sliding calculations
@@ -210,7 +213,8 @@ const StableProfileHeader = React.memo(({
 });
 StableProfileHeader.displayName = "StableProfileHeader";
 
-export function ProfileScreen({ onBackPress, isActive }: ProfileScreenProps) {
+export const ProfileScreen = React.memo(
+  function ProfileScreen({ onBackPress, isActive, isShifted, onSettingsPress }: ProfileScreenProps) {
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<"posts" | "saved">("posts");
 
@@ -225,39 +229,36 @@ export function ProfileScreen({ onBackPress, isActive }: ProfileScreenProps) {
   // Track if scroll was initiated programmatically by tapping a tab button
   const isManualTapRef = useRef(false);
 
-  // Whenever the active state changes, we slide in or snap out cleanly
+  // Whenever the active or shifted states change, we slide reactively
   useEffect(() => {
     if (isActive) {
       screenTranslateX.stopAnimation();
-      screenTranslateX.setValue(SCREEN_WIDTH);
-      Animated.spring(screenTranslateX, {
-        toValue: 0,
-        tension: 38,
-        friction: 8,
+      const targetValue = isShifted ? -SCREEN_WIDTH * 0.25 : 0;
+      Animated.timing(screenTranslateX, {
+        toValue: targetValue,
+        duration: 250,
+        easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }).start();
     } else {
-      // Guarantee screen is fully translated off-screen when inactive to prevent blank screen glitches
       screenTranslateX.stopAnimation();
-      screenTranslateX.setValue(SCREEN_WIDTH);
+      Animated.timing(screenTranslateX, {
+        toValue: SCREEN_WIDTH,
+        duration: 200,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }).start();
     }
-  }, [isActive]);
+  }, [isActive, isShifted]);
 
   const handleBack = useCallback(() => {
-    screenTranslateX.stopAnimation();
-    Animated.timing(screenTranslateX, {
-      toValue: SCREEN_WIDTH,
-      duration: 200,
-      useNativeDriver: true,
-    }).start(() => {
-      onBackPress?.();
-    });
+    onBackPress?.();
   }, [onBackPress]);
 
   // ── Hardware back button support ──────────────────────────────────
   useEffect(() => {
     if (!isActive) return;
-    const subscription = BackHandler.addEventListener("hardwarePress" as any, () => {
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
       handleBack();
       return true;
     });
@@ -584,7 +585,7 @@ export function ProfileScreen({ onBackPress, isActive }: ProfileScreenProps) {
 
           {/* Status Bar safe area spacing container + centered content row */}
           <View style={[s.navContent, { marginTop: insets.top }]}>
-            <Pressable onPress={handleBack} style={s.navLeft} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+            <Pressable onPress={handleBack} style={s.navLeft} hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}>
               {/* Vector.svg back arrow */}
               <Svg width={14} height={11} viewBox="0 0 14 11" fill="none">
                 <Path
@@ -615,7 +616,7 @@ export function ProfileScreen({ onBackPress, isActive }: ProfileScreenProps) {
               </Animated.Text>
             </View>
 
-            <Pressable style={s.settingsBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+            <Pressable style={s.settingsBtn} hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }} onPress={onSettingsPress}>
               {/* Settings Minimalistic.svg */}
               <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
                 <Path
@@ -631,7 +632,7 @@ export function ProfileScreen({ onBackPress, isActive }: ProfileScreenProps) {
       </PanGestureHandler>
     </Animated.View>
   );
-}
+}, (prev, next) => prev.isActive === next.isActive && prev.isShifted === next.isShifted);
 
 const s = StyleSheet.create({
   container: {
