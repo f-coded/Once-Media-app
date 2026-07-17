@@ -31,7 +31,7 @@ interface PersonalInfoScreenProps {
   onBackPress?: () => void;
 }
 
-const IconCalendar = () => (
+const  IconCalendar = () => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
     <Rect x={3} y={4} width={18} height={17} rx={2} stroke="#9B9B9B" strokeWidth={1.5} />
     <Path d="M16 2V6" stroke="#9B9B9B" strokeWidth={1.5} strokeLinecap="round" />
@@ -187,7 +187,7 @@ export const PersonalInfoScreen = React.memo(
           onChangeText={setDob}
           trailing={<IconCalendar />}
           hint="You'd be the only one to see this"
-          style={fi.marginTop}
+          style={[fi.marginTop, { fontStyle: "italic" }]}
         />
         <CustomInputBox
           label="Phone number"
@@ -277,7 +277,7 @@ const fi = StyleSheet.create({
   },
   navTitle: {
     fontFamily: "Ubuntu_500Medium",
-    fontSize: 18,
+    fontSize: 16,
     color: "#262525",
     letterSpacing: -0.3,
   },
@@ -285,30 +285,30 @@ const fi = StyleSheet.create({
     marginBottom: 20,
   },
   sectionLabel: {
-    fontFamily: "Ubuntu_500Medium",
+    fontFamily: "Ubuntu_400Regular",
     fontSize: 14,
-    color: "#262525",
+    color: "rgba(12, 12, 12, 1)",
     marginBottom: 10,
   },
   avatarRow: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 16,
+    alignItems: "flex-end",
+    gap: 12,
   },
   avatar: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+    width: 79,
+    height: 79,
+    borderRadius: 60,
     backgroundColor: "#F5F5F8",
   },
   changeBtn: {
     backgroundColor: "rgba(27, 23, 179, 0.08)",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    borderRadius: 22,
   },
   changeBtnText: {
-    fontFamily: "Ubuntu_500Medium",
+    fontFamily: "Ubuntu_400Regular",
     fontSize: 13,
     color: "#1B17B3",
   },
@@ -323,23 +323,22 @@ const fi = StyleSheet.create({
     marginTop: 14,
   },
   fieldLabel: {
-    fontFamily: "Ubuntu_400Regular",
-    fontSize: 13,
+    fontFamily: "Ubuntu_400Regular", 
     color: "#262525",
-    marginBottom: 6,
+    marginBottom: 8,
   },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#F5F5F8",
-    borderRadius: 16,
+    borderRadius: 30,
     height: 52,
     paddingHorizontal: 16,
   },
   input: {
     flex: 1,
     fontFamily: "Ubuntu_400Regular",
-    fontSize: 15,
+    fontSize: 13,
     color: "rgba(0,0,0,0.91)",
     padding: 0,
   },
@@ -349,17 +348,18 @@ const fi = StyleSheet.create({
   hint: {
     fontFamily: "Ubuntu_400Regular",
     fontSize: 11,
+    fontStyle: "italic",
     color: "#9B9B9B",
     marginTop: 6,
   },
   deleteBtn: {
     alignItems: "center",
-    marginTop: 36,
-    marginBottom: 24,
+    marginTop: 27,
+    // marginBottom: 24,
   },
   deleteText: {
-    fontFamily: "Ubuntu_500Medium",
-    fontSize: 15,
+    fontFamily: "Ubuntu_400Regular",
+    fontSize: 14,
     color: "#FF3B30",
   },
   saveBtn: {
