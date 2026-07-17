@@ -23,6 +23,11 @@ import { FeedScreen } from "@/features/feed/screens/FeedScreen";
 import { ChatScreen } from "@/features/chat/screens/ChatScreen";
 import { WalletScreen } from "@/features/wallet/screens/WalletScreen";
 import { ProfileScreen } from "@/features/profile/screens/ProfileScreen";
+import { SettingsScreen } from "@/features/profile/screens/SettingsScreen";
+import { PersonalInfoScreen } from "@/features/profile/screens/PersonalInfoScreen";
+import { SecurityScreen } from "@/features/profile/screens/SecurityScreen";
+import { ChangePasswordScreen } from "@/features/profile/screens/ChangePasswordScreen";
+import { ChangePinScreen } from "@/features/profile/screens/ChangePinScreen";
 import { AnimatedSplashScreen } from "@/shared/components/loaders/AnimatedSplashScreen";
 
 import * as NavigationBar from "expo-navigation-bar";
@@ -46,7 +51,12 @@ type Route =
   | "feed"
   | "chat"
   | "wallet"
-  | "profile";
+  | "profile"
+  | "settings"
+  | "personal-info"
+  | "security"
+  | "change-password"
+  | "change-pin";
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -147,7 +157,7 @@ export default function App() {
         {/* ── Tab screens: always mounted, show/hide via display ─────────────
              Keeps each screen alive in memory (like React Navigation tabs)
              so switching back to Home is instant — no remount lag.       */}
-        {(route === "feed" || route === "chat" || route === "wallet" || route === "profile") && (
+        {(route === "feed" || route === "chat" || route === "wallet" || route === "profile" || route === "settings" || route === "personal-info" || route === "security" || route === "change-password" || route === "change-pin") && (
           <>
             <View style={[StyleSheet.absoluteFill, { display: route === "feed" || (route === "profile" && profileOrigin === "feed") ? "flex" : "none" }]}>
               <FeedScreen
@@ -179,10 +189,79 @@ export default function App() {
               />
             </View>
 
-            <View style={[StyleSheet.absoluteFill, { display: route === "profile" ? "flex" : "none" }]}>
+            {/* Profile and Settings screens wrapper (single z-indexed display layer) */}
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                {
+                  display: [
+                    "profile",
+                    "settings",
+                    "personal-info",
+                    "security",
+                    "change-password",
+                    "change-pin",
+                  ].includes(route)
+                    ? "flex"
+                    : "none",
+                },
+              ]}
+            >
               <ProfileScreen
-                isActive={route === "profile"}
+                isActive={[
+                  "profile",
+                  "settings",
+                  "personal-info",
+                  "security",
+                  "change-password",
+                  "change-pin",
+                ].includes(route)}
+                isShifted={[
+                  "settings",
+                  "personal-info",
+                  "security",
+                  "change-password",
+                  "change-pin",
+                ].includes(route)}
                 onBackPress={() => setRoute(profileOrigin)}
+                onSettingsPress={() => setRoute("settings")}
+              />
+              <SettingsScreen
+                isActive={[
+                  "settings",
+                  "personal-info",
+                  "security",
+                  "change-password",
+                  "change-pin",
+                ].includes(route)}
+                isShifted={[
+                  "personal-info",
+                  "security",
+                  "change-password",
+                  "change-pin",
+                ].includes(route)}
+                onBackPress={() => setRoute("profile")}
+                onPersonalInfoPress={() => setRoute("personal-info")}
+                onSecurityPress={() => setRoute("security")}
+              />
+              <PersonalInfoScreen
+                isActive={route === "personal-info"}
+                onBackPress={() => setRoute("settings")}
+              />
+              <SecurityScreen
+                isActive={["security", "change-password", "change-pin"].includes(route)}
+                isShifted={["change-password", "change-pin"].includes(route)}
+                onBackPress={() => setRoute("settings")}
+                onChangePasswordPress={() => setRoute("change-password")}
+                onChangePinPress={() => setRoute("change-pin")}
+              />
+              <ChangePasswordScreen
+                isActive={route === "change-password"}
+                onBackPress={() => setRoute("security")}
+              />
+              <ChangePinScreen
+                isActive={route === "change-pin"}
+                onBackPress={() => setRoute("security")}
               />
             </View>
           </>
