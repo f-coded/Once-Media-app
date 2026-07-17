@@ -9,7 +9,6 @@ import {
   Platform,
   BackHandler,
   Easing,
-  ScrollView,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
@@ -116,6 +115,32 @@ export const SecurityScreen = React.memo(
     { icon: <IconPin />, label: "Change Pin", onPress: onChangePinPress },
   ];
 
+  /* ── Elastic drag for Android bounce feel ──────────────────── */
+  const dragY = useRef(new Animated.Value(0)).current;
+
+  // Rubber-band resistance: the further you drag, the less it moves
+  const rubberBand = (value: number, constant = 0.55) => {
+    const sign = value < 0 ? -1 : 1;
+    return sign * (1 - 1 / (Math.abs(value) / 200 + 1)) * 200 * constant;
+  };
+
+  const onDragGestureEvent = useCallback((event: any) => {
+    const { translationY } = event.nativeEvent;
+    dragY.setValue(rubberBand(translationY));
+  }, []);
+
+  const onDragStateChange = useCallback((event: any) => {
+    const { state } = event.nativeEvent;
+    if (state === State.END || state === State.CANCELLED || state === State.FAILED) {
+      Animated.spring(dragY, {
+        toValue: 0,
+        friction: 8,
+        tension: 50,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, []);
+
   return (
     <Animated.View
       style={[
@@ -123,31 +148,40 @@ export const SecurityScreen = React.memo(
         { transform: [{ translateX: screenX }], backgroundColor: "#FFFFFF", zIndex: 130 },
       ]}
     >
-      <ScrollView
-        contentContainerStyle={{ paddingTop: NAV_BAR_HEIGHT + 24, paddingHorizontal: 20, paddingBottom: 40 }}
-        showsVerticalScrollIndicator={false}
-        bounces={true}
-        alwaysBounceVertical={true}
-        overScrollMode="always"
+      <PanGestureHandler
+        onGestureEvent={onDragGestureEvent}
+        onHandlerStateChange={onDragStateChange}
+        activeOffsetY={[-10, 10]}
+        failOffsetX={[-12, 12]}
       >
-        <View style={sc.list}>
-          {items.map((item, i) => (
-            <Pressable
-              key={i}
-              onPress={item.onPress}
-              style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
-            >
-              <View style={sc.item}>
-                <View style={sc.left}>
-                  <View style={sc.iconWrap}>{item.icon}</View>
-                  <Text style={sc.label}>{item.label}</Text>
+        <Animated.View
+          style={{
+            flex: 1,
+            transform: [{ translateY: dragY }],
+            paddingTop: NAV_BAR_HEIGHT + 24,
+            paddingHorizontal: 20,
+            paddingBottom: 40,
+          }}
+        >
+          <View style={sc.list}>
+            {items.map((item, i) => (
+              <Pressable
+                key={i}
+                onPress={item.onPress}
+                style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+              >
+                <View style={sc.item}>
+                  <View style={sc.left}>
+                    <View style={sc.iconWrap}>{item.icon}</View>
+                    <Text style={sc.label}>{item.label}</Text>
+                  </View>
+                  <IconArrowRight />
                 </View>
-                <IconArrowRight />
-              </View>
-            </Pressable>
-          ))}
-        </View>
-      </ScrollView>
+              </Pressable>
+            ))}
+          </View>
+        </Animated.View>
+      </PanGestureHandler>
 
       {/* Nav */}
       <PanGestureHandler

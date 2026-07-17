@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useCallback } from "react";
+import React, { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -6,11 +6,12 @@ import {
   Dimensions,
   Animated,
   Pressable,
-  ScrollView,
+  PanResponder,
   Platform,
   BackHandler,
   Easing,
 } from "react-native";
+
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
 import Svg, { Path, Circle, Rect } from "react-native-svg";
@@ -253,6 +254,32 @@ export const SettingsScreen = React.memo(
     },
   ];
 
+  /* ── Elastic drag for Android bounce feel ──────────────────── */
+  const dragY = useRef(new Animated.Value(0)).current;
+
+  // Rubber-band resistance: the further you drag, the less it moves
+  const rubberBand = (value: number, constant = 0.55) => {
+    const sign = value < 0 ? -1 : 1;
+    return sign * (1 - 1 / (Math.abs(value) / 200 + 1)) * 200 * constant;
+  };
+
+  const onDragGestureEvent = useCallback((event: any) => {
+    const { translationY } = event.nativeEvent;
+    dragY.setValue(rubberBand(translationY));
+  }, []);
+
+  const onDragStateChange = useCallback((event: any) => {
+    const { state } = event.nativeEvent;
+    if (state === State.END || state === State.CANCELLED || state === State.FAILED) {
+      Animated.spring(dragY, {
+        toValue: 0,
+        friction: 8,
+        tension: 50,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, []);
+
   return (
     <Animated.View
       style={[
@@ -260,45 +287,54 @@ export const SettingsScreen = React.memo(
         { transform: [{ translateX: screenTranslateX }], backgroundColor: "#FFFFFF", zIndex: 110 },
       ]}
     >
-      {/* Scrollable content */}
-      <ScrollView
-        contentContainerStyle={{ paddingTop: NAV_BAR_HEIGHT + 16, paddingBottom: 40, paddingHorizontal: 20 }}
-        showsVerticalScrollIndicator={false}
-        bounces={true}
-        alwaysBounceVertical={true}
-        overScrollMode="always"
+      {/* Draggable content area */}
+      <PanGestureHandler
+        onGestureEvent={onDragGestureEvent}
+        onHandlerStateChange={onDragStateChange}
+        activeOffsetY={[-10, 10]}
+        failOffsetX={[-12, 12]}
       >
-        <View style={s.list}>
-          {menuItems.map((item, index) => (
-            <Pressable
-              key={index}
-              onPress={item.onPress}
-              style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
-            >
-              <View style={s.menuItem}>
-                <View style={s.menuLeft}>
-                  <View style={s.iconWrap}>{item.icon}</View>
-                  <Text style={s.menuLabel}>{item.label}</Text>
-                </View>
-                {item.trailing}
-              </View>
-            </Pressable>
-          ))}
-        </View>
-
-        {/* Standalone Logout Row */}
-        <Pressable
-          onPress={() => {}}
-          style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+        <Animated.View
+          style={{
+            flex: 1,
+            transform: [{ translateY: dragY }],
+            paddingTop: NAV_BAR_HEIGHT + 16,
+            paddingBottom: 40,
+            paddingHorizontal: 20,
+          }}
         >
-          <View style={s.logoutRow}>
-            <View style={s.iconWrap}>
-              <IconLogout />
-            </View>
-            <Text style={s.logoutLabel}>Log out</Text>
+          <View style={s.list}>
+            {menuItems.map((item, index) => (
+              <Pressable
+                key={index}
+                onPress={item.onPress}
+                style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+              >
+                <View style={s.menuItem}>
+                  <View style={s.menuLeft}>
+                    <View style={s.iconWrap}>{item.icon}</View>
+                    <Text style={s.menuLabel}>{item.label}</Text>
+                  </View>
+                  {item.trailing}
+                </View>
+              </Pressable>
+            ))}
           </View>
-        </Pressable>
-      </ScrollView>
+
+          {/* Standalone Logout Row */}
+          <Pressable
+            onPress={() => {}}
+            style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+          >
+            <View style={s.logoutRow}>
+              <View style={s.iconWrap}>
+                <IconLogout />
+              </View>
+              <Text style={s.logoutLabel}>Log out</Text>
+            </View>
+          </Pressable>
+        </Animated.View>
+      </PanGestureHandler>
 
       {/* Nav Bar */}
       <PanGestureHandler
