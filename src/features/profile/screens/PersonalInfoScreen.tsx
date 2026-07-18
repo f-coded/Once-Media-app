@@ -31,12 +31,37 @@ interface PersonalInfoScreenProps {
   onBackPress?: () => void;
 }
 
-const  IconCalendar = () => (
-  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-    <Rect x={3} y={4} width={18} height={17} rx={2} stroke="#9B9B9B" strokeWidth={1.5} />
-    <Path d="M16 2V6" stroke="#9B9B9B" strokeWidth={1.5} strokeLinecap="round" />
-    <Path d="M8 2V6" stroke="#9B9B9B" strokeWidth={1.5} strokeLinecap="round" />
-    <Path d="M3 10H21" stroke="#9B9B9B" strokeWidth={1.5} />
+const IconCalendar = () => (
+  <Svg width={18} height={18} viewBox="0 0 18 18" fill="none">
+    <Path
+      d="M1.5 9C1.5 6.17157 1.5 4.75736 2.37868 3.87868C3.25736 3 4.67157 3 7.5 3H10.5C13.3284 3 14.7426 3 15.6213 3.87868C16.5 4.75736 16.5 6.17157 16.5 9V10.5C16.5 13.3284 16.5 14.7426 15.6213 15.6213C14.7426 16.5 13.3284 16.5 10.5 16.5H7.5C4.67157 16.5 3.25736 16.5 2.37868 15.6213C1.5 14.7426 1.5 13.3284 1.5 10.5V9Z"
+      stroke="#262525"
+      strokeWidth={1.125}
+    />
+    <Path
+      d="M13.5 12L12 12M12 12L10.5 12M12 12L12 10.5M12 12L12 13.5"
+      stroke="#1C274C"
+      strokeWidth={1.125}
+      strokeLinecap="round"
+    />
+    <Path
+      d="M5.25 3V1.875"
+      stroke="#1C274C"
+      strokeWidth={1.125}
+      strokeLinecap="round"
+    />
+    <Path
+      d="M12.75 3V1.875"
+      stroke="#1C274C"
+      strokeWidth={1.125}
+      strokeLinecap="round"
+    />
+    <Path
+      d="M1.875 6.75H16.125"
+      stroke="#1C274C"
+      strokeWidth={1.125}
+      strokeLinecap="round"
+    />
   </Svg>
 );
 
@@ -352,7 +377,7 @@ const fi = StyleSheet.create({
     color: "#9B9B9B",
     marginTop: 6,
   },
-  deleteBtn: {
+  deleteBtn: { 
     alignItems: "center",
     marginTop: 27,
     // marginBottom: 24,
@@ -365,10 +390,10 @@ const fi = StyleSheet.create({
   saveBtn: {
     backgroundColor: "#1B17B3",
     borderRadius: 24,
-    height: 54,
+    height: 50                ,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 10,
+    marginTop: "30%",
   },
   saveBtnText: {
     fontFamily: "Ubuntu_500Medium",
@@ -376,3 +401,4 @@ const fi = StyleSheet.create({
     color: "#FFFFFF",
   },
 });
+ 
