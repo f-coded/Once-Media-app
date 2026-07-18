@@ -81,7 +81,7 @@ interface ProfileScreenProps {
 // Fixed dimensions for tab line sliding calculations
 const TAB_CONTAINER_WIDTH = SCREEN_WIDTH - 172; // width of tabs row with 86px margins
 const TAB_WIDTH = (TAB_CONTAINER_WIDTH - 29) / 2; // two tabs with a 29px gap between them
-const INDICATOR_TRAVEL_DISTANCE = TAB_WIDTH + 29; // translation range between tab centers
+// const INDICATOR_TRAVEL_DISTANCE = TAB_WIDTH + 29; // translation range between tab centers
 
 interface StableProfileHeaderProps {
   activeTab: "posts" | "saved";
@@ -306,15 +306,22 @@ export const ProfileScreen = React.memo(
   // Tab indicator — state-driven, snaps to discrete positions on activeTab changes.
   // The indicator line does not follow raw scroll position during swiping;
   // instead, it only animates when the target page switches/commits.
-  const tabIndicatorX = useRef(new Animated.Value(0)).current;
+  // const tabIndicatorX = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    Animated.timing(tabIndicatorX, {
-      toValue: activeTab === "posts" ? 0 : INDICATOR_TRAVEL_DISTANCE,
-      duration: 220,
-      useNativeDriver: true,
-    }).start();
-  }, [activeTab]);
+  // useEffect(() => {
+  //   Animated.timing(tabIndicatorX, {
+  //     toValue: activeTab === "posts" ? 0 : INDICATOR_TRAVEL_DISTANCE,
+  //     duration: 220,
+  //     useNativeDriver: true,
+  //   }).start();
+  // }, [activeTab]);
+    
+  // Replace with a direct interpolation of scrollX (moveing together with the hand):
+  const tabIndicatorX = scrollX.interpolate({
+    inputRange: [0, SCREEN_WIDTH],
+    outputRange: [0, TAB_WIDTH + 29], 
+    extrapolate: "clamp",
+  });
 
   // Tapping tab button initiates smooth pager scroll (reference-memoized)
   const handleTabChange = useCallback((tab: "posts" | "saved") => {
@@ -440,11 +447,17 @@ export const ProfileScreen = React.memo(
           <Animated.ScrollView
             ref={pagerRef}
             horizontal
-            pagingEnabled={true}
-            decelerationRate="fast"
+            directionalLockEnabled={true}
+            // pagingEnabled={false}              // ❌ dissabled/remove this — it's the source of the correction jump
+            snapToInterval={SCREEN_WIDTH}      // ✅ native snap points
+            snapToAlignment="start"
+            // snapToOffsets={[0, SCREEN_WIDTH]}
+            disableIntervalMomentum={true}     // ✅ prevents multi-page flings, keeps it 1:1 with gesture
+            decelerationRate={Platform.OS === "android" ? 0.985 : "normal"}
             bounces={false}
             overScrollMode="never"
             showsHorizontalScrollIndicator={false}
+            scrollEventThrottle={1}
             onScroll={Animated.event(
               [{ nativeEvent: { contentOffset: { x: scrollX } } }],
               {
@@ -466,7 +479,7 @@ export const ProfileScreen = React.memo(
             onMomentumScrollEnd={() => {
               isManualTapRef.current = false;
             }}
-            scrollEventThrottle={16}
+         
           >
             {/* Grid Pane: Your Posts */}
             <View style={{ width: SCREEN_WIDTH }}>

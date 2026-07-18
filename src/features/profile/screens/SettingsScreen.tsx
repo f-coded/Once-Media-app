@@ -29,6 +29,7 @@ interface SettingsScreenProps {
   isShifted?: boolean;
   onPersonalInfoPress?: () => void;
   onSecurityPress?: () => void;
+  onPaymentBankPress?: () => void;
 }
 
 // ── Inline SVG icons ──────────────────────────────────────────────────────────
@@ -158,6 +159,7 @@ export const SettingsScreen = React.memo(
     isShifted,
     onPersonalInfoPress,
     onSecurityPress,
+    onPaymentBankPress,
   }: SettingsScreenProps) {
     const insets = useSafeAreaInsets();
     const screenTranslateX = useRef(new Animated.Value(SCREEN_WIDTH)).current;
@@ -226,7 +228,7 @@ export const SettingsScreen = React.memo(
       icon: <IconPaymentBank />,
       label: "Payment bank",
       trailing: <IconArrowRight />,
-      onPress: () => {},
+      onPress: onPaymentBankPress,
     },
     {
       icon: <IconSecurity />,

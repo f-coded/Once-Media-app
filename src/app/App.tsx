@@ -28,9 +28,10 @@ import { PersonalInfoScreen } from "@/features/profile/screens/PersonalInfoScree
 import { SecurityScreen } from "@/features/profile/screens/SecurityScreen";
 import { ChangePasswordScreen } from "@/features/profile/screens/ChangePasswordScreen";
 import { ChangePinScreen } from "@/features/profile/screens/ChangePinScreen";
+import { PaymentBankScreen } from "@/features/profile/screens/PaymentBankScreen";
 import { AnimatedSplashScreen } from "@/shared/components/loaders/AnimatedSplashScreen";
 
-import * as NavigationBar from "expo-navigation-bar";
+import * as  NavigationBar from "expo-navigation-bar";
 import { Platform, View, StyleSheet } from "react-native";
 
 if (Platform.OS === "android") {
@@ -56,7 +57,8 @@ type Route =
   | "personal-info"
   | "security"
   | "change-password"
-  | "change-pin";
+  | "change-pin"
+  | "payment-bank";
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -157,7 +159,7 @@ export default function App() {
         {/* ── Tab screens: always mounted, show/hide via display ─────────────
              Keeps each screen alive in memory (like React Navigation tabs)
              so switching back to Home is instant — no remount lag.       */}
-        {(route === "feed" || route === "chat" || route === "wallet" || route === "profile" || route === "settings" || route === "personal-info" || route === "security" || route === "change-password" || route === "change-pin") && (
+        {(route === "feed" || route === "chat" || route === "wallet" || route === "profile" || route === "settings" || route === "personal-info" || route === "security" || route === "change-password" || route === "change-pin" || route === "payment-bank") && (
           <>
             <View style={[StyleSheet.absoluteFill, { display: route === "feed" || (route === "profile" && profileOrigin === "feed") ? "flex" : "none" }]}>
               <FeedScreen
@@ -201,6 +203,7 @@ export default function App() {
                     "security",
                     "change-password",
                     "change-pin",
+                    "payment-bank",
                   ].includes(route)
                     ? "flex"
                     : "none",
@@ -215,6 +218,7 @@ export default function App() {
                   "security",
                   "change-password",
                   "change-pin",
+                  "payment-bank",
                 ].includes(route)}
                 isShifted={[
                   "settings",
@@ -222,6 +226,7 @@ export default function App() {
                   "security",
                   "change-password",
                   "change-pin",
+                  "payment-bank",
                 ].includes(route)}
                 onBackPress={() => setRoute(profileOrigin)}
                 onSettingsPress={() => setRoute("settings")}
@@ -233,16 +238,19 @@ export default function App() {
                   "security",
                   "change-password",
                   "change-pin",
+                  "payment-bank",
                 ].includes(route)}
                 isShifted={[
                   "personal-info",
                   "security",
                   "change-password",
                   "change-pin",
+                  "payment-bank",
                 ].includes(route)}
                 onBackPress={() => setRoute("profile")}
                 onPersonalInfoPress={() => setRoute("personal-info")}
                 onSecurityPress={() => setRoute("security")}
+                onPaymentBankPress={() => setRoute("payment-bank")}
               />
               <PersonalInfoScreen
                 isActive={route === "personal-info"}
@@ -262,6 +270,10 @@ export default function App() {
               <ChangePinScreen
                 isActive={route === "change-pin"}
                 onBackPress={() => setRoute("security")}
+              />
+              <PaymentBankScreen
+                isActive={route === "payment-bank"}
+                onBackPress={() => setRoute("settings")}
               />
             </View>
           </>
