@@ -396,7 +396,7 @@ const fi = StyleSheet.create({
     marginTop: "30%",
   },
   saveBtnText: {
-    fontFamily: "Ubuntu_500Medium",
+    fontFamily: "Ubuntu_400Regular",
     fontSize: 16,
     color: "#FFFFFF",
   },
