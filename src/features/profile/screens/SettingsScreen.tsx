@@ -113,13 +113,15 @@ const IconLogout = () => (
 );
 
 const IconArrowRight = () => (
-  <Svg width={16} height={16} viewBox="0 0 20 20" fill="none">
+  <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
     <Path
       d="M3.3335 10H16.6668M11.6668 15L16.6668 10L11.6668 5"
       stroke="rgba(0,0,0,0.91)" strokeWidth={1.25} strokeLinecap="round" strokeLinejoin="round"
     />
   </Svg>
 );
+
+
 
 // ── Toggle Switch ─────────────────────────────────────────────────────────────
 
