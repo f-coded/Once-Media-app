@@ -30,22 +30,38 @@ interface SecurityScreenProps {
 }
 
 const IconLock = () => (
-  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+  <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
     <Path
-      d="M12 16.5V14.5M7 10V8C7 5.23858 9.23858 3 12 3C14.7614 3 17 5.23858 17 8V10M5 10H19C19.5523 10 20 10.4477 20 11V20C20 20.5523 19.5523 21 19 21H5C4.44772 21 4 20.5523 4 20V11C4 10.4477 4.44772 10 5 10Z"
-      stroke="rgba(0,0,0,0.91)" strokeWidth={1.5} strokeLinecap="round"
+      d="M2 16C2 13.1716 2 11.7574 2.87868 10.8787C3.75736 10 5.17157 10 8 10H16C18.8284 10 20.2426 10 21.1213 10.8787C22 11.7574 22 13.1716 22 16C22 18.8284 22 20.2426 21.1213 21.1213C20.2426 22 18.8284 22 16 22H8C5.17157 22 3.75736 22 2.87868 21.1213C2 20.2426 2 18.8284 2 16Z"
+      stroke="#0C0C0C"
+      strokeWidth={1.5}
+    />
+    <Path
+      d="M6 10V8C6 4.68629 8.68629 2 12 2C14.7958 2 17.1449 3.91216 17.811 6.5"
+      stroke="#0C0C0C"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+    />
+    <Path
+      d="M8 16H8.009M11.991 16H12M15.991 16H16"
+      stroke="#0C0C0C"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
     />
   </Svg>
 );
 
-const IconPin = () => (
-  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-    <Circle cx={12} cy={12} r={9} stroke="rgba(0,0,0,0.91)" strokeWidth={1.5} />
-    <Circle cx={8.5} cy={12} r={1} fill="rgba(0,0,0,0.91)" />
-    <Circle cx={12} cy={12} r={1} fill="rgba(0,0,0,0.91)" />
-    <Circle cx={15.5} cy={12} r={1} fill="rgba(0,0,0,0.91)" />
-  </Svg>
-);
+function IconPin ({ size = 24, color = "#0C0C0C" }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <Path d="M25.6667 14C25.6667 9.60018 25.6667 7.4003 24.2999 6.03346C22.9331 4.66663 20.7332 4.66663 16.3334 4.66663H11.6667C7.26697 4.66663 5.06709 4.66663 3.70025 6.03346C2.33342 7.4003 2.33342 9.60018 2.33342 14C2.33342 18.3997 2.33342 20.5996 3.70025 21.9665C5.06709 23.3333 7.26697 23.3333 11.6667 23.3333H16.3334C20.7332 23.3333 22.9331 23.3333 24.2999 21.9665C25.6667 20.5996 25.6667 18.3997 25.6667 14Z" stroke={color} strokeWidth="1.75"/>
+      <Path d="M14.0001 11.6666V16.3333M16.0212 12.8333L11.9798 15.1666M11.98 12.8333L16.0215 15.1666" stroke={color} strokeWidth="1.75" strokeLinecap="round"/>
+      <Path d="M20.1456 11.6666V16.3333M22.1667 12.8333L18.1253 15.1666M18.1255 12.8333L22.167 15.1666" stroke={color} strokeWidth="1.75" strokeLinecap="round"/>
+      <Path d="M7.85384 11.6666V16.3333M9.875 12.8333L5.83355 15.1666M5.83382 12.8333L9.87528 15.1666" stroke={color} strokeWidth="1.75" strokeLinecap="round"/>
+    </Svg>
+  );
+}
 
 const IconArrowRight = () => (
   <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
@@ -236,12 +252,12 @@ const sc = StyleSheet.create({
   },
   navTitle: {
     fontFamily: "Ubuntu_500Medium",
-    fontSize: 18,
+    fontSize: 16,
     color: "#262525",
     letterSpacing: -0.3,
   },
   list: {
-    gap: 10,
+    gap: 8,
   },
   item: {
     flexDirection: "row",
@@ -249,7 +265,7 @@ const sc = StyleSheet.create({
     justifyContent: "space-between",
     backgroundColor: "#F5F5F8",
     borderRadius: 16,
-    paddingHorizontal: 20,
+    paddingHorizontal: 12,
     paddingVertical: 18,
   },
   left: {
