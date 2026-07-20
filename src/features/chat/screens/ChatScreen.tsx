@@ -86,7 +86,9 @@ function EmptyView({
 }
 
 /* ── Main export ── */
-export function ChatScreen({
+// Memoized: props are stable (literal + useCallback from App), so route
+// changes in App no longer re-render this screen at all.
+export const ChatScreen = React.memo(function ChatScreen({
   activeTab = "chat",
   onTabPress,
   hasConversations = true,
@@ -117,7 +119,7 @@ export function ChatScreen({
   }
 
   return <EmptyView insets={insets} onTabPress={onTabPress} />;
-}
+});
 
 const styles = StyleSheet.create({
   root: {

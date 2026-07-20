@@ -43,7 +43,9 @@ const formatDate = (date: Date) => {
   return `${formattedHours}:${formattedMinutes} ${ampm}, ${day} ${monthName} ${year}`;
 };
 
-export function WalletScreen({ onTabPress }: WalletScreenProps) {
+// Memoized: onTabPress is stable (useCallback from App), so route changes in
+// App no longer re-render this screen at all.
+export const WalletScreen = React.memo(function WalletScreen({ onTabPress }: WalletScreenProps) {
   const insets = useSafeAreaInsets();
   const [balance, setBalance] = useState(40200.0);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -209,7 +211,7 @@ export function WalletScreen({ onTabPress }: WalletScreenProps) {
       />
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   root: {

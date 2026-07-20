@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
+  BackHandler,
   View,
   Text,
   StyleSheet,
@@ -404,6 +405,32 @@ export function WithdrawModal({ visible, balance, onClose, onConfirmWithdrawal, 
     if (view === "with_accounts" && accounts.length === 0) return "no_accounts";
     return view;
   })();
+
+  /* ── Android hardware back — mirrors each view's close/back button
+        instead of exiting the app (same pattern as the profile-stack
+        screens). Ref keeps the registered callback fresh without
+        re-registering per render. ── */
+  const backActionRef = useRef<() => void>(() => {});
+  backActionRef.current = () => {
+    if (currentView === "add_account") {
+      navigateTo(accounts.length > 0 ? "with_accounts" : "no_accounts");
+    } else if (currentView === "manage_accounts") {
+      navigateTo("with_accounts");
+    } else if (currentView === "processing") {
+      // Swallow back while a withdrawal is processing.
+    } else {
+      handleClose();
+    }
+  };
+
+  useEffect(() => {
+    if (!visible) return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      backActionRef.current();
+      return true;
+    });
+    return () => sub.remove();
+  }, [visible]);
 
   if (!renderModal) return null;
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { View, Text, Pressable, Dimensions, StyleSheet, Animated } from "react-native";
+import { useRecyclingState } from "@shopify/flash-list";
 import { useEvent } from "expo";
 import { Image } from "expo-image";
 import { useVideoPlayer, VideoView } from "expo-video";
@@ -78,6 +79,8 @@ type PostCardProps = {
   height: number;
   bottomInset?: number;
   isActive?: boolean;
+  /** False when the Home tab itself is hidden (user is on another tab) — gates video playback only. */
+  isScreenActive?: boolean;
   minimized?: boolean;
   sheetProgress?: Animated.Value;
   onCommentPress?: () => void;
@@ -89,20 +92,24 @@ export const PostCard = React.memo(function PostCard({
   height,
   bottomInset = 0,
   isActive = false,
+  isScreenActive = true,
   minimized = false,
   sheetProgress,
   onCommentPress,
   onVideoLoadingChange,
 }: PostCardProps) {
-  const [liked, setLiked] = useState(post.isLiked ?? false);
-  const [bookmarked, setBookmarked] = useState(post.isBookmarked ?? false);
-  const [likeCount, setLikeCount] = useState(post.likes);
+  // Per-post interaction state keyed by post.id via useRecyclingState:
+  // FlashList recycles card instances across posts, so plain useState here
+  // would leak liked/paused/etc. state from the previous post into the new one.
+  const [liked, setLiked] = useRecyclingState(post.isLiked ?? false, [post.id]);
+  const [bookmarked, setBookmarked] = useRecyclingState(post.isBookmarked ?? false, [post.id]);
+  const [likeCount, setLikeCount] = useRecyclingState(post.likes, [post.id]);
   const [showHeart, setShowHeart] = useState(false);
-  const [captionExpanded, setCaptionExpanded] = useState(false);
-  const [isManuallyPaused, setIsManuallyPaused] = useState(false);
+  const [captionExpanded, setCaptionExpanded] = useRecyclingState(false, [post.id]);
+  const [isManuallyPaused, setIsManuallyPaused] = useRecyclingState(false, [post.id]);
   const [showPlaybackCue, setShowPlaybackCue] = useState(false);
-  const [hasRenderedFrame, setHasRenderedFrame] = useState(false);
-  const [mediaFit, setMediaFit] = useState<"cover" | "contain">("cover");
+  const [hasRenderedFrame, setHasRenderedFrame] = useRecyclingState(false, [post.id]);
+  const [mediaFit, setMediaFit] = useRecyclingState<"cover" | "contain">("cover", [post.id]);
   const layout = post.layout ?? "vertical";
 
   // Overlays (actions, captions, gradients) fade out as comment sheet opens (progress 0→1).
@@ -119,6 +126,17 @@ export const PostCard = React.memo(function PostCard({
     player.loop = true;
     player.timeUpdateEventInterval = 0.25;
   });
+
+  // useVideoPlayer ignores source changes after creation, so when FlashList
+  // recycles this card onto a different post the player would keep the old
+  // post's video. Swap the source explicitly on recycle.
+  const videoSourceRef = useRef<string | number | null>(post.video ?? null);
+  useEffect(() => {
+    const nextSource = post.video ?? null;
+    if (videoSourceRef.current === nextSource) return;
+    videoSourceRef.current = nextSource;
+    player.replaceAsync(nextSource);
+  }, [post.video, player]);
   const statusEvent = useEvent(player, "statusChange", { status: player.status });
   const timeUpdateEvent = useEvent(player, "timeUpdate", {
     currentTime: player.currentTime,
@@ -153,12 +171,12 @@ export const PostCard = React.memo(function PostCard({
   useEffect(() => {
     if (!post.video) return;
 
-    if (isActive && !isManuallyPaused) {
+    if (isActive && isScreenActive && !isManuallyPaused) {
       player.play();
     } else {
       player.pause();
     }
-  }, [isActive, isManuallyPaused, player, post.video]);
+  }, [isActive, isScreenActive, isManuallyPaused, player, post.video]);
 
   useEffect(() => {
     if (isActive || !post.video) return;

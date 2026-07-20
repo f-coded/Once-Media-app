@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import {
+  BackHandler,
   View,
   Text,
   StyleSheet,
@@ -166,6 +167,30 @@ export function WithdrawalPinFlow({ visible, onClose, onPinCreated }: Withdrawal
   const handleClose = () => {
     onClose();
   };
+
+  /* ── Android hardware back — mirrors the visible back/close controls
+        instead of exiting the app (same pattern as the profile-stack
+        screens). Confirm step steps back to Create, matching its back
+        arrow; every other step closes the flow, matching its X. ── */
+  const backActionRef = useRef<() => void>(() => {});
+  backActionRef.current = () => {
+    if (step === "confirm") {
+      setStep("create");
+      setConfirmPin("");
+      setErrorMessage("");
+    } else {
+      handleClose();
+    }
+  };
+
+  useEffect(() => {
+    if (!visible) return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      backActionRef.current();
+      return true;
+    });
+    return () => sub.remove();
+  }, [visible]);
 
   const handleCreatePin = () => {
     if (createPin.length < 4) {

@@ -1,6 +1,6 @@
 import "../../global.css";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
@@ -32,7 +32,7 @@ import { PaymentBankScreen } from "@/features/profile/screens/PaymentBankScreen"
 import { AnimatedSplashScreen } from "@/shared/components/loaders/AnimatedSplashScreen";
 
 import * as  NavigationBar from "expo-navigation-bar";
-import { Platform, View, StyleSheet } from "react-native";
+import { BackHandler, InteractionManager, Platform, View, StyleSheet } from "react-native";
 
 if (Platform.OS === "android") {
   NavigationBar.setPositionAsync("absolute");
@@ -71,6 +71,112 @@ export default function App() {
   const [selectedRole, setSelectedRole] = useState("House Hunter");
   const [showSplash, setShowSplash] = useState(true);
   const [profileOrigin, setProfileOrigin] = useState<Route>("feed");
+
+  // ── Android hardware back: auth-flow route graph ─────────────────
+  // Mirrors the onBackPress wiring below. Registered ONCE on mount so it
+  // stays lowest-priority: screens that register their own BackHandler
+  // later (profile stack, comment sheet, chat dialogue, wallet modals)
+  // always win, and unhandled routes (login/feed/etc.) fall through to
+  // the default behavior (exit app).
+  const routeRef = useRef(route);
+  routeRef.current = route;
+
+  useEffect(() => {
+    const AUTH_BACK_MAP: Partial<Record<Route, Route>> = {
+      signup: "login",
+      "forgot-password": "login",
+      "otp-verification": "forgot-password",
+      "create-password": "otp-verification",
+      "confirm-password": "create-password",
+      "choose-role": "signup",
+      "complete-profile": "choose-role",
+    };
+
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      const prev = AUTH_BACK_MAP[routeRef.current];
+      if (prev) {
+        setRoute(prev);
+        return true;
+      }
+      return false;
+    });
+    return () => sub.remove();
+  }, []);
+
+  // ── Lazy first-visit mounting of tab screens ─────────────────────
+  // Previously ALL tab-region screens (Feed, Chat, Wallet + the 7-screen
+  // profile stack with its blur views) mounted in one frame the moment the
+  // user left auth — that mount spike was the visible delay after pressing
+  // Login. Now each screen mounts on its FIRST visit (in the same frame as
+  // the navigation, via render-phase state derivation) and stays mounted
+  // afterwards, so returning to it is as instant as before.
+  const [feedMounted, setFeedMounted] = useState(false);
+  const [chatMounted, setChatMounted] = useState(false);
+  const [walletMounted, setWalletMounted] = useState(false);
+  const [profileStackMounted, setProfileStackMounted] = useState(false);
+
+  const PROFILE_ROUTES: Route[] = [
+    "profile",
+    "settings",
+    "personal-info",
+    "security",
+    "change-password",
+    "change-pin",
+    "payment-bank",
+  ];
+
+  // Pre-warm the remaining tab screens in the background once the feed has
+  // settled after login: staggered so no single frame pays the whole mount
+  // cost, and behind InteractionManager so it never competes with the login
+  // transition or an active touch. By the time the user taps Profile, the
+  // stack is already mounted and the slide-in starts instantly. If they tap
+  // sooner, the render-phase guards below still mount on demand.
+  useEffect(() => {
+    if (!feedMounted) return;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const task = InteractionManager.runAfterInteractions(() => {
+      timers.push(setTimeout(() => setChatMounted(true), 300));
+      timers.push(setTimeout(() => setWalletMounted(true), 700));
+      timers.push(setTimeout(() => setProfileStackMounted(true), 1200));
+    });
+    return () => {
+      task.cancel();
+      timers.forEach(clearTimeout);
+    };
+  }, [feedMounted]);
+
+  if ((route === "feed" || (route === "profile" && profileOrigin === "feed")) && !feedMounted) {
+    setFeedMounted(true);
+  }
+  if ((route === "chat" || (route === "profile" && profileOrigin === "chat")) && !chatMounted) {
+    setChatMounted(true);
+  }
+  if ((route === "wallet" || (route === "profile" && profileOrigin === "wallet")) && !walletMounted) {
+    setWalletMounted(true);
+  }
+  if (PROFILE_ROUTES.includes(route) && !profileStackMounted) {
+    setProfileStackMounted(true);
+  }
+
+  // ── Stable navigation callbacks ──────────────────────────────────
+  // Inline arrows here made every mounted screen receive new props on every
+  // route change, re-rendering all of them per tab press. Stable identities
+  // + React.memo on the tab screens mean a tab switch only re-renders the
+  // screens whose props actually changed.
+  const handleChatPress = useCallback(() => setRoute("chat"), []);
+  const handleWalletPress = useCallback(() => setRoute("wallet"), []);
+  const handleProfileFromFeed = useCallback(() => {
+    setProfileOrigin("feed");
+    setRoute("profile");
+  }, []);
+  const handleChatTabPress = useCallback((tab: string) => {
+    if (tab === "home") setRoute("feed");
+    if (tab === "wallet") setRoute("wallet");
+  }, []);
+  const handleWalletTabPress = useCallback((tab: string) => {
+    if (tab === "home") setRoute("feed");
+    if (tab === "chat") setRoute("chat");
+  }, []);
 
   if (!fontsLoaded) {
     return null;
@@ -161,37 +267,36 @@ export default function App() {
              so switching back to Home is instant — no remount lag.       */}
         {(route === "feed" || route === "chat" || route === "wallet" || route === "profile" || route === "settings" || route === "personal-info" || route === "security" || route === "change-password" || route === "change-pin" || route === "payment-bank") && (
           <>
-            <View style={[StyleSheet.absoluteFill, { display: route === "feed" || (route === "profile" && profileOrigin === "feed") ? "flex" : "none" }]}>
-              <FeedScreen
-                onChatPress={() => setRoute("chat")}
-                onWalletPress={() => setRoute("wallet")}
-                onProfilePress={() => {
-                  setProfileOrigin("feed");
-                  setRoute("profile");
-                }}
-              />
-            </View>
+            {feedMounted && (
+              <View style={[StyleSheet.absoluteFill, { display: route === "feed" || (route === "profile" && profileOrigin === "feed") ? "flex" : "none" }]}>
+                <FeedScreen
+                  isScreenActive={route === "feed"}
+                  onChatPress={handleChatPress}
+                  onWalletPress={handleWalletPress}
+                  onProfilePress={handleProfileFromFeed}
+                />
+              </View>
+            )}
 
-            <View style={[StyleSheet.absoluteFill, { display: route === "chat" || (route === "profile" && profileOrigin === "chat") ? "flex" : "none" }]}>
-              <ChatScreen
-                activeTab="chat"
-                onTabPress={(tab) => {
-                  if (tab === "home") setRoute("feed");
-                  if (tab === "wallet") setRoute("wallet");
-                }}
-              />
-            </View>
+            {chatMounted && (
+              <View style={[StyleSheet.absoluteFill, { display: route === "chat" || (route === "profile" && profileOrigin === "chat") ? "flex" : "none" }]}>
+                <ChatScreen
+                  activeTab="chat"
+                  onTabPress={handleChatTabPress}
+                />
+              </View>
+            )}
 
-            <View style={[StyleSheet.absoluteFill, { display: route === "wallet" || (route === "profile" && profileOrigin === "wallet") ? "flex" : "none" }]}>
-              <WalletScreen
-                onTabPress={(tab) => {
-                  if (tab === "home") setRoute("feed");
-                  if (tab === "chat") setRoute("chat");
-                }}
-              />
-            </View>
+            {walletMounted && (
+              <View style={[StyleSheet.absoluteFill, { display: route === "wallet" || (route === "profile" && profileOrigin === "wallet") ? "flex" : "none" }]}>
+                <WalletScreen
+                  onTabPress={handleWalletTabPress}
+                />
+              </View>
+            )}
 
             {/* Profile and Settings screens wrapper (single z-indexed display layer) */}
+            {profileStackMounted && (
             <View
               style={[
                 StyleSheet.absoluteFill,
@@ -276,6 +381,7 @@ export default function App() {
                 onBackPress={() => setRoute("settings")}
               />
             </View>
+            )}
           </>
         )}
         </SafeAreaProvider>

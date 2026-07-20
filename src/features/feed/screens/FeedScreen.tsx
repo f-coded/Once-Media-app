@@ -1,6 +1,7 @@
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   Animated,
+  InteractionManager,
   LayoutChangeEvent,
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -137,7 +138,10 @@ const MOCK_POSTS: PostData[] = [
   },
 ];
 
-export function FeedScreen({ onChatPress, onWalletPress, onProfilePress }: { onChatPress?: () => void; onWalletPress?: () => void; onProfilePress?: () => void }) {
+// Memoized: with stable callbacks from App, a tab switch only re-renders this
+// screen when isScreenActive actually flips (feed ↔ other tab), and not at all
+// for chat ↔ wallet switches.
+export const FeedScreen = React.memo(function FeedScreen({ isScreenActive = true, onChatPress, onWalletPress, onProfilePress }: { isScreenActive?: boolean; onChatPress?: () => void; onWalletPress?: () => void; onProfilePress?: () => void }) {
   const { height: windowHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [feedViewportHeight, setFeedViewportHeight] = useState(0);
@@ -164,6 +168,18 @@ export function FeedScreen({ onChatPress, onWalletPress, onProfilePress }: { onC
   const [showComments, setShowComments] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [isBlurActive, setIsBlurActive] = useState(false);
+
+  // Defer the CommentSheet's initial mount until after the feed's first paint
+  // settles — it's invisible at launch, but mounting it (gesture handlers,
+  // comment list) with the rest of the feed added to the login-tap cost.
+  // Once mounted it stays mounted, preserving the zero-mount-lag open that
+  // handleCommentPress relies on. showComments in the render condition covers
+  // the edge where the user opens comments before the idle callback fires.
+  const [sheetWarm, setSheetWarm] = useState(false);
+  useEffect(() => {
+    const task = InteractionManager.runAfterInteractions(() => setSheetWarm(true));
+    return () => task.cancel();
+  }, []);
 
   const activePost = posts.find((post) => post.id === activePostId);
   const isActiveVideoLoading = Boolean(activePost?.video && loadingPostId === activePostId);
@@ -230,6 +246,17 @@ export function FeedScreen({ onChatPress, onWalletPress, onProfilePress }: { onC
     }
   }, [POST_HEIGHT, posts]);
 
+  // Drag-end is only a FALLBACK for the no-momentum case (finger released at
+  // rest, so no snap/fling follows and onMomentumScrollEnd never fires). When
+  // there IS velocity, the offset at drag-end is not the settled page yet —
+  // committing it here briefly activated the wrong post, so we skip and let
+  // onMomentumScrollEnd finalize.
+  const handleScrollEndDrag = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const velocityY = event.nativeEvent.velocity?.y ?? 0;
+    if (Math.abs(velocityY) > 0.1) return;
+    handleScrollEnd(event);
+  }, [handleScrollEnd]);
+
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
     setPosts(MOCK_POSTS);
@@ -269,12 +296,13 @@ export function FeedScreen({ onChatPress, onWalletPress, onProfilePress }: { onC
         post={item}
         height={POST_HEIGHT}
         isActive={item.id === activePostId}
+        isScreenActive={isScreenActive}
         sheetProgress={sheetProgress}
         onCommentPress={handleCommentPress}
         onVideoLoadingChange={handleVideoLoadingChange}
       />
     </View>
-  ), [activePostId, sheetProgress, handleCommentPress, handleVideoLoadingChange, POST_HEIGHT]);
+  ), [activePostId, isScreenActive, sheetProgress, handleCommentPress, handleVideoLoadingChange, POST_HEIGHT]);
 
   return (
     <View style={styles.root}>
@@ -326,7 +354,7 @@ export function FeedScreen({ onChatPress, onWalletPress, onProfilePress }: { onC
               onEndReached={handleEndReached}
               onEndReachedThreshold={0.8}
               onMomentumScrollEnd={handleScrollEnd}
-              onScrollEndDrag={handleScrollEnd}
+              onScrollEndDrag={handleScrollEndDrag}
               ListFooterComponent={<View style={{ height: NAV_HEIGHT + insets.bottom }} />}
               refreshControl={
                 <RefreshControl
@@ -375,19 +403,21 @@ export function FeedScreen({ onChatPress, onWalletPress, onProfilePress }: { onC
           />
         </View>
 
-        {/* Comment sheet — only mounted when active so it doesn't block touches */}
-        
+        {/* Comment sheet — mount deferred to post-first-paint (sheetWarm),
+            then kept mounted so opening it has zero mount lag */}
+        {(sheetWarm || showComments) && (
           <CommentSheet
             visible={showComments}
             onClose={handleCommentClose}
             onCloseStart={handleCommentCloseStart}
             progress={sheetProgress}
           />
-     
+        )}
+
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   root: {
