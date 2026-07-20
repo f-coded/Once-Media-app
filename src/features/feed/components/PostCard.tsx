@@ -1,9 +1,15 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { View, Text, Pressable, Dimensions, StyleSheet, Animated } from "react-native";
+import { View, Text, Pressable, Dimensions, StyleSheet } from "react-native";
+import Reanimated, {
+  useAnimatedStyle,
+  interpolate,
+  Extrapolation,
+  type SharedValue,
+} from "react-native-reanimated";
 import { useRecyclingState } from "@shopify/flash-list";
 import { useEvent } from "expo";
 import { Image } from "expo-image";
-import { useVideoPlayer, VideoView } from "expo-video";
+import { useVideoPlayer, VideoView, type VideoPlayer } from "expo-video";
 import { LinearGradient } from "expo-linear-gradient";
 import Svg, { Path, Circle } from "react-native-svg";
 import { font } from "@/features/auth/components/AuthUI";
@@ -82,10 +88,32 @@ type PostCardProps = {
   /** False when the Home tab itself is hidden (user is on another tab) — gates video playback only. */
   isScreenActive?: boolean;
   minimized?: boolean;
-  sheetProgress?: Animated.Value;
+  sheetProgress?: SharedValue<number>;
   onCommentPress?: () => void;
   onVideoLoadingChange?: (postId: string, isLoading: boolean) => void;
 };
+
+/* Isolated so the 4Hz timeUpdate subscription re-renders only this tiny bar —
+   previously it lived in PostCard and re-rendered the entire card (SVGs,
+   gradients, text) 4×/sec for the whole playback. Same 0.25s cadence and
+   identical styles/markup. */
+const VideoProgressBar = React.memo(function VideoProgressBar({ player }: { player: VideoPlayer }) {
+  const timeUpdateEvent = useEvent(player, "timeUpdate", {
+    currentTime: player.currentTime,
+    currentLiveTimestamp: null,
+    currentOffsetFromLive: null,
+    bufferedPosition: 0,
+  });
+  const duration = player.duration;
+  const progress = duration > 0 ? Math.min(timeUpdateEvent.currentTime / duration, 1) : 0;
+
+  return (
+    <View style={styles.videoProgressTrack} pointerEvents="none">
+      <View style={[styles.videoProgressFill, { width: `${progress * 100}%` }]} />
+      {progress > 0 && <View style={[styles.videoProgressThumb, { left: `${progress * 100}%` }]} />}
+    </View>
+  );
+});
 
 export const PostCard = React.memo(function PostCard({
   post,
@@ -114,13 +142,13 @@ export const PostCard = React.memo(function PostCard({
 
   // Overlays (actions, captions, gradients) fade out as comment sheet opens (progress 0→1).
   // On close, the fade-in is delayed (inputRange [0, 0.15, 1]) so the post card lands back
-  // to its normal full size first, then the overlays smoothly fade in.
-  const overlayOpacity = sheetProgress
-    ? sheetProgress.interpolate({
-        inputRange: [0, 0.15, 1],
-        outputRange: [1, 0, 0],
-      })
-    : 1;
+  // to its normal full size first, then the overlays smoothly fade in. Evaluated in a
+  // worklet on the UI thread from the shared sheet progress.
+  const overlayAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: sheetProgress
+      ? interpolate(sheetProgress.value, [0, 0.15, 1], [1, 0, 0], Extrapolation.CLAMP)
+      : 1,
+  }), [sheetProgress]);
 
   const player = useVideoPlayer(post.video || null, (player) => {
     player.loop = true;
@@ -138,16 +166,6 @@ export const PostCard = React.memo(function PostCard({
     player.replaceAsync(nextSource);
   }, [post.video, player]);
   const statusEvent = useEvent(player, "statusChange", { status: player.status });
-  const timeUpdateEvent = useEvent(player, "timeUpdate", {
-    currentTime: player.currentTime,
-    currentLiveTimestamp: null,
-    currentOffsetFromLive: null,
-    bufferedPosition: 0,
-  });
-  const duration = post.video ? player.duration : 0;
-  const progress = post.video && duration > 0
-    ? Math.min(timeUpdateEvent.currentTime / duration, 1)
-    : 0;
 
   const singleTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const playbackCueTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -330,8 +348,8 @@ export const PostCard = React.memo(function PostCard({
 
       {/* Overlays (actions, caption, gradients, cues) — fade out/in with the comment sheet
           via sheetProgress-driven opacity on the native thread. */}
-      <Animated.View
-        style={[StyleSheet.absoluteFill, { opacity: overlayOpacity }]}
+      <Reanimated.View
+        style={[StyleSheet.absoluteFill, overlayAnimatedStyle]}
         pointerEvents={minimized ? "none" : "box-none"}
       >
       <HeartBurst visible={showHeart} onFinish={() => setShowHeart(false)} />
@@ -342,12 +360,7 @@ export const PostCard = React.memo(function PostCard({
         </View>
       )}
 
-      {post.video && isActive && (
-        <View style={styles.videoProgressTrack} pointerEvents="none">
-          <View style={[styles.videoProgressFill, { width: `${progress * 100}%` }]} />
-          {progress > 0 && <View style={[styles.videoProgressThumb, { left: `${progress * 100}%` }]} />}
-        </View>
-      )}
+      {post.video && isActive && <VideoProgressBar player={player} />}
 
       {/* Gradient overlays — pointerEvents none so they don't block touches */}
       <LinearGradient
@@ -468,7 +481,7 @@ export const PostCard = React.memo(function PostCard({
           </Pressable>
         </View>
       )}
-      </Animated.View>
+      </Reanimated.View>
     </View>
   );
 });

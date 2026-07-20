@@ -205,6 +205,23 @@ const TABS: {
 ];
 
 /* ─────────────────────────────────────────────────────────────
+   Cross-nav tab-switch signal
+   Each screen owns its own BottomNav, so the nav you PRESS is hidden in the
+   same frame the switch commits — its ripple is never seen. This signal lets
+   the DESTINATION screen's nav play the same blue ripple on its active item,
+   so the press that switches tabs gets visible feedback too.
+───────────────────────────────────────────────────────────── */
+type TabSwitchListener = (tab: Tab) => void;
+const tabSwitchListeners = new Set<TabSwitchListener>();
+const lastSwitch = { tab: null as Tab | null, time: 0 };
+
+function emitTabSwitch(tab: Tab) {
+  lastSwitch.tab = tab;
+  lastSwitch.time = Date.now();
+  tabSwitchListeners.forEach((listener) => listener(tab));
+}
+
+/* ─────────────────────────────────────────────────────────────
    TabItem — owns its own ripple animation
 ───────────────────────────────────────────────────────────── */
 type TabItemProps = {
@@ -215,9 +232,11 @@ type TabItemProps = {
   BoldIcon: React.FC<{ color: string }>;
   onPress: (tab: Tab) => void;
   badgeCount?: number;
+  /** Increments when this item's nav just became the switch destination — plays the arrival ripple. */
+  arrivalSignal?: number;
 };
 
-function TabItem({ tabKey, label, active, LinearIcon, BoldIcon, onPress, badgeCount }: TabItemProps) {
+function TabItem({ tabKey, label, active, LinearIcon, BoldIcon, onPress, badgeCount, arrivalSignal }: TabItemProps) {
   const rippleScale = useRef(new Animated.Value(0.3)).current;
   const rippleOpacity = useRef(new Animated.Value(0)).current;
   const rippleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -238,10 +257,7 @@ function TabItem({ tabKey, label, active, LinearIcon, BoldIcon, onPress, badgeCo
     };
   }, []);
 
-  const handlePressIn = () => {
-    // Fire navigation immediately on touch-down — no lift delay
-    onPress(tabKey);
-    // Kick off ripple at the same time
+  const playRipple = () => {
     setRippleVisible(true);
     rippleScale.setValue(0.5);
     rippleOpacity.setValue(0.12);
@@ -264,6 +280,25 @@ function TabItem({ tabKey, label, active, LinearIcon, BoldIcon, onPress, badgeCo
       rippleTimer.current = null;
     }, 320);
   };
+
+  const handlePressIn = () => {
+    // Fire navigation immediately on touch-down — no lift delay
+    onPress(tabKey);
+    // Pressing a non-active tab switches screens — tell the destination
+    // screen's nav to play its arrival ripple (this nav is about to hide).
+    if (!active) emitTabSwitch(tabKey);
+    // Kick off ripple at the same time
+    playRipple();
+  };
+
+  // Arrival ripple: this nav just became the switch destination. Skip if a
+  // press ripple is already in flight (the press happened on this same nav).
+  useEffect(() => {
+    if (!arrivalSignal) return;
+    if (rippleTimer.current) return;
+    playRipple();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [arrivalSignal]);
 
   const color = active ? PRIMARY : INACTIVE;
 
@@ -328,6 +363,27 @@ export function BottomNav({ activeTab, isLoading = false, onTabPress, badge }: B
   const { width } = useWindowDimensions();
   const loadingProgress = useRef(new Animated.Value(0)).current;
 
+  // Arrival ripple: when a tab press on ANOTHER screen's nav switches to
+  // this screen, play the ripple on this nav's active item so the switching
+  // press gets visible feedback (the pressed nav hides in the same frame).
+  const [arrival, setArrival] = useState(0);
+
+  useEffect(() => {
+    const listener = (tab: Tab) => {
+      if (tab === activeTab) setArrival((n) => n + 1);
+    };
+    tabSwitchListeners.add(listener);
+    // Lazy-mounted screens: this nav can mount in the same tick as the
+    // switch that revealed it — before this subscription exists. Catch that
+    // just-missed arrival here.
+    if (lastSwitch.tab === activeTab && Date.now() - lastSwitch.time < 400) {
+      setArrival((n) => n + 1);
+    }
+    return () => {
+      tabSwitchListeners.delete(listener);
+    };
+  }, [activeTab]);
+
   useEffect(() => {
     if (!isLoading) {
       loadingProgress.stopAnimation();
@@ -388,6 +444,7 @@ export function BottomNav({ activeTab, isLoading = false, onTabPress, badge }: B
             BoldIcon={BoldIcon}
             onPress={(tab) => onTabPress?.(tab)}
             badgeCount={badge?.[key]}
+            arrivalSignal={key === activeTab ? arrival : 0}
           />
         ))}
       </View>

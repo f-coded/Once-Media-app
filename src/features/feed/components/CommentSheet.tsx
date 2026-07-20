@@ -1,9 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Animated,
   BackHandler,
   Dimensions,
-  Easing,
   LayoutAnimation,
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -17,10 +15,9 @@ import {
 } from "react-native";
 import {
   FlatList,
-  PanGestureHandler,
-  PanGestureHandlerGestureEvent,
-  PanGestureHandlerStateChangeEvent,
-  State,
+  Gesture,
+  GestureDetector,
+  type GestureType,
 } from "react-native-gesture-handler";
 import {
   KeyboardController,
@@ -32,7 +29,12 @@ import Svg, { Path } from "react-native-svg";
 import Reanimated, {
   useSharedValue,
   useAnimatedProps,
+  useAnimatedStyle,
+  interpolate,
   withSpring,
+  withTiming,
+  runOnJS,
+  Easing as ReanimatedEasing,
   type SharedValue,
 } from "react-native-reanimated";
 
@@ -252,6 +254,20 @@ const CLOSE_VELOCITY_THRESHOLD = 500;
 // Header row height (paddingTop 8 + row height 30) — wave renders starting here
 const HEADER_CONTENT_HEIGHT = 38;
 
+/* Reanimated equivalent of the old RN Animated.spring({ bounciness: 0 }) with
+   default speed 12: RN maps those via fromBouncinessAndSpeed → origami
+   tension/friction ≈ 70.9/12.0, used directly as stiffness/damping (mass 1).
+   Same settle curve as before, now started from the UI thread. */
+const REOPEN_SPRING = {
+  stiffness: 70.9,
+  damping: 12.0,
+  mass: 1,
+  restDisplacementThreshold: 0.001,
+  restSpeedThreshold: 0.001,
+};
+// Same params the old resetBodyPullCue passed to withSpring — unchanged.
+const WAVE_RELEASE_SPRING = { damping: 16, stiffness: 200, mass: 0.5 };
+
 type ReplyType = "post author" | "comment by";
 type SheetDragZone = "header" | "body" | "composer";
 
@@ -261,24 +277,15 @@ type SheetDragZone = "header" | "body" | "composer";
 type CommentSheetProps = {
   onClose: () => void;
   onCloseStart?: () => void;
-  progress: Animated.Value;
+  progress: SharedValue<number>;
   visible: boolean;
 };
 
 export function CommentSheet({ onClose, onCloseStart, progress, visible }: CommentSheetProps) {
 
   useEffect(() => {
-    const listenerId = progress.addListener(({ value }) => {
-      currentProgressVal.current = value;
-    });
-    return () => {
-      progress.removeListener(listenerId);
-    };
-  }, [progress]);
-
-  useEffect(() => {
     if (visible) {
-      isClosing.current = false;
+      isClosingSV.value = false;
       setClosing(false);
     }
   }, [visible]);
@@ -291,30 +298,36 @@ export function CommentSheet({ onClose, onCloseStart, progress, visible }: Comme
   const TOP_OFFSET = initialHeight - SHEET_HEIGHT;
   const SHEET_WIDTH = Dimensions.get("window").width;
 
-  const currentProgressVal = useRef(1);
-  const scrollOffset = useRef(0);
-  const composerPadBottomRef = useRef(0);
-  const sheetPanRef = useRef<any>(null);
+  // Gesture bookkeeping lives in shared values now: the pan handlers run as
+  // worklets on the UI thread, so every per-frame read/write below happens
+  // without touching the JS bridge. Semantics are 1:1 with the old refs.
+  const scrollOffsetSV = useSharedValue(0);
+  const composerPadBottomSV = useSharedValue(0);
+  const isAddingSV = useSharedValue(false);
+  const sheetPanRef = useRef<GestureType | undefined>(undefined);
   const commentListRef = useRef<any>(null);
-  const sheetDragZone = useRef<SheetDragZone>("body");
-  const sheetDragActive = useRef(false);
-  const sheetDragStartProgress = useRef(1);
-  const sheetDragStartTranslationY = useRef(0);
-  const bodyPullPrimed = useRef(false);
-  const bodyPullBaseTranslationY = useRef(0);
-  const pastDeadZone = useRef(false);
+  const sheetDragZone = useSharedValue<SheetDragZone>("body");
+  const sheetDragActive = useSharedValue(false);
+  const sheetDragStartProgress = useSharedValue(1);
+  const sheetDragStartTranslationY = useSharedValue(0);
+  const bodyPullPrimed = useSharedValue(false);
+  const bodyPullBaseTranslationY = useSharedValue(0);
+  const pastDeadZone = useSharedValue(false);
   // Two-stage pull cue: first pull-at-top only shows the stretch (no drag).
   // Once released, this flips true so the NEXT pull drags immediately.
-  const hasStretchedOnce = useRef(false);
+  const hasStretchedOnce = useSharedValue(false);
   // Guards against the list's own momentum/deceleration fighting the pan
   // gesture at the top edge, which is what caused the "shaky" feel.
-  const listMomentumActive = useRef(false);
+  const listMomentumActive = useSharedValue(false);
+  // Tracks whether the pan actually activated, so release logic only runs
+  // after activation (old code's oldState === ACTIVE check).
+  const didActivate = useSharedValue(false);
 
   // Reanimated shared values for the elastic SVG wave
   const waveDepth = useSharedValue(0);   // 0 = flat, 1 = fully extended
   const waveFingerX = useSharedValue(SHEET_WIDTH / 2); // belly tracks thumb
 
-  const isClosing = useRef(false);
+  const isClosingSV = useSharedValue(false);
   const [closing, setClosing] = useState(false);
   const frozenBottom = useRef(0);
 
@@ -324,8 +337,9 @@ export function CommentSheet({ onClose, onCloseStart, progress, visible }: Comme
   const [replyName, setReplyName] = useState("Kelechi Obi");
   const inputRef = useRef<TextInput>(null);
 
-  const isAddingRef = useRef(false);
-  isAddingRef.current = isAdding;
+  useEffect(() => {
+    isAddingSV.value = isAdding;
+  }, [isAdding, isAddingSV]);
 
   const [comments, setComments] = useState<Comment[]>(COMMENTS);
   const [expandedCommentIds, setExpandedCommentIds] = useState<Set<string>>(new Set());
@@ -346,17 +360,20 @@ export function CommentSheet({ onClose, onCloseStart, progress, visible }: Comme
     });
   }, []);
 
+  // These still arrive via JS scroll events (same source and cadence the old
+  // ref-based checks used) — they only feed the arbitration guards, while the
+  // per-frame drag path itself is fully on the UI thread.
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    scrollOffset.current = Math.max(0, event.nativeEvent.contentOffset.y);
-  }, []);
+    scrollOffsetSV.value = Math.max(0, event.nativeEvent.contentOffset.y);
+  }, [scrollOffsetSV]);
 
   const handleMomentumScrollBegin = useCallback(() => {
-    listMomentumActive.current = true;
-  }, []);
+    listMomentumActive.value = true;
+  }, [listMomentumActive]);
 
   const handleMomentumScrollEnd = useCallback(() => {
-    listMomentumActive.current = false;
-  }, []);
+    listMomentumActive.value = false;
+  }, [listMomentumActive]);
 
   const keyboardVisible = useKeyboardState((s) => s.isVisible);
   const keyboardHeight = useKeyboardState((s) => s.height);
@@ -373,216 +390,209 @@ export function CommentSheet({ onClose, onCloseStart, progress, visible }: Comme
 
 // NOTE: the open animation is no longer started here. FeedScreen fires it
   // in the same tick it flips isMinimized/isBlurActive, so the post and the
-  // sheet move together with zero mount-lag between them.
- 
-  // Keep currentProgressVal in sync with the REAL animated value at all times —
-  // FeedScreen now fires the open spring directly on the shared value, so this
-  // ref must listen rather than only be set from callbacks inside this file.
-  // Without this, closing/dragging mid-open used a stale ref and jumped.
+  // sheet move together with zero mount-lag between them. The shared value is
+  // readable on both threads, so the old progress-listener mirror is gone.
+
+  const finalizeClose = useCallback(() => {
+    if (!isClosingSV.value) return; // reopened before this finished — ignore stale close
+    progress.value = 0;
+    onClose();
+  }, [isClosingSV, progress, onClose]);
 
   const closeSheet = useCallback(() => {
-    if (isClosing.current) return;
-    isClosing.current = true;
+    if (isClosingSV.value) return;
+    isClosingSV.value = true;
     frozenBottom.current = keyboardHeight;
     setClosing(true);
     onCloseStart?.();
     KeyboardController.dismiss();
     inputRef.current?.blur();
 
-    const remaining = currentProgressVal.current;
+    const remaining = progress.value;
     if (remaining <= 0.05) {
-      if (!isClosing.current) return; // reopened before this finished — ignore stale close
-      progress.setValue(0);
+      progress.value = 0;
       onClose();
       return;
     }
 
     const duration = Math.max(80, Math.round(remaining * 200));
-    Animated.timing(progress, {
-      toValue: 0,
-      duration,
-      easing: Easing.in(Easing.quad),
-      useNativeDriver: true,
-    }).start(({ finished }) => {
-      if (!finished || !isClosing.current) return;
-      progress.setValue(0);
-      onClose();
-    });
-  }, [progress, onClose, onCloseStart, keyboardHeight]);
+    progress.value = withTiming(
+      0,
+      { duration, easing: ReanimatedEasing.in(ReanimatedEasing.quad) },
+      (finished) => {
+        if (finished) {
+          runOnJS(finalizeClose)();
+        }
+      }
+    );
+  }, [progress, onClose, onCloseStart, keyboardHeight, isClosingSV, finalizeClose]);
 
   const closeSheetRef = useRef(closeSheet);
   closeSheetRef.current = closeSheet;
+  // Stable JS entry point for runOnJS from the release worklet.
+  const requestClose = useCallback(() => {
+    closeSheetRef.current();
+  }, []);
 
-  const applySheetDrag = useCallback((dy: number, startProgress: number) => {
-    const delta = (Math.max(0, dy) * DRAG_SENSITIVITY) / SHEET_HEIGHT;
-    const next = startProgress - delta;
-    const clamped = Math.max(0, Math.min(1, next));
-    progress.setValue(clamped);
-    currentProgressVal.current = clamped;
-  }, [SHEET_HEIGHT, progress]);
+  /* ── Pan gesture — all handlers are worklets on the UI thread. Zone
+        detection, dead-zone/bloom staging, hasStretchedOnce two-stage pull,
+        DRAG_SENSITIVITY mapping and close/reopen thresholds are ported 1:1
+        from the old JS handlers; only the execution thread changed. ── */
 
-  const springSheetOpen = useCallback(() => {
-    Animated.spring(progress, {
-      toValue: 1,
-      useNativeDriver: true,
-      bounciness: 0,
-    }).start(() => {
-      currentProgressVal.current = 1;
-    });
-  }, [progress]);
+  const prepareSheetDragW = useCallback((absoluteY: number, translationY: number) => {
+    "worklet";
+    const composerTop =
+      initialHeight - composerPadBottomSV.value - (isAddingSV.value ? 80 : 58);
+    sheetDragZone.value =
+      absoluteY < TOP_OFFSET + 60
+        ? "header"
+        : absoluteY > composerTop
+        ? "composer"
+        : "body";
+    sheetDragActive.value = false;
+    sheetDragStartProgress.value = progress.value;
+    sheetDragStartTranslationY.value = translationY;
+    // resetBodyPullCue(animated: false)
+    bodyPullPrimed.value = false;
+    pastDeadZone.value = false;
+    waveDepth.value = 0;
+  }, [initialHeight, TOP_OFFSET, composerPadBottomSV, isAddingSV, sheetDragZone, sheetDragActive, sheetDragStartProgress, sheetDragStartTranslationY, bodyPullPrimed, pastDeadZone, waveDepth, progress]);
 
-  const finishSheetDrag = useCallback((velocityY: number) => {
-    if (velocityY < -CLOSE_VELOCITY_THRESHOLD) {
-      springSheetOpen();
-    } else if (
-      currentProgressVal.current < CLOSE_PROGRESS_THRESHOLD ||
-      velocityY > CLOSE_VELOCITY_THRESHOLD
-    ) {
-      closeSheetRef.current();
-    } else {
-      springSheetOpen();
-    }
-  }, [springSheetOpen]);
+  const panGesture = Gesture.Pan()
+    .withRef(sheetPanRef)
+    .minDistance(2)
+    .averageTouches(true)
+    .simultaneousWithExternalGesture(commentListRef)
+    .onBegin((event) => {
+      "worklet";
+      // Old BEGAN-state prepare.
+      prepareSheetDragW(event.absoluteY, event.translationY);
+    })
+    .onStart((event) => {
+      "worklet";
+      // Old ACTIVE-transition re-prepare (re-captures translation at
+      // activation, ~minDistance later than BEGAN).
+      didActivate.value = true;
+      if (!sheetDragActive.value) {
+        prepareSheetDragW(event.absoluteY, event.translationY);
+      }
+    })
+    .onUpdate((event) => {
+      "worklet";
+      if (isClosingSV.value) return;
 
-  const resetBodyPullCue = useCallback((animated = true) => {
-    bodyPullPrimed.current = false;
-    pastDeadZone.current = false;
+      // Always update finger X — the wave belly tracks thumb even when just hovering
+      waveFingerX.value = event.absoluteX;
 
-    if (!animated) {
-      waveDepth.value = 0;
-      return;
-    }
-    // Bouncy spring release — the wave snaps back with a little wobble
-    waveDepth.value = withSpring(0, { damping: 16, stiffness: 200, mass: 0.5 });
-  }, [waveDepth]);
+      if (!sheetDragActive.value) {
+        const zone = sheetDragZone.value;
+        if (zone === "composer") return;
 
-  const getSheetDragZone = useCallback((absoluteY: number): SheetDragZone => {
-    if (absoluteY < TOP_OFFSET + 60) return "header";
-    const composerTop = initialHeight - composerPadBottomRef.current - (isAddingRef.current ? 80 : 58);
-    if (absoluteY > composerTop) return "composer";
-    return "body";
-  }, [TOP_OFFSET, initialHeight]);
+        const isPullingDown = event.translationY > 0 || event.velocityY > 80;
+        if (!isPullingDown) return;
 
-  const prepareSheetDrag = useCallback((event: PanGestureHandlerStateChangeEvent) => {
-    const { absoluteY, translationY } = event.nativeEvent;
-    sheetDragZone.current = getSheetDragZone(absoluteY);
-    sheetDragActive.current = false;
-    sheetDragStartProgress.current = currentProgressVal.current;
-    sheetDragStartTranslationY.current = translationY;
-    resetBodyPullCue(false);
-  }, [getSheetDragZone, resetBodyPullCue]);
-
-  const handleSheetGesture = useCallback((event: PanGestureHandlerGestureEvent) => {
-    if (isClosing.current) return;
-
-    const { translationY, velocityY, absoluteY, absoluteX } = event.nativeEvent;
-
-    // Always update finger X — the wave belly tracks thumb even when just hovering
-    waveFingerX.value = absoluteX;
-
-    if (!sheetDragActive.current) {
-      const zone = sheetDragZone.current || getSheetDragZone(absoluteY);
-      if (zone === "composer") return;
-
-      const isPullingDown = translationY > 0 || velocityY > 80;
-      if (!isPullingDown) return;
-
-      if (zone === "body") {
-        if (scrollOffset.current > LIST_TOP_THRESHOLD) {
-          resetBodyPullCue(false);
-          return;
-        }
-
-        // The list may still be settling from a fling — ignore pulls until it's
-        // fully at rest so the gesture doesn't fight the scroll deceleration
-        // (this was the source of the shaky/jittery feel).
-        if (listMomentumActive.current) {
-          return;
-        }
-
-        if (!bodyPullPrimed.current) {
-          bodyPullPrimed.current = true;
-          bodyPullBaseTranslationY.current = translationY;
-          sheetDragStartProgress.current = currentProgressVal.current;
-          setListScrollEnabled(false);
-        }
-
-        const pullDistance = Math.max(0, translationY - bodyPullBaseTranslationY.current);
-
-        if (!hasStretchedOnce.current) {
-          // STAGE 1 — first pull at the top this session: hold the sheet's
-          // position and only show the stretch cue. Never drag the sheet,
-          // no matter how far the user pulls.
-          if (pullDistance < BODY_PULL_DEAD_ZONE) {
+        if (zone === "body") {
+          if (scrollOffsetSV.value > LIST_TOP_THRESHOLD) {
+            // resetBodyPullCue(animated: false)
+            bodyPullPrimed.value = false;
+            pastDeadZone.value = false;
             waveDepth.value = 0;
             return;
           }
-          pastDeadZone.current = true;
-          const bloomProgress = Math.min(
-            1,
-            (pullDistance - BODY_PULL_DEAD_ZONE) / BODY_PULL_BLOOM_DISTANCE
-          );
-          waveDepth.value = bloomProgress;
-          return;
+
+          // The list may still be settling from a fling — ignore pulls until it's
+          // fully at rest so the gesture doesn't fight the scroll deceleration
+          // (this was the source of the shaky/jittery feel).
+          if (listMomentumActive.value) {
+            return;
+          }
+
+          if (!bodyPullPrimed.value) {
+            bodyPullPrimed.value = true;
+            bodyPullBaseTranslationY.value = event.translationY;
+            sheetDragStartProgress.value = progress.value;
+            runOnJS(setListScrollEnabled)(false);
+          }
+
+          const pullDistance = Math.max(0, event.translationY - bodyPullBaseTranslationY.value);
+
+          if (!hasStretchedOnce.value) {
+            // STAGE 1 — first pull at the top this session: hold the sheet's
+            // position and only show the stretch cue. Never drag the sheet,
+            // no matter how far the user pulls.
+            if (pullDistance < BODY_PULL_DEAD_ZONE) {
+              waveDepth.value = 0;
+              return;
+            }
+            pastDeadZone.value = true;
+            waveDepth.value = Math.min(
+              1,
+              (pullDistance - BODY_PULL_DEAD_ZONE) / BODY_PULL_BLOOM_DISTANCE
+            );
+            return;
+          }
+
+          // STAGE 2 — user already saw the stretch cue once: drag the sheet
+          // immediately, no stretch shown this time.
+          sheetDragActive.value = true;
+          sheetDragStartProgress.value = progress.value;
+          sheetDragStartTranslationY.value = bodyPullBaseTranslationY.value;
+          runOnJS(setListScrollEnabled)(false);
+        } else {
+          // resetBodyPullCue(animated: false)
+          bodyPullPrimed.value = false;
+          pastDeadZone.value = false;
+          waveDepth.value = 0;
+          sheetDragActive.value = true;
+          sheetDragStartProgress.value = progress.value;
+          sheetDragStartTranslationY.value = event.translationY;
+          runOnJS(setListScrollEnabled)(false);
         }
-
-        // STAGE 2 — user already saw the stretch cue once: drag the sheet
-        // immediately, no stretch shown this time.
-        sheetDragActive.current = true;
-        sheetDragStartProgress.current = currentProgressVal.current;
-        sheetDragStartTranslationY.current = bodyPullBaseTranslationY.current;
-        setListScrollEnabled(false);
-      } else {
-        resetBodyPullCue(false);
-        sheetDragActive.current = true;
-        sheetDragStartProgress.current = currentProgressVal.current;
-        sheetDragStartTranslationY.current = translationY;
-        setListScrollEnabled(false);
       }
-    }
 
-    if (sheetDragActive.current) {
-      applySheetDrag(
-        translationY - sheetDragStartTranslationY.current,
-        sheetDragStartProgress.current
-      );
-    }
-  }, [applySheetDrag, getSheetDragZone, waveDepth, waveFingerX, resetBodyPullCue]);
+      if (sheetDragActive.value) {
+        // Old applySheetDrag — the per-frame hot path, now bridge-free.
+        const dy = event.translationY - sheetDragStartTranslationY.value;
+        const delta = (Math.max(0, dy) * DRAG_SENSITIVITY) / SHEET_HEIGHT;
+        progress.value = Math.max(0, Math.min(1, sheetDragStartProgress.value - delta));
+      }
+    })
+    .onFinalize((event) => {
+      "worklet";
+      // Old release only ran after ACTIVE; onFinalize covers END, CANCELLED
+      // and FAILED alike, so gate on actual activation.
+      if (!didActivate.value) return;
+      didActivate.value = false;
 
-  const handleSheetGestureStateChange = useCallback((event: PanGestureHandlerStateChangeEvent) => {
-    const { state, oldState, velocityY } = event.nativeEvent;
-
-    if (state === State.BEGAN) {
-      prepareSheetDrag(event);
-      return;
-    }
-
-    if (state === State.ACTIVE && oldState !== State.ACTIVE && !sheetDragActive.current) {
-      prepareSheetDrag(event);
-      return;
-    }
-
-    if (
-      oldState === State.ACTIVE &&
-      (state === State.END || state === State.CANCELLED || state === State.FAILED)
-    ) {
-      const shouldFinishDrag = sheetDragActive.current;
+      const shouldFinishDrag = sheetDragActive.value;
       // If this release was the first-ever stretch-only pull, unlock direct
       // dragging for the next pull.
-      const wasFirstStretch = pastDeadZone.current && !hasStretchedOnce.current;
+      const wasFirstStretch = pastDeadZone.value && !hasStretchedOnce.value;
       if (wasFirstStretch) {
-        hasStretchedOnce.current = true;
+        hasStretchedOnce.value = true;
       }
 
-      sheetDragActive.current = false;
-      resetBodyPullCue(true);
-      setListScrollEnabled(true);
+      sheetDragActive.value = false;
+      // resetBodyPullCue(animated: true) — bouncy spring release
+      bodyPullPrimed.value = false;
+      pastDeadZone.value = false;
+      waveDepth.value = withSpring(0, WAVE_RELEASE_SPRING);
+      runOnJS(setListScrollEnabled)(true);
 
       if (shouldFinishDrag) {
-        finishSheetDrag(velocityY);
+        // Old finishSheetDrag.
+        if (event.velocityY < -CLOSE_VELOCITY_THRESHOLD) {
+          progress.value = withSpring(1, REOPEN_SPRING);
+        } else if (
+          progress.value < CLOSE_PROGRESS_THRESHOLD ||
+          event.velocityY > CLOSE_VELOCITY_THRESHOLD
+        ) {
+          runOnJS(requestClose)();
+        } else {
+          progress.value = withSpring(1, REOPEN_SPRING);
+        }
       }
-    }
-  }, [finishSheetDrag, prepareSheetDrag, resetBodyPullCue]);
+    });
 
   // Android hardware back closes the sheet
 useEffect(() => {

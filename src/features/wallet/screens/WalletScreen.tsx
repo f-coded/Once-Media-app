@@ -1,11 +1,10 @@
- import React, { useState, useRef, useEffect, useCallback } from "react";
+ import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
   StyleSheet,
   Pressable,
   FlatList,
-  Animated,
   RefreshControl,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -55,26 +54,9 @@ export const WalletScreen = React.memo(function WalletScreen({ onTabPress }: Wal
   const [userPin, setUserPin] = useState("1234");
   const [pinFlowVisible, setPinFlowVisible] = useState(false);
 
-  /* ─── Balance Counter Anim ─── */
-  const animatedBalanceVal = useRef(new Animated.Value(40200)).current;
-  const [displayBalance, setDisplayBalance] = useState("40200");
-
-  useEffect(() => {
-    const listenerId = animatedBalanceVal.addListener(({ value }) => {
-      setDisplayBalance(value.toFixed(0));
-    });
-    return () => {
-      animatedBalanceVal.removeListener(listenerId);
-    };
-  }, []);
-
-  const animateToBalance = (target: number) => {
-    Animated.timing(animatedBalanceVal, {
-      toValue: target,
-      duration: 800,
-      useNativeDriver: false,
-    }).start();
-  };
+  /* Balance count-up animation lives inside BalanceCard now (it only needs
+     the target number) so its per-frame updates re-render the card alone,
+     not this whole screen. */
 
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
@@ -96,7 +78,6 @@ export const WalletScreen = React.memo(function WalletScreen({ onTabPress }: Wal
 
     const newBalance = balance + reward;
     setBalance(newBalance);
-    animateToBalance(newBalance);
     setTransactions((prev) => [newTx, ...prev]);
   };
 
@@ -128,7 +109,6 @@ export const WalletScreen = React.memo(function WalletScreen({ onTabPress }: Wal
 
     const newBalance = balance - amt;
     setBalance(newBalance);
-    animateToBalance(newBalance);
     setTransactions((prev) => [newTx, ...prev]);
   };
 
@@ -147,7 +127,7 @@ export const WalletScreen = React.memo(function WalletScreen({ onTabPress }: Wal
 
           {/* Balance Card Section */}
           <BalanceCard
-            balance={Number(displayBalance).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+            balance={balance}
             onWithdrawPress={handleWithdrawPress}
           />
         </View>

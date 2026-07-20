@@ -1,13 +1,40 @@
-import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { View, Text, TouchableOpacity, StyleSheet, Animated } from "react-native";
 import { CardDecorativeLines } from "./CardDecorativeLines";
 
 interface BalanceCardProps {
-  balance: string;
+  balance: number;
   onWithdrawPress: () => void;
 }
 
 export function BalanceCard({ balance, onWithdrawPress }: BalanceCardProps) {
+  // Count-up animation lives HERE so its per-frame listener re-renders only
+  // this small card — previously it lived in WalletScreen and re-rendered the
+  // whole screen (header + transaction FlatList) ~60×/s for 800ms on every
+  // balance change. Same 800ms timing and formatting as before.
+  const animatedVal = useRef(new Animated.Value(balance)).current;
+  const [displayValue, setDisplayValue] = useState(() => balance.toFixed(0));
+
+  useEffect(() => {
+    const listenerId = animatedVal.addListener(({ value }) => {
+      setDisplayValue(value.toFixed(0));
+    });
+    return () => animatedVal.removeListener(listenerId);
+  }, [animatedVal]);
+
+  useEffect(() => {
+    Animated.timing(animatedVal, {
+      toValue: balance,
+      duration: 800,
+      useNativeDriver: false,
+      // JS-driven timings register an InteractionManager handle by default,
+      // stalling runAfterInteractions work while counting — not wanted here.
+      isInteraction: false,
+    }).start();
+  }, [balance, animatedVal]);
+
+  const formatted = Number(displayValue).toLocaleString("en-US", { minimumFractionDigits: 2 });
+
   return (
     <View style={styles.balanceCard}>
       {/* Wave Decorative Pattern overlay */}
@@ -20,7 +47,7 @@ export function BalanceCard({ balance, onWithdrawPress }: BalanceCardProps) {
         <View style={styles.balanceInfo}>
           <Text style={styles.balanceLabel}>Balance</Text>
           {/* Render Naira symbol exactly matching the mockup design */}
-          <Text style={styles.balanceValue}>₦{balance}</Text>
+          <Text style={styles.balanceValue}>₦{formatted}</Text>
         </View>
         <TouchableOpacity
           style={styles.withdrawBtn}

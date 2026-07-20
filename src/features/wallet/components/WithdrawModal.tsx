@@ -213,10 +213,14 @@ export function WithdrawModal({ visible, balance, onClose, onConfirmWithdrawal, 
         useNativeDriver: true,
       }).start(() => {
         setRenderModal(false);
+        resetAfterCloseRef.current();
       });
     }
   }, [visible]);
 
+  // Entry fade/slide replays ONLY when the visible view changes — `accounts`
+  // was previously in the deps, which replayed the whole entrance animation
+  // for in-place actions like set-default/delete in Manage Accounts.
   useEffect(() => {
   viewAnim.setValue(0);
   Animated.timing(viewAnim, {
@@ -225,13 +229,16 @@ export function WithdrawModal({ visible, balance, onClose, onConfirmWithdrawal, 
     easing: Easing.out(Easing.cubic),
     useNativeDriver: true,
   }).start();
-}, [view, accounts]);
+}, [view]);
 
   /* ── Derived ── */
   const selectedAccount = accounts.find((a) => a.id === selectedAccountId) ?? null;
 
-  /* ── Reset when modal opens/closes ── */
-  const handleClose = () => {
+  /* ── Reset state for the next open — called AFTER the close fade-out
+        completes (see the close branch of the visibility effect). Resetting
+        synchronously in handleClose swapped the sheet's content mid-fade,
+        a visible flash. Ref keeps the callback fresh for the effect. ── */
+  const resetAfterClose = () => {
     setView(accounts.length > 0 ? "with_accounts" : "no_accounts");
     setAmount("");
     setErrorMessage("");
@@ -240,6 +247,11 @@ export function WithdrawModal({ visible, balance, onClose, onConfirmWithdrawal, 
     setBankDropdownOpen(false);
     setPinInput("");
     setPinError(false);
+  };
+  const resetAfterCloseRef = useRef(resetAfterClose);
+  resetAfterCloseRef.current = resetAfterClose;
+
+  const handleClose = () => {
     onClose();
   };
 
@@ -1105,14 +1117,27 @@ const AnimatedStop = Animated.createAnimatedComponent(Stop);
 const ProcessingView = React.memo(({ onComplete }: ProcessingViewProps) => {
   const shimmerAnim = React.useRef(new Animated.Value(0)).current;
 
+  // NOTE: this shimmer must stay JS-driven — react-native-svg's <Stop> is a
+  // virtual node (renders null; setNativeProps just forceUpdates the parent
+  // gradient), so no animation library can drive stop offsets on the native
+  // thread. Moving it fully native would require a masked-view dependency
+  // (new native module → dev-client rebuild).
   React.useEffect(() => {
-    Animated.loop(
+    const animation = Animated.loop(
       Animated.timing(shimmerAnim, {
         toValue: 1,
         duration: 1200,
         useNativeDriver: false,
+        // JS-driven timings register an InteractionManager handle by default;
+        // an endless loop would stall runAfterInteractions work app-wide
+        // (screen pre-warm, etc.) for as long as it runs.
+        isInteraction: false,
       })
-    ).start();
+    );
+    animation.start();
+    // Without this stop, the loop kept ticking the JS thread at 60fps FOREVER
+    // after ProcessingView unmounted (success view / modal close).
+    return () => animation.stop();
   }, []);
 
   const offset1 = shimmerAnim.interpolate({

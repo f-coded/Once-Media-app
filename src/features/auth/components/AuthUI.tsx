@@ -1,4 +1,4 @@
-import { ReactNode, useState, useRef, useCallback } from "react";
+import { ReactNode, useState, useRef, useCallback, useEffect } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -351,10 +351,15 @@ export function InputField({
     transform: [{ scale: eyeScale.value }],
   }));
 
-  // Trigger shake on error
-  if (error) {
-    triggerShake();
-  }
+  // Shake once when error flips true. Running this in the render body
+  // re-fired the sequence on EVERY parent re-render (each keystroke) while
+  // error stayed true — the field vibrated continuously instead of shaking
+  // once — and mutated a shared value during render.
+  useEffect(() => {
+    if (error) {
+      triggerShake();
+    }
+  }, [error, triggerShake]);
 
   return (
     <View style={{ marginTop }}>

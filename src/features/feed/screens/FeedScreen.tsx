@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
-  Animated,
   InteractionManager,
   LayoutChangeEvent,
   NativeScrollEvent,
@@ -12,6 +11,12 @@ import {
   useWindowDimensions,
   StatusBar,
 } from "react-native";
+import Reanimated, {
+  useSharedValue,
+  useAnimatedStyle,
+  interpolate,
+  withSpring,
+} from "react-native-reanimated";
 import { FlashList } from "@shopify/flash-list";
 import { BlurView } from "expo-blur";
 import { PostCard, PostData } from "@/features/feed/components/PostCard";
@@ -30,6 +35,18 @@ const PROPERTY_IMG_5 = require("../../../../assets/feed_property 03.jpg");
 const PROPERTY_IMG_6 = require("../../../../assets/feed_property 04.jpg");
 const PROPERTY_VIDEO_1 = require("../../../../assets/WhatsApp Video 2026-04-29 at 12.45.35 PM.mp4");
 const PROPERTY_VIDEO_2 = require("../../../../assets/WhatsApp Video 2026-04-30 at 8.44.46 PM.mp4");
+
+/* Reanimated equivalent of the old RN Animated.spring({ bounciness: 0, speed: 16 }):
+   RN converts bounciness/speed via fromBouncinessAndSpeed → origami
+   tension/friction ≈ 94.4/13.4, which it uses directly as stiffness/damping
+   with mass 1 — same curve, now driven from the UI thread. */
+const SHEET_OPEN_SPRING = {
+  stiffness: 94.4,
+  damping: 13.4,
+  mass: 1,
+  restDisplacementThreshold: 0.001,
+  restSpeedThreshold: 0.001,
+};
 
 /* ─── Mock Data ─── */
 const MOCK_POSTS: PostData[] = [
@@ -189,11 +206,11 @@ export const FeedScreen = React.memo(function FeedScreen({ isScreenActive = true
   const activePost = posts.find((post) => post.id === activePostId);
   const isActiveVideoLoading = Boolean(activePost?.video && loadingPostId === activePostId);
 
-  // Parallax docking (TikTok/Reels style), driven by a SHARED Animated.Value that we hand to the
-  // CommentSheet. The sheet writes this value on mount, on every drag frame, and on close - the
-  // feed only READS it. So the post resizes live as you drag the sheet (connected + flexible),
-  // and follows the exact same close curve (no separate timer that lagged or snapped).
-  const sheetProgress = useRef(new Animated.Value(0)).current;
+  // Parallax docking (TikTok/Reels style), driven by a SHARED Reanimated value handed to the
+  // CommentSheet. The sheet writes this value on every drag frame (in worklets, on the UI
+  // thread) and on close - the feed only READS it. So the post resizes live as you drag the
+  // sheet with zero JS-bridge hops per frame, and follows the exact same close curve.
+  const sheetProgress = useSharedValue(0);
 
   // The CommentSheet covers the bottom 68%, so its top edge sits at 32% of the screen. The docked
   // post fills from the very top (status bar) down to that edge (minus a small breathing gap), so
@@ -209,9 +226,16 @@ export const FeedScreen = React.memo(function FeedScreen({ isScreenActive = true
   // translateY shifts the (center-anchored) frame so its scaled box spans [dockTop, dockBottom].
   const minimizedShift = (dockTop + dockBottom) / 2 - windowHeight / 2;
 
-  const feedScaleY = sheetProgress.interpolate({ inputRange: [0, 1], outputRange: [1, minimizedScale] });
-  const feedScaleX = sheetProgress.interpolate({ inputRange: [0, 1], outputRange: [1, 0.45] }); // wider breath width when minimized
-  const feedTranslateY = sheetProgress.interpolate({ inputRange: [0, 1], outputRange: [0, minimizedShift] });
+  // Same interpolations as before ([0,1] → dock transform), now evaluated in
+  // a worklet on the UI thread. minimizedScale/Shift are plain captured
+  // numbers; the deps array rebuilds the worklet when the viewport changes.
+  const feedTransformStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: interpolate(sheetProgress.value, [0, 1], [0, minimizedShift]) },
+      { scaleY: interpolate(sheetProgress.value, [0, 1], [1, minimizedScale]) },
+      { scaleX: interpolate(sheetProgress.value, [0, 1], [1, 0.45]) }, // wider breath width when minimized
+    ],
+  }), [minimizedShift, minimizedScale]);
 
   const handleCommentPress = useCallback(() => {
     setShowComments(true);
@@ -221,12 +245,7 @@ export const FeedScreen = React.memo(function FeedScreen({ isScreenActive = true
     // Drive the open animation from HERE, in the same tick as the state above,
     // instead of waiting for CommentSheet to mount and fire its own effect.
     // That mount-lag was the "little bit of delay" before the post shrunk.
-    Animated.spring(sheetProgress, {
-      toValue: 1,
-      useNativeDriver: true,
-      bounciness: 0,
-      speed: 16,
-    }).start();
+    sheetProgress.value = withSpring(1, SHEET_OPEN_SPRING);
   }, [sheetProgress]);
 
   const handleCommentCloseStart = useCallback(() => {
@@ -320,18 +339,14 @@ export const FeedScreen = React.memo(function FeedScreen({ isScreenActive = true
           <FeedHeader />
         </Animated.View> */}
         {/* Posts feed */}
-        <Animated.View
+        <Reanimated.View
           style={[
             {
               flex: 1,
               overflow: "hidden",
               borderRadius: isBlurActive ? 20 : 0,
-              transform: [
-                { translateY: feedTranslateY },
-                { scaleY: feedScaleY },
-                { scaleX: feedScaleX },
-              ],
             },
+            feedTransformStyle,
             // Android: use the RN 0.76+ filter array (works great)
             // iOS: we use a BlurView overlay instead (filter not reliable on iOS)
             isBlurActive && Platform.OS === "android"
@@ -392,7 +407,7 @@ export const FeedScreen = React.memo(function FeedScreen({ isScreenActive = true
               pointerEvents="none"
             />
           )}
-        </Animated.View>
+        </Reanimated.View>
 
         {/* Keep BottomNav MOUNTED always - unmounting it on open made it rebuild all four SVG
             icon sets at close-start, adding JS jank right as the sheet slid past it (the bottom

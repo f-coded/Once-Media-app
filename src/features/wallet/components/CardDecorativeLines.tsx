@@ -1,7 +1,9 @@
 import React from "react";
 import { StyleSheet, Image, View } from "react-native";
 
-export function CardDecorativeLines() {
+// Memoized: BalanceCard re-renders per frame during the balance count-up;
+// this static pattern has no props and never needs to re-render with it.
+export const CardDecorativeLines = React.memo(function CardDecorativeLines() {
   return (
     <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
       <Image
@@ -10,7 +12,7 @@ export function CardDecorativeLines() {
       />
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   pattern: {
