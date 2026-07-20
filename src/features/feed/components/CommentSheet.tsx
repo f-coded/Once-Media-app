@@ -664,10 +664,17 @@ useEffect(() => {
   }, [commentText, replyParentId, addReply]);
 
   // Sheet position: progress 1 → translateY 0 (open), 0 → initialHeight (off-screen)
-  const translateY = progress.interpolate({
-    inputRange: [0, 0.1, 1],
-    outputRange: [initialHeight, SHEET_HEIGHT * 0.9 + 6, 0],
-  });
+  const sheetAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateY: interpolate(
+          progress.value,
+          [0, 0.1, 1],
+          [initialHeight, SHEET_HEIGHT * 0.9 + 6, 0]
+        ),
+      },
+    ],
+  }));
 
   const renderCommentItem = useCallback(
     (comment: Comment, isReply = false, parentCommentId?: string) => {
@@ -737,7 +744,7 @@ useEffect(() => {
     ? keyboardHeight + 8
     : Math.max(12, bottomInset);
 
-  composerPadBottomRef.current = composerPadBottom;
+  composerPadBottomSV.value = composerPadBottom;
 
   const composerHeightOffset = isAdding ? 80 : 58;
 
@@ -747,18 +754,12 @@ useEffect(() => {
     <View style={styles.overlay} pointerEvents={visible ? "auto" : "none"}>
       <Pressable style={StyleSheet.absoluteFill} onPress={closeSheet} />
 
-      <PanGestureHandler
-        ref={sheetPanRef}
-        minDist={2}
-        avgTouches
-        simultaneousHandlers={commentListRef}
-        onGestureEvent={handleSheetGesture}
-        onHandlerStateChange={handleSheetGestureStateChange}
-      >
-        <Animated.View
+      <GestureDetector gesture={panGesture}>
+        <Reanimated.View
           style={[
             styles.sheet,
-            { top: TOP_OFFSET, bottom: 0, transform: [{ translateY }] },
+            { top: TOP_OFFSET, bottom: 0 },
+            sheetAnimatedStyle,
           ]}
         >
           <SheetSurface style={styles.surface}>
@@ -894,8 +895,8 @@ useEffect(() => {
               </View>
             </View>
           </SheetSurface>
-        </Animated.View>
-      </PanGestureHandler>
+        </Reanimated.View>
+      </GestureDetector>
     </View>
   );
 }
