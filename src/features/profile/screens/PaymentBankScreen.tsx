@@ -791,7 +791,7 @@ const pb = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 14,
+    marginBottom: 20,
   },
   sheetTitle: {
     fontFamily: "Ubuntu_500Medium",

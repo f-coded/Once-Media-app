@@ -151,7 +151,13 @@ export const FeedScreen = React.memo(function FeedScreen({ isScreenActive = true
   const [posts, setPosts] = useState(MOCK_POSTS);
   const [activeTab, setActiveTab] = useState<"home" | "market" | "chat" | "wallet">("home");
 
+  // Reset to "home" when returning to this screen after navigating away
+  useEffect(() => {
+    if (isScreenActive) setActiveTab("home");
+  }, [isScreenActive]);
+
   const handleTabPress = (tab: "home" | "market" | "chat" | "wallet") => {
+    setActiveTab(tab);           // flip Home's active→false BEFORE leaving
     if (tab === "chat") {
       onChatPress?.();
       return;
@@ -160,7 +166,6 @@ export const FeedScreen = React.memo(function FeedScreen({ isScreenActive = true
       onWalletPress?.();
       return;
     }
-    setActiveTab(tab);
   };
   const [activePostId, setActivePostId] = useState(MOCK_POSTS[0]?.id ?? "");
   const [loadingPostId, setLoadingPostId] = useState<string | null>(null);

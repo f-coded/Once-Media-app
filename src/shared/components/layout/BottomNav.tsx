@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { Animated, View, Text, Pressable, StyleSheet, useWindowDimensions, Platform } from "react-native";
 import Svg, { Path, Circle } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -220,13 +220,31 @@ type TabItemProps = {
 function TabItem({ tabKey, label, active, LinearIcon, BoldIcon, onPress, badgeCount }: TabItemProps) {
   const rippleScale = useRef(new Animated.Value(0.3)).current;
   const rippleOpacity = useRef(new Animated.Value(0)).current;
+  const rippleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // The ripple circle is only MOUNTED during the 320ms press window. Why:
+  // navigation fires on press-in, which display:none's this screen in the
+  // same frame — on the New Architecture that unmounts the native views, and
+  // when they re-attach later the animated opacity can come back with a
+  // stale mid-animation value (stranded circle). Value resets via setValue
+  // proved unreliable across that hide/show cycle, so instead the element is
+  // removed from the tree entirely once the ripple is done — an unmounted
+  // view can't strand. The JS timer fires whether or not the nav is hidden.
+  const [rippleVisible, setRippleVisible] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (rippleTimer.current) clearTimeout(rippleTimer.current);
+    };
+  }, []);
 
   const handlePressIn = () => {
     // Fire navigation immediately on touch-down — no lift delay
     onPress(tabKey);
     // Kick off ripple at the same time
+    setRippleVisible(true);
     rippleScale.setValue(0.5);
-    rippleOpacity.setValue(0.12); 
+    rippleOpacity.setValue(0.12);
     Animated.parallel([
       Animated.timing(rippleScale, {
         toValue: 1.5,
@@ -239,6 +257,12 @@ function TabItem({ tabKey, label, active, LinearIcon, BoldIcon, onPress, badgeCo
         useNativeDriver: true,
       }),
     ]).start();
+
+    if (rippleTimer.current) clearTimeout(rippleTimer.current);
+    rippleTimer.current = setTimeout(() => {
+      setRippleVisible(false);
+      rippleTimer.current = null;
+    }, 320);
   };
 
   const color = active ? PRIMARY : INACTIVE;
@@ -253,18 +277,23 @@ function TabItem({ tabKey, label, active, LinearIcon, BoldIcon, onPress, badgeCo
       onPressIn={handlePressIn}
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
     >
-      {/* Ripple circle — centered behind both the icon and label */}
+      {/* Ripple circle — centered behind both the icon and label.
+          Mounted ONLY while a press is in flight (see rippleVisible above);
+          always brand-blue — the grey variant read as a second, mismatched
+          animation when tapping inactive tabs */}
       <View style={styles.rippleContainer} pointerEvents="none">
-        <Animated.View
-          style={[
-            styles.ripple,
-            {
-              transform: [{ scale: rippleScale }],
-              opacity: rippleOpacity,
-              backgroundColor: active ? PRIMARY : INACTIVE,
-            },
-          ]}
-        />
+        {rippleVisible && (
+          <Animated.View
+            style={[
+              styles.ripple,
+              {
+                transform: [{ scale: rippleScale }],
+                opacity: rippleOpacity,
+                backgroundColor: PRIMARY,
+              },
+            ]}
+          />
+        )}
       </View>
 
       <View style={styles.iconWrapper}>
