@@ -18,7 +18,6 @@ import Reanimated, {
   withSpring,
 } from "react-native-reanimated";
 import { FlashList } from "@shopify/flash-list";
-import { BlurView } from "expo-blur";
 import { PostCard, PostData } from "@/features/feed/components/PostCard";
 import { FeedHeader } from "@/features/feed/components/FeedHeader";
 import { BottomNav, NAV_HEIGHT } from "@/shared/components/layout/BottomNav";
@@ -40,6 +39,12 @@ const PROPERTY_VIDEO_2 = require("../../../../assets/WhatsApp Video 2026-04-30 a
    RN converts bounciness/speed via fromBouncinessAndSpeed → origami
    tension/friction ≈ 94.4/13.4, which it uses directly as stiffness/damping
    with mass 1 — same curve, now driven from the UI thread. */
+/* How far a docked landscape banner may be scaled UP to close the dark gap
+   between it and the sheet. Values >1 crop the video's left/right edges, so
+   keep this modest — 1.12 trims ~6% per side. Set to 1 for zero cropping at
+   the cost of a larger gap. */
+const LANDSCAPE_MAX_UPSCALE = 1.12;
+
 const SHEET_OPEN_SPRING = {
   stiffness: 94.4,
   damping: 13.4,
@@ -88,6 +93,8 @@ const MOCK_POSTS: PostData[] = [
     bookmarks: 15,
     shares: 5,
     layout: "horizontal",
+    // 480x1070 — a PORTRAIT clip, despite the horizontal action chrome.
+    aspectRatio: 480 / 1070,
   },
   {
     id: "4",
@@ -116,6 +123,8 @@ const MOCK_POSTS: PostData[] = [
     bookmarks: 33,
     shares: 11,
     layout: "horizontal",
+    // 1280x720 — a genuine 16:9 landscape clip.
+    aspectRatio: 1280 / 720,
   },
   {
     id: "6",
@@ -159,7 +168,7 @@ const MOCK_POSTS: PostData[] = [
 // screen when isScreenActive actually flips (feed ↔ other tab), and not at all
 // for chat ↔ wallet switches.
 export const FeedScreen = React.memo(function FeedScreen({ isScreenActive = true, onChatPress, onWalletPress, onProfilePress }: { isScreenActive?: boolean; onChatPress?: () => void; onWalletPress?: () => void; onProfilePress?: () => void }) {
-  const { height: windowHeight } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [feedViewportHeight, setFeedViewportHeight] = useState(0);
   const hasMeasuredFeed = feedViewportHeight > 0;
@@ -188,7 +197,10 @@ export const FeedScreen = React.memo(function FeedScreen({ isScreenActive = true
   const [loadingPostId, setLoadingPostId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [showComments, setShowComments] = useState(false);
-  const [isMinimized, setIsMinimized] = useState(false);
+  // NOTE: `isMinimized` used to live here. It was set on every open/close but
+  // never read in render and never passed to PostCard (whose `minimized` prop
+  // is separate and unused from this screen) — a pure wasted re-render inside
+  // the open commit. Removed.
   const [isBlurActive, setIsBlurActive] = useState(false);
 
   // Defer the CommentSheet's initial mount until after the feed's first paint
@@ -201,6 +213,13 @@ export const FeedScreen = React.memo(function FeedScreen({ isScreenActive = true
   useEffect(() => {
     const task = InteractionManager.runAfterInteractions(() => setSheetWarm(true));
     return () => task.cancel();
+  }, []);
+
+  // Intrinsic aspect ratio per post, reported by PostCard once the media
+  // loads. Only used for docking landscape posts.
+  const [mediaAspects, setMediaAspects] = useState<Record<string, number>>({});
+  const handleMediaAspect = useCallback((postId: string, aspect: number) => {
+    setMediaAspects((prev) => (prev[postId] === aspect ? prev : { ...prev, [postId]: aspect }));
   }, []);
 
   const activePost = posts.find((post) => post.id === activePostId);
@@ -222,24 +241,73 @@ export const FeedScreen = React.memo(function FeedScreen({ isScreenActive = true
   const dockBottom = SHEET_TOP - GAP;
   const dockHeight = Math.max(0, dockBottom - dockTop);
 
-  const minimizedScale = dockHeight / windowHeight;
-  // translateY shifts the (center-anchored) frame so its scaled box spans [dockTop, dockBottom].
-  const minimizedShift = (dockTop + dockBottom) / 2 - windowHeight / 2;
+  // The feed container is NAV_HEIGHT TALLER than a single post: POST_HEIGHT is
+  // (viewport - NAV_HEIGHT), because the BottomNav sits opaquely over that
+  // bottom strip at rest. So the container always renders the current post
+  // PLUS the top ~55px of the next one. Scaling the whole container into the
+  // dock therefore dragged that next-post strip into the docked card (the flat
+  // band along the card's bottom edge).
+  //
+  // Solve the scale/shift for the POST region instead, so exactly one post
+  // spans [dockTop, dockBottom]. The leftover strip scales to ~18px and lands
+  // below the dock, where the sheet covers it; the mask in the render hides
+  // the few px that fall inside GAP.
+  const feedFrameHeight = hasMeasuredFeed ? feedViewportHeight : windowHeight;
+  const minimizedScale = POST_HEIGHT > 0 ? dockHeight / POST_HEIGHT : 1;
+  // Scale is center-anchored, so solve translateY for: post top (local y=0)
+  // lands on dockTop  →  T = dockTop - (frameHeight/2) * (1 - scale)
+  const minimizedShift = dockTop - (feedFrameHeight / 2) * (1 - minimizedScale);
+
+  /* ── Landscape posts dock as a full-width banner, NOT a shrunken card ──
+     A horizontal post's media is letterboxed inside the portrait card
+     (contentFit "contain"), so scaling that card into the dock left the video
+     as a tiny strip surrounded by black. Instead, landscape posts are not
+     scaled at all (scale 1, full width, true proportions) — the card is only
+     SLID up until the media's top edge lands on dockTop. The card's black
+     region above the media ends up off-screen; the region below sits between
+     the banner and the sheet. Vertical posts are untouched. */
+  // Orientation comes from the MEASURED media ratio, never from post.layout —
+  // `layout` selects the action chrome (vertical rail vs horizontal row), not
+  // the media's shape, so a "horizontal" post can hold a portrait clip. Until
+  // the real ratio arrives the post docks as a normal (portrait) card, which
+  // is the safe default.
+  // Measured ratio wins once it arrives; the post's declared aspectRatio makes
+  // the very first dock correct before any media has loaded.
+  const activeAspect = activePost
+    ? mediaAspects[activePost.id] ?? activePost.aspectRatio
+    : undefined;
+  const isLandscapePost = activeAspect !== undefined && activeAspect > 1;
+  const landscapeAspect = activeAspect ?? 16 / 9;
+  // Media is letterboxed to the card's width, so its on-card height is w / aspect.
+  const landscapeMediaHeight = windowWidth / landscapeAspect;
+  const landscapeMediaTop = (POST_HEIGHT - landscapeMediaHeight) / 2;
+  // Scale up toward filling the dock height so less dark space is left under
+  // the banner, capped by LANDSCAPE_MAX_UPSCALE so the sides aren't badly cropped.
+  const landscapeScale = Math.min(
+    Math.max(landscapeMediaHeight > 0 ? dockHeight / landscapeMediaHeight : 1, 1),
+    LANDSCAPE_MAX_UPSCALE
+  );
+  // Scale is centre-anchored, so solve translateY for: media top → dockTop.
+  const landscapeShift =
+    dockTop - feedFrameHeight / 2 - (landscapeMediaTop - feedFrameHeight / 2) * landscapeScale;
+
+  const dockScaleY = isLandscapePost ? landscapeScale : minimizedScale;
+  const dockScaleX = isLandscapePost ? landscapeScale : 0.45; // 0.45 = vertical "breath width"
+  const dockShift = isLandscapePost ? landscapeShift : minimizedShift;
 
   // Same interpolations as before ([0,1] → dock transform), now evaluated in
   // a worklet on the UI thread. minimizedScale/Shift are plain captured
   // numbers; the deps array rebuilds the worklet when the viewport changes.
   const feedTransformStyle = useAnimatedStyle(() => ({
     transform: [
-      { translateY: interpolate(sheetProgress.value, [0, 1], [0, minimizedShift]) },
-      { scaleY: interpolate(sheetProgress.value, [0, 1], [1, minimizedScale]) },
-      { scaleX: interpolate(sheetProgress.value, [0, 1], [1, 0.45]) }, // wider breath width when minimized
+      { translateY: interpolate(sheetProgress.value, [0, 1], [0, dockShift]) },
+      { scaleY: interpolate(sheetProgress.value, [0, 1], [1, dockScaleY]) },
+      { scaleX: interpolate(sheetProgress.value, [0, 1], [1, dockScaleX]) },
     ],
-  }), [minimizedShift, minimizedScale]);
+  }), [dockShift, dockScaleY, dockScaleX]);
 
   const handleCommentPress = useCallback(() => {
     setShowComments(true);
-    setIsMinimized(true);
     setIsBlurActive(true);
     StatusBar.setHidden(true, "slide");
     // Drive the open animation from HERE, in the same tick as the state above,
@@ -249,14 +317,13 @@ export const FeedScreen = React.memo(function FeedScreen({ isScreenActive = true
   }, [sheetProgress]);
 
   const handleCommentCloseStart = useCallback(() => {
-    setIsMinimized(false); // start expanding postcard and show overlays immediately!
+    // start expanding postcard and show overlays immediately!
     setIsBlurActive(false);
     StatusBar.setHidden(false, "slide");
   }, []);
 
   const handleCommentClose = useCallback(() => {
     setShowComments(false);
-    setIsMinimized(false);
     setIsBlurActive(false);
     StatusBar.setHidden(false, "slide");
   }, []);
@@ -324,9 +391,10 @@ export const FeedScreen = React.memo(function FeedScreen({ isScreenActive = true
         sheetProgress={sheetProgress}
         onCommentPress={handleCommentPress}
         onVideoLoadingChange={handleVideoLoadingChange}
+        onMediaAspect={handleMediaAspect}
       />
     </View>
-  ), [activePostId, isScreenActive, sheetProgress, handleCommentPress, handleVideoLoadingChange, POST_HEIGHT]);
+  ), [activePostId, isScreenActive, sheetProgress, handleCommentPress, handleVideoLoadingChange, handleMediaAspect, POST_HEIGHT]);
 
   return (
     <View style={styles.root}>
@@ -347,13 +415,16 @@ export const FeedScreen = React.memo(function FeedScreen({ isScreenActive = true
               borderRadius: isBlurActive ? 20 : 0,
             },
             feedTransformStyle,
-            // Android: use the RN 0.76+ filter array (works great)
-            // iOS: we use a BlurView overlay instead (filter not reliable on iOS)
-            isBlurActive && Platform.OS === "android"
-              ? ({
-                  filter: [{ blur: 2 }],
-                } as any)
-              : null,
+            // NOTE: a `filter: [{ blur: 2 }]` (Android) and a full-cover
+            // BlurView (iOS) used to be applied here while the comment sheet
+            // was open. Both sat on the whole feed container, so they blurred
+            // the post MEDIA — with real video that turned the docked card
+            // into an unreadable smear, defeating the point of keeping the
+            // post visible while commenting. Hiding the post's own contents
+            // (username, location, caption, like/comment/share) is already
+            // handled by the overlay opacity fade inside PostCard, so the
+            // blur was removed rather than rescoped. The dim layer below is
+            // kept — it de-emphasises the card without destroying the image.
           ]}
           onLayout={handleFeedLayout}
         >
@@ -387,15 +458,22 @@ export const FeedScreen = React.memo(function FeedScreen({ isScreenActive = true
             />
           )}
 
-          {/* iOS feed blur overlay — sits above the feed, below the sheet */}
-          {isBlurActive && Platform.OS === "ios" && (
-            <BlurView
-              intensity={20}
-              tint="dark"
-              style={StyleSheet.absoluteFill}
-              pointerEvents="none"
-            />
-          )}
+          {/* Masks the top edge of the NEXT post, which lives in the
+              NAV_HEIGHT strip the BottomNav covers at rest. Invisible when
+              expanded (the opaque nav already sits over it); essential when
+              minimized, where the nav no longer lines up with it. Scales with
+              the frame, so it stays exactly over that strip. */}
+          <View
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: NAV_HEIGHT,
+              backgroundColor: "#0C0C0C",
+            }}
+            pointerEvents="none"
+          />
 
            {/* dim overlay for both platforms */}
           {isBlurActive && (

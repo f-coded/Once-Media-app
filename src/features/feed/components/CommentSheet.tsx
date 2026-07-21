@@ -664,14 +664,26 @@ useEffect(() => {
   }, [commentText, replyParentId, addReply]);
 
   // Sheet position: progress 1 → translateY 0 (open), 0 → initialHeight (off-screen)
+  //
+  // LINEAR on purpose. This used to be piecewise — [0, 0.1, 1] mapped to
+  // [initialHeight, SHEET_HEIGHT * 0.9 + 6, 0] — which put a knee at
+  // progress 0.1: the sheet covered ~39% of its travel in the first 10% of
+  // progress, then dropped to ~1/5.5 of that speed for the rest. That hard
+  // velocity discontinuity was the "hang" felt partway through the rise (and,
+  // less obviously, as a whoosh near the end of the close, since the same
+  // corner is crossed in reverse).
+  //
+  // It also desynced the sheet from the post card: the feed's dock transform
+  // in FeedScreen is a plain [0, 1] map, so the sheet lurched ahead of the
+  // shrinking card and then stalled while the card kept gliding. Linear here
+  // locks the two together and leaves the spring as the only easing.
+  //
+  // To make the entry punchier, raise stiffness in SHEET_OPEN_SPRING
+  // (FeedScreen) — do NOT reintroduce a corner in this curve.
   const sheetAnimatedStyle = useAnimatedStyle(() => ({
     transform: [
       {
-        translateY: interpolate(
-          progress.value,
-          [0, 0.1, 1],
-          [initialHeight, SHEET_HEIGHT * 0.9 + 6, 0]
-        ),
+        translateY: interpolate(progress.value, [0, 1], [initialHeight, 0]),
       },
     ],
   }));

@@ -25,9 +25,15 @@ import {
 
 const { width: SCREEN_W } = Dimensions.get("window");
 
+/* Measured media aspect ratios, keyed by the media SOURCE rather than post.id —
+   pagination re-emits the same media under fresh ids, and FlashList recycles
+   cards, so keying by source lets both reuse a known ratio. Module-level on
+   purpose: read synchronously during render without triggering re-renders. */
+const mediaAspectCache = new Map<string | number, number>();
+
 // TEMP (parallax dev): render every post as solid black instead of its image/video.
-// Flip back to false to restore real media.
-const BLACK_POSTS = true;
+// Flip back to true to restore the flat gradient placeholders.
+const BLACK_POSTS = false;
 
 /* Map pin icon — exact outlined style from user's SVG */
 function MapPinIcon({ size = 16, color = "rgba(255,255,255,0.6)" }: { size?: number; color?: string }) {
@@ -77,7 +83,15 @@ export type PostData = {
   musicArtist?: string;
   isLiked?: boolean;
   isBookmarked?: boolean;
+  /** Selects the action chrome — "vertical" = right-hand rail with
+   *  music/location/follow, "horizontal" = bottom action row.
+   *  NOTE: this says nothing about the media's shape. Use `aspectRatio`. */
   layout?: "vertical" | "horizontal";
+  /** Intrinsic media aspect ratio (width / height), when known ahead of load.
+   *  Lets the card pick the right fit on FIRST view instead of briefly
+   *  rendering a cropped frame while the video reports its dimensions.
+   *  A backend would supply this; measured values still override it. */
+  aspectRatio?: number;
 };
 
 type PostCardProps = {
@@ -91,6 +105,10 @@ type PostCardProps = {
   sheetProgress?: SharedValue<number>;
   onCommentPress?: () => void;
   onVideoLoadingChange?: (postId: string, isLoading: boolean) => void;
+  /** Intrinsic media aspect ratio (width / height), reported once known.
+   *  FeedScreen needs it to dock landscape posts as a correctly-proportioned
+   *  banner — only this component sees the real dimensions. */
+  onMediaAspect?: (postId: string, aspect: number) => void;
 };
 
 /* Isolated so the 4Hz timeUpdate subscription re-renders only this tiny bar —
@@ -125,6 +143,7 @@ export const PostCard = React.memo(function PostCard({
   sheetProgress,
   onCommentPress,
   onVideoLoadingChange,
+  onMediaAspect,
 }: PostCardProps) {
   // Per-post interaction state keyed by post.id via useRecyclingState:
   // FlashList recycles card instances across posts, so plain useState here
@@ -137,7 +156,24 @@ export const PostCard = React.memo(function PostCard({
   const [isManuallyPaused, setIsManuallyPaused] = useRecyclingState(false, [post.id]);
   const [showPlaybackCue, setShowPlaybackCue] = useState(false);
   const [hasRenderedFrame, setHasRenderedFrame] = useRecyclingState(false, [post.id]);
-  const [mediaFit, setMediaFit] = useRecyclingState<"cover" | "contain">("cover", [post.id]);
+  // Seed from a previously measured aspect for this exact media, so a clip
+  // that has been seen once renders at the right fit immediately instead of
+  // flashing full-bleed portrait and then snapping to letterboxed.
+  //
+  // NOTE: deliberately NOT keyed off post.layout — that selects the action
+  // chrome (vertical rail vs horizontal row), not the media's shape, so a
+  // "horizontal" post can hold a portrait clip. The load handlers below remain
+  // the source of truth and correct this from real dimensions.
+  const mediaKey = post.video ?? post.image;
+  const [mediaFit, setMediaFit] = useRecyclingState<"cover" | "contain">(
+    () => {
+      // Declared ratio wins on first view; the cache covers repeat views of
+      // media whose ratio was never declared.
+      const known = post.aspectRatio ?? mediaAspectCache.get(mediaKey);
+      return known !== undefined && known > 1 ? "contain" : "cover";
+    },
+    [post.id]
+  );
   const layout = post.layout ?? "vertical";
 
   // Overlays (actions, captions, gradients) fade out as comment sheet opens (progress 0→1).
@@ -277,6 +313,13 @@ export const PostCard = React.memo(function PostCard({
     }, 300);
   }, [handleVideoToggle, liked, post.video, isActive, player]);
 
+  const reportAspect = useCallback((width?: number, height?: number) => {
+    if (!width || !height || height <= 0) return;
+    const aspect = width / height;
+    mediaAspectCache.set(mediaKey, aspect);
+    onMediaAspect?.(post.id, aspect);
+  }, [onMediaAspect, post.id, mediaKey]);
+
   const handleLikePress = useCallback(() => {
     setLiked((prev) => {
       setLikeCount((c) => (prev ? c - 1 : c + 1));
@@ -325,6 +368,8 @@ export const PostCard = React.memo(function PostCard({
                 const track = player.videoTrack;
                 if (track && track.size) {
                   setMediaFit(track.size.width > track.size.height ? "contain" : "cover");
+                  // Video track is authoritative — the poster image may differ.
+                  reportAspect(track.size.width, track.size.height);
                 }
               }}
             />
@@ -341,6 +386,7 @@ export const PostCard = React.memo(function PostCard({
               } else {
                 setMediaFit("cover");
               }
+              reportAspect(e.source.width, e.source.height);
             }}
           />
         )}
@@ -351,6 +397,22 @@ export const PostCard = React.memo(function PostCard({
       <Reanimated.View
         style={[StyleSheet.absoluteFill, overlayAnimatedStyle]}
         pointerEvents={minimized ? "none" : "box-none"}
+        // Rasterize this subtree into a single GPU texture so the sheet-open
+        // fade blends a cached bitmap instead of re-rendering the whole
+        // overlay every frame.
+        //
+        // Opacity only forces offscreen alpha compositing while it is
+        // strictly between 0 and 1 — which, given the [0, 0.15, 1] curve
+        // above, happens ONLY during progress 0→0.15. That is why opening
+        // (which sweeps the full range) hitched early while dragging (which
+        // stays near progress 1, opacity pinned at 0) stayed smooth. The
+        // subtree is expensive to composite: two full-size gradients, four
+        // SVG action buttons, and several Texts with large textShadowRadius.
+        //
+        // Gated on isActive so only the on-screen card holds a texture,
+        // rather than every card FlashList keeps mounted.
+        renderToHardwareTextureAndroid={isActive}
+        shouldRasterizeIOS={isActive}
       >
       <HeartBurst visible={showHeart} onFinish={() => setShowHeart(false)} />
 
