@@ -498,7 +498,7 @@ export const ProfileScreen = React.memo(
         </Animated.View>
       </Animated.ScrollView>
 
-      {/* Floating Glassmorphism Sticky Tabs (placed under the floating navbar) */}
+      {/* Floating Sticky Tabs (placed under the floating navbar) — solid white background */}
       <PanGestureHandler
         onHandlerStateChange={onHeaderSwipeStateChange}
         activeOffsetX={[-1000, 15]}
@@ -510,17 +510,11 @@ export const ProfileScreen = React.memo(
             {
               top: NAV_BAR_HEIGHT,
               opacity: stickyTabsOpacity,
+              backgroundColor: "#ffffffd6",
             },
           ]}
           pointerEvents={isSticky ? "auto" : "none"}
         >
-          <BlurView
-            intensity={Platform.OS === "ios" ? GLASS_BLUR_INTENSITY_IOS : GLASS_BLUR_INTENSITY_ANDROID}
-            tint="light"
-            experimentalBlurMethod="dimezisBlurView"
-            style={StyleSheet.absoluteFill}
-          />
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(255, 255, 255, ${GLASS_WHITE_TINT_OPACITY})` }]} />
 
           <View style={s.tabsContainer}>
             <Pressable style={s.tabButton} onPress={() => handleTabChange("posts")}>

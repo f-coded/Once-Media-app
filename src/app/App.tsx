@@ -29,6 +29,7 @@ import { SecurityScreen } from "@/features/profile/screens/SecurityScreen";
 import { ChangePasswordScreen } from "@/features/profile/screens/ChangePasswordScreen";
 import { ChangePinScreen } from "@/features/profile/screens/ChangePinScreen";
 import { PaymentBankScreen } from "@/features/profile/screens/PaymentBankScreen";
+import { ContactSupportScreen } from "@/features/profile/screens/ContactSupportScreen";
 import { AnimatedSplashScreen } from "@/shared/components/loaders/AnimatedSplashScreen";
 
 import * as  NavigationBar from "expo-navigation-bar";
@@ -58,7 +59,8 @@ type Route =
   | "security"
   | "change-password"
   | "change-pin"
-  | "payment-bank";
+  | "payment-bank"
+  | "contact-support";
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -123,6 +125,7 @@ export default function App() {
     "change-password",
     "change-pin",
     "payment-bank",
+    "contact-support",
   ];
 
   // Pre-warm the remaining tab screens in the background once the feed has
@@ -265,7 +268,7 @@ export default function App() {
         {/* ── Tab screens: always mounted, show/hide via display ─────────────
              Keeps each screen alive in memory (like React Navigation tabs)
              so switching back to Home is instant — no remount lag.       */}
-        {(route === "feed" || route === "chat" || route === "wallet" || route === "profile" || route === "settings" || route === "personal-info" || route === "security" || route === "change-password" || route === "change-pin" || route === "payment-bank") && (
+        {(route === "feed" || route === "chat" || route === "wallet" || route === "profile" || route === "settings" || route === "personal-info" || route === "security" || route === "change-password" || route === "change-pin" || route === "payment-bank" || route === "contact-support") && (
           <>
             {feedMounted && (
               <View style={[StyleSheet.absoluteFill, { display: route === "feed" || (route === "profile" && profileOrigin === "feed") ? "flex" : "none" }]}>
@@ -309,6 +312,7 @@ export default function App() {
                     "change-password",
                     "change-pin",
                     "payment-bank",
+                    "contact-support",
                   ].includes(route)
                     ? "flex"
                     : "none",
@@ -324,6 +328,7 @@ export default function App() {
                   "change-password",
                   "change-pin",
                   "payment-bank",
+                  "contact-support",
                 ].includes(route)}
                 isShifted={[
                   "settings",
@@ -332,6 +337,7 @@ export default function App() {
                   "change-password",
                   "change-pin",
                   "payment-bank",
+                  "contact-support",
                 ].includes(route)}
                 onBackPress={() => setRoute(profileOrigin)}
                 onSettingsPress={() => setRoute("settings")}
@@ -344,6 +350,7 @@ export default function App() {
                   "change-password",
                   "change-pin",
                   "payment-bank",
+                  "contact-support",
                 ].includes(route)}
                 isShifted={[
                   "personal-info",
@@ -351,11 +358,14 @@ export default function App() {
                   "change-password",
                   "change-pin",
                   "payment-bank",
+                  "contact-support",
                 ].includes(route)}
                 onBackPress={() => setRoute("profile")}
                 onPersonalInfoPress={() => setRoute("personal-info")}
                 onSecurityPress={() => setRoute("security")}
                 onPaymentBankPress={() => setRoute("payment-bank")}
+                onContactSupportPress={() => setRoute("contact-support")}
+                onLogoutPress={() => setRoute("login")}
               />
               <PersonalInfoScreen
                 isActive={route === "personal-info"}
@@ -378,6 +388,10 @@ export default function App() {
               />
               <PaymentBankScreen
                 isActive={route === "payment-bank"}
+                onBackPress={() => setRoute("settings")}
+              />
+              <ContactSupportScreen
+                isActive={route === "contact-support"}
                 onBackPress={() => setRoute("settings")}
               />
             </View>

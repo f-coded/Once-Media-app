@@ -794,8 +794,8 @@ const pb = StyleSheet.create({
     marginBottom: 20,
   },
   sheetTitle: {
-    fontFamily: "MonaSans_SemiBold",
-    fontSize: 16,
+    fontFamily: "Ubuntu_500Medium",
+    fontSize: 18,
     color: "#1A1A1A",
     letterSpacing: -0.3,
   },

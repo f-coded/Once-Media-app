@@ -30,9 +30,22 @@ interface SettingsScreenProps {
   onPersonalInfoPress?: () => void;
   onSecurityPress?: () => void;
   onPaymentBankPress?: () => void;
+  onContactSupportPress?: () => void;
+  onLogoutPress?: () => void;
 }
 
 // ── Inline SVG icons ──────────────────────────────────────────────────────────
+
+const IconClose = () => (
+  <Svg width={20} height={20} viewBox="0 0 18 18" fill="none">
+    <Path
+      d="M4.5 4.5L13.5 13.5M13.5 4.5L4.5 13.5"
+      stroke="#838383"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+    />
+  </Svg>
+);
 
 const IconUser = () => (
   <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
@@ -160,10 +173,43 @@ export const SettingsScreen = React.memo(
     onPersonalInfoPress,
     onSecurityPress,
     onPaymentBankPress,
+    onContactSupportPress,
+    onLogoutPress,
   }: SettingsScreenProps) {
     const insets = useSafeAreaInsets();
     const screenTranslateX = useRef(new Animated.Value(SCREEN_WIDTH)).current;
     const [darkMode, setDarkMode] = useState(false);
+
+    /* ── Logout Modal state & animation ── */
+    const [logoutModalVisible, setLogoutModalVisible] = useState(false);
+    const [showLogoutModalContent, setShowLogoutModalContent] = useState(false);
+    const modalAnim = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+      if (logoutModalVisible) {
+        setShowLogoutModalContent(true);
+        modalAnim.setValue(0);
+        Animated.timing(modalAnim, {
+          toValue: 1,
+          duration: 300,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }).start();
+      } else {
+        Animated.timing(modalAnim, {
+          toValue: 0,
+          duration: 220,
+          easing: Easing.in(Easing.quad),
+          useNativeDriver: true,
+        }).start(() => {
+          setShowLogoutModalContent(false);
+        });
+      }
+    }, [logoutModalVisible]);
+
+    const closeLogoutModal = useCallback(() => {
+      setLogoutModalVisible(false);
+    }, []);
 
     const NAV_BAR_HEIGHT = insets.top + 56;
 
@@ -254,7 +300,7 @@ export const SettingsScreen = React.memo(
       icon: <IconSupport />,
       label: "Contact support",
       trailing: <IconArrowRight />,
-      onPress: () => {},
+      onPress: onContactSupportPress,
     },
   ];
 
@@ -327,7 +373,7 @@ export const SettingsScreen = React.memo(
 
           {/* Standalone Logout Row */}
           <Pressable
-            onPress={() => {}}
+            onPress={() => setLogoutModalVisible(true)}
             style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
           >
             <View style={s.logoutRow}>
@@ -381,6 +427,114 @@ export const SettingsScreen = React.memo(
           </View>
         </View>
       </PanGestureHandler>
+
+      {/* ── Logout Bottom Sheet Modal (matching PaymentBankScreen backdrop blur) ── */}
+      {showLogoutModalContent && (
+        <View style={[StyleSheet.absoluteFill, { zIndex: 300 }]} pointerEvents="box-none">
+          {/* Backdrop with blur & glassmorphism overlay */}
+          <Pressable style={StyleSheet.absoluteFill} onPress={closeLogoutModal}>
+            <Animated.View
+              style={[
+                StyleSheet.absoluteFill,
+                { opacity: modalAnim },
+              ]}
+            >
+              <BlurView
+                intensity={Platform.OS === "ios" ? 25 : 1.5}
+                tint="dark"
+                experimentalBlurMethod="dimezisBlurView"
+                style={StyleSheet.absoluteFill}
+              />
+              <View
+                style={[
+                  StyleSheet.absoluteFill,
+                  { backgroundColor: `rgba(0, 0, 0, ${Platform.OS === "android" ? 0.4 : 0.82})` },
+                ]}
+              />
+            </Animated.View>
+          </Pressable>
+
+          {/* Bottom Sheet content container */}
+          <Animated.View
+            style={[
+              s.logoutSheet,
+              {
+                paddingBottom: Math.max(20, insets.bottom + 16),
+                transform: [
+                  {
+                    translateY: modalAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [350, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            {/* Top Right Close Button (X) */}
+            <Pressable
+              onPress={closeLogoutModal}
+              style={s.logoutCloseBtn}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <IconClose />
+            </Pressable>
+
+            {/* Red Circle with Logout Icon */}
+            <View style={s.logoutIconCircle}>
+              <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M12 20C7.58172 20 4 16.4183 4 12C4 7.58172 7.58172 4 12 4"
+                  stroke="#E20010"
+                  strokeWidth={1.75}
+                  strokeLinecap="round"
+                />
+                <Path
+                  d="M20 12H10M13 15L10 12L13 9"
+                  stroke="#E20010"
+                  strokeWidth={1.75}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
+            </View>
+
+            {/* Title */}
+            <Text style={s.logoutModalTitle}>Log out?</Text>
+
+            {/* Subtitle */}
+            <Text style={s.logoutModalSub}>
+              Are you sure you want to log out of your {'\n'} account?
+            </Text>
+
+            {/* Action Buttons */}
+            <View style={s.logoutActionsContainer}>
+              {/* Logout Button (Grey) */}
+              <Pressable
+                onPress={() => {
+                  closeLogoutModal();
+                  onLogoutPress?.();
+                }}
+                style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
+              >
+                <View style={s.logoutBtnGrey}>
+                  <Text style={s.logoutBtnGreyText}>Logout</Text>
+                </View>
+              </Pressable>
+
+              {/* Not Yet Button (Blue) */}
+              <Pressable
+                onPress={closeLogoutModal}
+                style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
+              >
+                <View style={s.logoutBtnBlue}>
+                  <Text style={s.logoutBtnBlueText}>Not Yet</Text>
+                </View>
+              </Pressable>
+            </View>
+          </Animated.View>
+        </View>
+      )}
     </Animated.View>
   );
 }, (prev, next) => prev.isActive === next.isActive && prev.isShifted === next.isShifted);
@@ -476,5 +630,86 @@ const s = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 2,
     elevation: 2,
+  },
+
+  /* ── Logout Modal Styles ── */
+  logoutSheet: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingHorizontal: 18,
+    paddingTop: 20,
+    alignItems: "center",
+  },
+  logoutCloseBtn: {
+    position: "absolute",
+    top: 26,
+    right: 24,
+    zIndex: 10,
+  },
+  logoutIconCircle: {
+    width: 45,
+    height: 45,
+    borderRadius: 60,
+    gap: 4,
+    backgroundColor: "#FFE5E7",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 10,
+    marginBottom: 12,
+  },
+  logoutModalTitle: {
+    fontFamily: "Ubuntu_500Medium",
+    fontSize: 18,
+    color: "#262525",
+    letterSpacing: -0.36,
+    textAlign: "center",
+    marginBottom: 6,
+  },
+  logoutModalSub: {
+    fontFamily: "Ubuntu_400Regular",
+    fontSize: 15,
+    color: "#838383",
+    textAlign: "center",
+    lineHeight: 20,
+    letterSpacing: -0.3,
+    marginBottom: 20,
+    paddingHorizontal: 16,
+  },
+  logoutActionsContainer: {
+    width: "100%",
+    gap: 12,
+  },
+  logoutBtnGrey: {
+    height: 50,
+    borderRadius: 30,
+    backgroundColor: "#F2F2F2",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+  },
+  logoutBtnGreyText: {
+    fontFamily: "Ubuntu_400Regular",
+    fontSize: 16,
+    color: "#262525",
+    letterSpacing: -0.32,
+  },
+  logoutBtnBlue: {
+    height: 50,
+    borderRadius: 30,
+    backgroundColor: "#1B17B3",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+  },
+  logoutBtnBlueText: {
+    fontFamily: "Ubuntu_400Regular",
+    fontSize: 16,
+    color: "#FFFFFF",
+    letterSpacing: -0.32,
   },
 });
