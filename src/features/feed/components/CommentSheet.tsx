@@ -22,6 +22,7 @@ import {
 import {
   KeyboardController,
   useKeyboardState,
+  useGenericKeyboardHandler,
 } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
@@ -30,6 +31,7 @@ import Reanimated, {
   useSharedValue,
   useAnimatedProps,
   useAnimatedStyle,
+  useDerivedValue,
   interpolate,
   withSpring,
   withTiming,
@@ -286,6 +288,7 @@ export function CommentSheet({ onClose, onCloseStart, progress, visible }: Comme
   useEffect(() => {
     if (visible) {
       isClosingSV.value = false;
+      composerFrozenSV.value = false;
       setClosing(false);
     }
   }, [visible]);
@@ -302,7 +305,16 @@ export function CommentSheet({ onClose, onCloseStart, progress, visible }: Comme
   // worklets on the UI thread, so every per-frame read/write below happens
   // without touching the JS bridge. Semantics are 1:1 with the old refs.
   const scrollOffsetSV = useSharedValue(0);
-  const composerPadBottomSV = useSharedValue(0);
+  // Keyboard height (positive px), updated every frame of the keyboard's
+  // animation on the UI thread. Replaces the didShow/didHide-only state.
+  //
+  // useGenericKeyboardHandler, NOT useReanimatedKeyboardAnimation: the latter
+  // sets Android's resize mode on mount, and this app already declares
+  // android:windowSoftInputMode="adjustResize" in the manifest. Letting the
+  // library re-assert it was a global side effect we don't want.
+  const kbHeightSV = useSharedValue(0);
+  const composerFrozenSV = useSharedValue(false);
+  const frozenComposerPadSV = useSharedValue(0);
   const isAddingSV = useSharedValue(false);
   const sheetPanRef = useRef<GestureType | undefined>(undefined);
   const commentListRef = useRef<any>(null);
@@ -329,7 +341,6 @@ export function CommentSheet({ onClose, onCloseStart, progress, visible }: Comme
 
   const isClosingSV = useSharedValue(false);
   const [closing, setClosing] = useState(false);
-  const frozenBottom = useRef(0);
 
   const [commentText, setCommentText] = useState("");
   const [isAdding, setIsAdding] = useState(false);
@@ -340,6 +351,57 @@ export function CommentSheet({ onClose, onCloseStart, progress, visible }: Comme
   useEffect(() => {
     isAddingSV.value = isAdding;
   }, [isAdding, isAddingSV]);
+
+  /* ── Composer keyboard tracking ────────────────────────────────────
+     Declared HERE, above the pan handlers, because the composer-zone worklet
+     reads composerPadSV.
+
+     This used to be plain React state derived from useKeyboardState, which
+     only subscribes to keyboardDidShow / keyboardDidHide — events that fire
+     AFTER the keyboard has finished animating. So the composer held still for
+     the entire ~300ms keyboard animation and then snapped into place (and on
+     dismiss, sat up while the keyboard vanished, then dropped). That was the
+     lag, in both directions.
+
+     Same formula as before — only now evaluated every frame on the UI thread
+     from the keyboard's own animation, so settled positions are unchanged and
+     the intermediate ones actually track the keyboard. */
+  const baseComposerPad = Math.max(12, bottomInset);
+
+  useGenericKeyboardHandler({
+    onMove: (e) => {
+      "worklet";
+      kbHeightSV.value = e.height;
+    },
+    onEnd: (e) => {
+      "worklet";
+      kbHeightSV.value = e.height;
+    },
+  }, []);
+
+  // Effective bottom spacing, same formula as the original JS version. Read by
+  // the composer lift, the scrim, and the composer-zone gesture worklet.
+  const composerPadSV = useDerivedValue(() => {
+    // While the sheet is closing, hold the last position instead of chasing
+    // the dismissing keyboard down — that chase is the "bottom hang" the
+    // frozenBottom logic originally existed to prevent.
+    if (composerFrozenSV.value) return frozenComposerPadSV.value;
+    return kbHeightSV.value > 0 ? kbHeightSV.value + 8 : baseComposerPad;
+  }, [baseComposerPad]);
+
+  /* TRANSFORM, not paddingBottom. Animating a layout prop here forced a
+     shadow-tree commit on every update, and because this composer is mounted
+     for the sheet's whole life those commits fought the sheet's own open
+     animation — it visibly regressed the intro. translateY stays purely on the
+     UI thread and costs no layout.
+
+     The composer keeps a static paddingBottom and simply rides upward; the gap
+     it leaves beneath itself is #FFFFFF on the #FFFFFF sheet surface, so it is
+     invisible. The list no longer shrinks, but the scrim already covers the
+     entire list area while the keyboard is up, so nothing readable is lost. */
+  const composerAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: -(composerPadSV.value - baseComposerPad) }],
+  }), [baseComposerPad]);
 
   const [comments, setComments] = useState<Comment[]>(COMMENTS);
   const [expandedCommentIds, setExpandedCommentIds] = useState<Set<string>>(new Set());
@@ -376,7 +438,10 @@ export function CommentSheet({ onClose, onCloseStart, progress, visible }: Comme
   }, [listMomentumActive]);
 
   const keyboardVisible = useKeyboardState((s) => s.isVisible);
-  const keyboardHeight = useKeyboardState((s) => s.height);
+  // NOTE: the keyboard HEIGHT is no longer read from React state — it comes
+  // from kbHeightSV on the UI thread. Subscribing to it here re-rendered the
+  // whole sheet on every keyboard event for no benefit. `isVisible` is still
+  // state because it only gates whether the scrim is mounted.
 
   //Animate in on mount
   // useEffect(() => {
@@ -402,7 +467,10 @@ export function CommentSheet({ onClose, onCloseStart, progress, visible }: Comme
   const closeSheet = useCallback(() => {
     if (isClosingSV.value) return;
     isClosingSV.value = true;
-    frozenBottom.current = keyboardHeight;
+    // Freeze the composer wherever it currently sits, so it doesn't ride the
+    // dismissing keyboard down while the sheet is also animating out.
+    frozenComposerPadSV.value = composerPadSV.value;
+    composerFrozenSV.value = true;
     setClosing(true);
     onCloseStart?.();
     KeyboardController.dismiss();
@@ -425,7 +493,7 @@ export function CommentSheet({ onClose, onCloseStart, progress, visible }: Comme
         }
       }
     );
-  }, [progress, onClose, onCloseStart, keyboardHeight, isClosingSV, finalizeClose]);
+  }, [progress, onClose, onCloseStart, isClosingSV, finalizeClose]);
 
   const closeSheetRef = useRef(closeSheet);
   closeSheetRef.current = closeSheet;
@@ -442,7 +510,7 @@ export function CommentSheet({ onClose, onCloseStart, progress, visible }: Comme
   const prepareSheetDragW = useCallback((absoluteY: number, translationY: number) => {
     "worklet";
     const composerTop =
-      initialHeight - composerPadBottomSV.value - (isAddingSV.value ? 80 : 58);
+      initialHeight - composerPadSV.value - (isAddingSV.value ? 80 : 58);
     sheetDragZone.value =
       absoluteY < TOP_OFFSET + 60
         ? "header"
@@ -456,7 +524,7 @@ export function CommentSheet({ onClose, onCloseStart, progress, visible }: Comme
     bodyPullPrimed.value = false;
     pastDeadZone.value = false;
     waveDepth.value = 0;
-  }, [initialHeight, TOP_OFFSET, composerPadBottomSV, isAddingSV, sheetDragZone, sheetDragActive, sheetDragStartProgress, sheetDragStartTranslationY, bodyPullPrimed, pastDeadZone, waveDepth, progress]);
+  }, [initialHeight, TOP_OFFSET, composerPadSV, isAddingSV, sheetDragZone, sheetDragActive, sheetDragStartProgress, sheetDragStartTranslationY, bodyPullPrimed, pastDeadZone, waveDepth, progress]);
 
   const panGesture = Gesture.Pan()
     .withRef(sheetPanRef)
@@ -748,17 +816,13 @@ useEffect(() => {
     [expandedCommentIds, toggleReplies, focusReply]
   );
 
-  const composerPadBottom = closing
-    ? frozenBottom.current
-      ? frozenBottom.current + 8
-      : Math.max(12, bottomInset)
-    : keyboardVisible
-    ? keyboardHeight + 8
-    : Math.max(12, bottomInset);
-
-  composerPadBottomSV.value = composerPadBottom;
-
   const composerHeightOffset = isAdding ? 80 : 58;
+
+  // Scrim sits directly on top of the composer, so its bottom edge has to
+  // track the same value (cheap: absolutely positioned, no siblings relaid out).
+  const keyboardScrimStyle = useAnimatedStyle(() => ({
+    bottom: composerPadSV.value + composerHeightOffset,
+  }), [composerHeightOffset]);
 
   const SheetSurface = View;
 
@@ -834,33 +898,35 @@ useEffect(() => {
 
             {keyboardVisible && (
               <>
-                <BlurView
-                  intensity={Platform.OS === "ios" ? 15 : 1}
-                  tint="dark"
-                  experimentalBlurMethod="dimezisBlurView"
+                <Reanimated.View
                   style={[
                     StyleSheet.absoluteFillObject,
-                    {
-                      top: 0,
-                      bottom: composerPadBottom + composerHeightOffset,
-                      zIndex: 8,
-                      borderTopLeftRadius: 35,
-                      borderTopRightRadius: 35,
-                    },
+                    { top: 0, zIndex: 8 },
+                    keyboardScrimStyle,
                   ]}
                   pointerEvents="none"
-                />
-                <View
+                >
+                  <BlurView
+                    intensity={Platform.OS === "ios" ? 15 : 1}
+                    tint="dark"
+                    experimentalBlurMethod="dimezisBlurView"
+                    style={[
+                      StyleSheet.absoluteFill,
+                      { borderTopLeftRadius: 35, borderTopRightRadius: 35 },
+                    ]}
+                  />
+                </Reanimated.View>
+                <Reanimated.View
                   style={[
                     StyleSheet.absoluteFillObject,
                     {
                       top: 0,
-                      bottom: composerPadBottom + composerHeightOffset,
                       backgroundColor: "rgba(20, 20, 20, 0.44)",
                       zIndex: 9,
                       borderTopLeftRadius: 20,
                       borderTopRightRadius: 25,
                     },
+                    keyboardScrimStyle,
                   ]}
                   pointerEvents="none"
                 />
@@ -868,7 +934,9 @@ useEffect(() => {
             )}
 
             {/* Composer */}
-            <View style={[styles.composer, { paddingBottom: composerPadBottom }]}>
+            <Reanimated.View
+              style={[styles.composer, { paddingBottom: baseComposerPad }, composerAnimatedStyle]}
+            >
               {isAdding && (
                 <Text style={styles.replying}>
                   Replying to {replyType}{" "}
@@ -905,7 +973,7 @@ useEffect(() => {
                   </Pressable>
                 ) : null}
               </View>
-            </View>
+            </Reanimated.View>
           </SheetSurface>
         </Reanimated.View>
       </GestureDetector>
