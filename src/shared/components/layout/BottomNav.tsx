@@ -239,29 +239,55 @@ type TabItemProps = {
 function TabItem({ tabKey, label, active, LinearIcon, BoldIcon, onPress, badgeCount, arrivalSignal }: TabItemProps) {
   const rippleScale = useRef(new Animated.Value(0.3)).current;
   const rippleOpacity = useRef(new Animated.Value(0)).current;
-  const rippleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // The ripple circle is only MOUNTED during the 320ms press window. Why:
+  // The ripple circle is only MOUNTED while a ripple is in flight. Why:
   // navigation fires on press-in, which display:none's this screen in the
   // same frame — on the New Architecture that unmounts the native views, and
   // when they re-attach later the animated opacity can come back with a
   // stale mid-animation value (stranded circle). Value resets via setValue
   // proved unreliable across that hide/show cycle, so instead the element is
   // removed from the tree entirely once the ripple is done — an unmounted
-  // view can't strand. The JS timer fires whether or not the nav is hidden.
-  const [rippleVisible, setRippleVisible] = useState(false);
+  // view can't strand.
+  //
+  // Holds the generation id of the in-flight ripple (null = nothing mounted).
+  // Doubles as the identity guard so a superseded ripple's completion
+  // callback can't tear down the newer one that replaced it.
+  const [rippleId, setRippleId] = useState<number | null>(null);
+  const rippleGeneration = useRef(0);
+  const rippleInFlight = useRef(false);
 
-  useEffect(() => {
-    return () => {
-      if (rippleTimer.current) clearTimeout(rippleTimer.current);
-    };
-  }, []);
-
+  // STEP 1 — mount the circle at its start values. Deliberately does NOT
+  // start the animation: at this point React has not committed the mount, so
+  // the Animated.View does not exist yet.
   const playRipple = () => {
-    setRippleVisible(true);
+    const generation = ++rippleGeneration.current;
+    rippleInFlight.current = true;
     rippleScale.setValue(0.5);
     rippleOpacity.setValue(0.12);
-    Animated.parallel([
+    setRippleId(generation);
+  };
+
+  // STEP 2 — start the animation only AFTER that mount has committed, so the
+  // native driver has a real, attached view to drive.
+  //
+  // This is what was breaking the arrival ripple: starting a
+  // useNativeDriver animation in the same tick as setState meant it ran on
+  // the native thread against a detached node while the JS thread was still
+  // mounting Chat/Wallet. By the time the circle actually attached, the
+  // animation had already run out — so you saw one frame of the small
+  // starting circle and nothing else. On an already-active tab the mount is
+  // ~1 frame, which is why only that path looked correct.
+  useEffect(() => {
+    if (rippleId === null) return;
+    const generation = rippleId;
+
+    const finish = () => {
+      if (rippleGeneration.current !== generation) return; // superseded — leave the newer ripple alone
+      rippleInFlight.current = false;
+      setRippleId(null);
+    };
+
+    const animation = Animated.parallel([
       Animated.timing(rippleScale, {
         toValue: 1.5,
         duration: 300,
@@ -272,14 +298,15 @@ function TabItem({ tabKey, label, active, LinearIcon, BoldIcon, onPress, badgeCo
         duration: 300,
         useNativeDriver: true,
       }),
-    ]).start();
+    ]);
+    animation.start(finish);
 
-    if (rippleTimer.current) clearTimeout(rippleTimer.current);
-    rippleTimer.current = setTimeout(() => {
-      setRippleVisible(false);
-      rippleTimer.current = null;
-    }, 320);
-  };
+    // Failsafe only: covers the completion callback never arriving (e.g. the
+    // animation is stopped externally). Measured from the real start, and far
+    // longer than the 300ms animation so it can never truncate a ripple.
+    const failsafe = setTimeout(finish, 600);
+    return () => clearTimeout(failsafe);
+  }, [rippleId, rippleScale, rippleOpacity]);
 
   const handlePressIn = () => {
     // Fire navigation immediately on touch-down — no lift delay
@@ -295,7 +322,7 @@ function TabItem({ tabKey, label, active, LinearIcon, BoldIcon, onPress, badgeCo
   // press ripple is already in flight (the press happened on this same nav).
   useEffect(() => {
     if (!arrivalSignal) return;
-    if (rippleTimer.current) return;
+    if (rippleInFlight.current) return;
     playRipple();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [arrivalSignal]);
@@ -313,11 +340,11 @@ function TabItem({ tabKey, label, active, LinearIcon, BoldIcon, onPress, badgeCo
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
     >
       {/* Ripple circle — centered behind both the icon and label.
-          Mounted ONLY while a press is in flight (see rippleVisible above);
+          Mounted ONLY while a ripple is in flight (see rippleId above);
           always brand-blue — the grey variant read as a second, mismatched
           animation when tapping inactive tabs */}
       <View style={styles.rippleContainer} pointerEvents="none">
-        {rippleVisible && (
+        {rippleId !== null && (
           <Animated.View
             style={[
               styles.ripple,
