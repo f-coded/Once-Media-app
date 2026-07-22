@@ -361,21 +361,23 @@ export const PostCard = React.memo(function PostCard({
           />
         ) : post.video ? (
           <>
-            {!hasRenderedFrame && (
-              <Image
-                source={typeof post.image === "string" ? { uri: post.image } : post.image}
-                style={StyleSheet.absoluteFill}
-                contentFit={mediaFit}
-                transition={200}
-                onLoad={(e) => {
-                  if (e.source.width > e.source.height) {
-                    setMediaFit("contain");
-                  } else {
-                    setMediaFit("cover");
-                  }
-                }}
-              />
-            )}
+            {/* NO poster image before the first video frame — deliberately.
+                `post.image` is a generic fallback, not a thumbnail of the clip
+                (see MOCK_POSTS: "fallback image if video doesn't load"), so
+                showing it produced a visible wrong-picture → video swap on
+                every scroll-in. Two distinct symptoms came from it:
+                  • post 5 (16:9 clip, portrait still): identical contentFit put
+                    them in DIFFERENT boxes, so the still filled the card while
+                    the video letterboxed on top — the still stayed visible
+                    through the black bars.
+                  • post 3 (portrait clip): boxes matched, but the picture was
+                    simply not the video, so it read as a flash.
+                The card's own #000 background now shows until the first frame,
+                which reads as loading rather than as a bug.
+
+                When real data lands, add a proper `posterUri` (an actual frame
+                of the clip) and render it here — and reinstate an error
+                fallback, which this path was also nominally serving. */}
             <VideoView
               player={player}
               style={StyleSheet.absoluteFill}
@@ -399,6 +401,9 @@ export const PostCard = React.memo(function PostCard({
             style={StyleSheet.absoluteFill}
             contentFit={mediaFit}
             transition={300}
+            // See the poster above: prevents a recycled card showing the
+            // previous post's image while this one decodes.
+            recyclingKey={post.id}
             onLoad={(e) => {
               if (e.source.width > e.source.height) {
                 setMediaFit("contain");
