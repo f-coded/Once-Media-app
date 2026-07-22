@@ -45,18 +45,23 @@ export function ActionButton({ icon, count, label, onPress }: ActionButtonProps)
       onPress={onPress}
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       style={({ pressed }) => [
-        { alignItems: "center", gap: 2 },
+        // minWidth fixes the column: without it each button sized to its own
+        // count ("3" vs "18.2K"), so the icons drifted horizontally relative to
+        // one another and the numbers sat off-centre under them. 44 clears the
+        // 28px icon and the widest formatted count, so icons and numbers share
+        // one centre line down the rail.
+        { alignItems: "center", justifyContent: "center", gap: 2, minWidth: 44 },
         pressed && { transform: [{ scale: 0.88 }] },
       ]}
     >
       {icon}
       {count !== undefined && (
-        <Text style={{ ...font("Ubuntu_400Regular", 16, "#FFFFFF"), textShadowColor: "rgba(0,0,0,1)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 }}>
+        <Text style={{ ...font("Ubuntu_400Regular", 16, "#FFFFFF"), textAlign: "center", textShadowColor: "rgba(0,0,0,1)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 }}>
           {formatCount(count)}
         </Text>
       )}
       {label && (
-        <Text style={{ ...font("Ubuntu_400Regular", 10, "#FFFFFF"), textShadowColor: "rgba(0,0,0,0.5)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 }}>
+        <Text style={{ ...font("Ubuntu_400Regular", 10, "#FFFFFF"), textAlign: "center", textShadowColor: "rgba(0,0,0,0.5)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 }}>
           {label}
         </Text>
       )}

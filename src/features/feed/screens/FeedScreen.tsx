@@ -93,8 +93,7 @@ const MOCK_POSTS: PostData[] = [
     comments: 7,
     bookmarks: 15,
     shares: 5,
-    layout: "horizontal",
-    // 480x1070 — a PORTRAIT clip, despite the horizontal action chrome.
+    // 480x1070 — a portrait clip. Media shape is independent of `layout`.
     aspectRatio: 480 / 1070,
   },
   {
@@ -123,8 +122,8 @@ const MOCK_POSTS: PostData[] = [
     comments: 19,
     bookmarks: 33,
     shares: 11,
-    layout: "horizontal",
-    // 1280x720 — a genuine 16:9 landscape clip.
+    // 1280x720 — a genuine 16:9 landscape clip. Still docks as a wide banner:
+    // that is driven by aspectRatio, not by `layout`.
     aspectRatio: 1280 / 720,
   },
   {
