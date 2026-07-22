@@ -1,9 +1,5 @@
 import { useState } from "react";
-import { View, LayoutAnimation, Platform, UIManager } from "react-native";
-
-if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
+import { View } from "react-native";
 
 import {
   AuthLayout,
@@ -24,8 +20,10 @@ export function ForgotPasswordScreen({ onBackPress, onContinuePress }: ForgotPas
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
 
+  // The swap is animated by the field wrapper's Reanimated transitions below.
+  // LayoutAnimation used to do this, but it is a no-op on Fabric, so the tab
+  // swap jump-cut on Android while animating on iOS.
   const handleTabChange = (newMethod: string) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setMethod(newMethod);
   };
 

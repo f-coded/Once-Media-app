@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   BackHandler,
   Dimensions,
-  LayoutAnimation,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Platform,
@@ -10,7 +9,6 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  UIManager,
   View,
 } from "react-native";
 import {
@@ -36,15 +34,19 @@ import Reanimated, {
   withSpring,
   withTiming,
   runOnJS,
+  LinearTransition,
+  FadeIn,
+  FadeOut,
   Easing as ReanimatedEasing,
   type SharedValue,
 } from "react-native-reanimated";
 
-if (Platform.OS === "android") {
-  if (UIManager.setLayoutAnimationEnabledExperimental) {
-    UIManager.setLayoutAnimationEnabledExperimental(true);
-  }
-}
+/* LayoutAnimation removed. On Fabric / the New Architecture
+   `setLayoutAnimationEnabledExperimental` is a no-op and LayoutAnimation is
+   unreliable, so reply expand/collapse and the composer grow jump-cut on
+   Android while animating on iOS — the same interaction feeling different per
+   platform. Reanimated layout transitions (LinearTransition / FadeIn /
+   FadeOut) are used instead; they run on the UI thread on both platforms. */
 import { BlurView } from "expo-blur";
 import { font } from "@/features/auth/components/AuthUI";
 import { CloseIcon, EmptyCommentIcon } from "./FeedIcons";
@@ -313,6 +315,9 @@ export function CommentSheet({ onClose, onCloseStart, progress, visible }: Comme
   // android:windowSoftInputMode="adjustResize" in the manifest. Letting the
   // library re-assert it was a global side effect we don't want.
   const kbHeightSV = useSharedValue(0);
+  // 0 → 1 across the keyboard's motion. Drives the scrim's fade so it can't
+  // pop in late the way a keyboardDidShow-gated mount did.
+  const kbProgressSV = useSharedValue(0);
   const composerFrozenSV = useSharedValue(false);
   const frozenComposerPadSV = useSharedValue(0);
   const isAddingSV = useSharedValue(false);
@@ -372,10 +377,12 @@ export function CommentSheet({ onClose, onCloseStart, progress, visible }: Comme
     onMove: (e) => {
       "worklet";
       kbHeightSV.value = e.height;
+      kbProgressSV.value = e.progress;
     },
     onEnd: (e) => {
       "worklet";
       kbHeightSV.value = e.height;
+      kbProgressSV.value = e.progress;
     },
   }, []);
 
@@ -409,8 +416,9 @@ export function CommentSheet({ onClose, onCloseStart, progress, visible }: Comme
   // Freezes the list so it can't shift/jitter while the sheet is being dragged
   const [listScrollEnabled, setListScrollEnabled] = useState(true);
 
+  // Animation comes from the replies container's own LinearTransition /
+  // FadeIn / FadeOut, not from a LayoutAnimation call here.
   const toggleReplies = useCallback((commentId: string) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpandedCommentIds((prev) => {
       const next = new Set(prev);
       if (next.has(commentId)) {
@@ -676,7 +684,6 @@ useEffect(() => {
     setReplyType(type);
     setReplyName(name);
     setReplyParentId(parentId || null);
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setIsAdding(true);
     requestAnimationFrame(() => inputRef.current?.focus());
   }, []);
@@ -711,7 +718,6 @@ useEffect(() => {
       repliesCount: 0,
     };
 
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     if (replyParentId) {
       setComments((prev) => addReply(prev, replyParentId, newComment));
       setExpandedCommentIds((prev) => {
@@ -803,11 +809,16 @@ useEffect(() => {
             </View>
 
             {isExpanded && hasReplies && (
-              <View style={styles.nestedRepliesContainer}>
+              <Reanimated.View
+                style={styles.nestedRepliesContainer}
+                entering={FadeIn.duration(180)}
+                exiting={FadeOut.duration(140)}
+                layout={LinearTransition.duration(220)}
+              >
                 {comment.replies!.map((reply) =>
                   renderCommentItem(reply, true, parentCommentId || comment.id)
                 )}
-              </View>
+              </Reanimated.View>
             )}
           </View>
         </View>
@@ -820,8 +831,11 @@ useEffect(() => {
 
   // Scrim sits directly on top of the composer, so its bottom edge has to
   // track the same value (cheap: absolutely positioned, no siblings relaid out).
+  // Bottom edge tracks the composer; opacity tracks the keyboard's own motion,
+  // so the scrim fades in WITH the keyboard instead of appearing after it.
   const keyboardScrimStyle = useAnimatedStyle(() => ({
     bottom: composerPadSV.value + composerHeightOffset,
+    opacity: kbProgressSV.value,
   }), [composerHeightOffset]);
 
   const SheetSurface = View;
@@ -896,7 +910,14 @@ useEffect(() => {
               </View>
             )}
 
-            {keyboardVisible && (
+            {/* Mounted on isAdding (set synchronously on focus) rather than on
+                keyboardVisible, which comes from keyboardDidShow and therefore
+                only fires AFTER the keyboard has finished animating — the
+                scrim used to pop in late. keyboardVisible is kept in the
+                condition so it also covers a keyboard raised without isAdding.
+                Opacity is driven by kbProgressSV, so mounting early is
+                invisible: it starts fully transparent. */}
+            {(isAdding || keyboardVisible) && (
               <>
                 <Reanimated.View
                   style={[
@@ -938,10 +959,14 @@ useEffect(() => {
               style={[styles.composer, { paddingBottom: baseComposerPad }, composerAnimatedStyle]}
             >
               {isAdding && (
-                <Text style={styles.replying}>
+                <Reanimated.Text
+                  style={styles.replying}
+                  entering={FadeIn.duration(160)}
+                  exiting={FadeOut.duration(120)}
+                >
                   Replying to {replyType}{" "}
                   <Text style={styles.replyName}>~{replyName}</Text>
-                </Text>
+                </Reanimated.Text>
               )}
               <View style={styles.inputPill}>
                 <TextInput
@@ -953,12 +978,10 @@ useEffect(() => {
                   onChangeText={setCommentText}
                   keyboardAppearance="light"
                   onFocus={() => {
-                    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
                     setIsAdding(true);
                   }}
                   onBlur={() => {
                     if (!commentText.trim()) {
-                      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
                       setIsAdding(false);
                       setReplyType("post author");
                       setReplyName("Kelechi Obi");

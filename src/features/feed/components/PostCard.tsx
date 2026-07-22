@@ -496,12 +496,23 @@ export const PostCard = React.memo(function PostCard({
         </View>
 
         {/* Caption */}
-        <Text style={styles.caption}>
-          {captionExpanded ? post.caption : (post.caption.length > 65 ? `${post.caption.substring(0, 65)}... ` : post.caption)}
-          {!captionExpanded && post.caption.length > 65 && (
-            <Text style={styles.seeMoreInline} onPress={() => setCaptionExpanded(true)}>See more</Text>
-          )}
-        </Text>
+        {/* Nested <Text onPress> can't take hitSlop, so "See more" was a
+            ~14px-tall target and there was no way to collapse again. The whole
+            caption toggles now, giving a full-width target in both directions.
+            Same type styles as before — only the touch target and the added
+            "Less" affordance differ. */}
+        <Pressable
+          onPress={() => setCaptionExpanded((v) => !v)}
+          disabled={post.caption.length <= 65}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+        >
+          <Text style={styles.caption}>
+            {captionExpanded ? post.caption : (post.caption.length > 65 ? `${post.caption.substring(0, 65)}... ` : post.caption)}
+            {post.caption.length > 65 && (
+              <Text style={styles.seeMoreInline}>{captionExpanded ? " See Less" : "See More"}</Text>
+            )}
+          </Text>
+        </Pressable>
 
         {/* Location tag */}
         {layout === "vertical" && post.location && (

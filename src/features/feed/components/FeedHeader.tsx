@@ -25,10 +25,14 @@ export function FeedHeader({ onProfilePress, style, pointerEvents }: FeedHeaderP
       pointerEvents={pointerEvents}
     >
       <View style={styles.leftGroup}>
-        <Pressable 
-          onPress={onProfilePress} 
+        <Pressable
+          onPress={onProfilePress}
           style={styles.profilePressable}
-          hitSlop={{ top: 35, bottom: 35, left: 35, right: 35 }}
+          // Was 35 on all sides. On a 52x52 pressable that is a ~122x122 target
+          // which overlapped the "Posts" title — taps near the title opened the
+          // profile. 8 keeps it comfortably reachable without colliding.
+          // (Invisible change: affects the touch region only, not the layout.)
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <Image
             source={{ uri: "https://i.pravatar.cc/100?img=9" }}
