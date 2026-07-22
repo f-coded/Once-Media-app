@@ -15,10 +15,11 @@ import Reanimated, {
   useSharedValue,
   useAnimatedStyle,
   interpolate,
+  Extrapolation,
   withSpring,
 } from "react-native-reanimated";
 import { FlashList } from "@shopify/flash-list";
-import { PostCard, PostData } from "@/features/feed/components/PostCard";
+import { PostCard, PostData, OVERLAY_FADE_END } from "@/features/feed/components/PostCard";
 import { FeedHeader } from "@/features/feed/components/FeedHeader";
 import { BottomNav, NAV_HEIGHT } from "@/shared/components/layout/BottomNav";
 import { CommentSheet } from "@/features/feed/components/CommentSheet";
@@ -306,6 +307,12 @@ export const FeedScreen = React.memo(function FeedScreen({ isScreenActive = true
     ],
   }), [dockShift, dockScaleY, dockScaleX]);
 
+  // Shares PostCard's overlay curve (and its constant) so the header and the
+  // post's own overlays fade as one group.
+  const headerFadeStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(sheetProgress.value, [0, OVERLAY_FADE_END, 1], [1, 0, 0], Extrapolation.CLAMP),
+  }));
+
   const handleCommentPress = useCallback(() => {
     setShowComments(true);
     setIsBlurActive(true);
@@ -400,8 +407,15 @@ export const FeedScreen = React.memo(function FeedScreen({ isScreenActive = true
     <View style={styles.root}>
       <View style={styles.container}>
 
-        {/* Feed header — floating */}
-       {!isBlurActive && <FeedHeader onProfilePress={onProfilePress} />}
+        {/* Feed header — floating. Stays MOUNTED and fades with the sheet.
+            Unmounting it on open tore down its BlurView and rebuilt it at
+            close-start, mid-animation — the header "pop". Same fade curve as
+            PostCard's overlays, so they move as one. */}
+        <FeedHeader
+          onProfilePress={onProfilePress}
+          style={headerFadeStyle}
+          pointerEvents={isBlurActive ? "none" : "box-none"}
+        />
        
         {/* <Animated.View style={[isBlurActive && Platform.OS === "android" ? { filter: [{ blur: 2 }] } : null]}>
           <FeedHeader />

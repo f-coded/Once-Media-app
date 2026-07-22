@@ -71,6 +71,35 @@ const MOCK_SAVED_POSTS: PostGridItem[] = [
   { id: "s3", image: PROPERTY_IMG_6, views: "837" },
 ];
 
+/* The views "eye" glyph. Hoisted to module scope so its element tree is built
+   ONCE, rather than re-created for all 23 grid items on every ProfileScreen
+   render (and this screen re-renders on every tab swipe and sticky-header
+   toggle). */
+const EyeGlyph = (
+  <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
+    <Path
+      d="M13.469 5.69754C16.1563 7.52436 17.5 8.43778 17.5 10C17.5 11.5623 16.1563 12.4757 13.469 14.3025C12.7272 14.8068 11.9914 15.2816 11.3153 15.6773C10.7221 16.0244 10.0503 16.3834 9.35484 16.7359C6.67383 18.0945 5.33332 18.7738 4.13104 18.0217C2.92875 17.2696 2.81949 15.6951 2.60095 12.5462C2.53915 11.6557 2.5 10.7827 2.5 10C2.5 9.2174 2.53915 8.3444 2.60095 7.45388C2.81949 4.30493 2.92875 2.73046 4.13104 1.97836C5.33332 1.22625 6.67383 1.90556 9.35484 3.26417C10.0503 3.61662 10.7221 3.97567 11.3153 4.32277C11.9914 4.71842 12.7272 5.19323 13.469 5.69754Z"
+      stroke="white"
+      strokeWidth={1.25}
+    />
+  </Svg>
+);
+
+/* Memoized: the grid is not virtualized, so every one of the 23 items would
+   otherwise re-render whenever the profile re-renders. Items are static, so
+   memo cuts that to zero after first paint. */
+const GridItem = React.memo(function GridItem({ item }: { item: PostGridItem }) {
+  return (
+    <View style={s.gridItem}>
+      <Image source={item.image} style={s.gridImage} contentFit="cover" />
+      <View style={s.viewsOverlay}>
+        {EyeGlyph}
+        <Text style={s.viewsText}>{item.views}</Text>
+      </View>
+    </View>
+  );
+});
+
 interface ProfileScreenProps {
   isActive?: boolean;
   isShifted?: boolean;
@@ -393,19 +422,7 @@ export const ProfileScreen = React.memo(
   });
 
   const renderGridItem = (item: PostGridItem) => (
-    <View key={item.id} style={s.gridItem}>
-      <Image source={item.image} style={s.gridImage} contentFit="cover" />
-      <View style={s.viewsOverlay}>
-        <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
-          <Path
-            d="M13.469 5.69754C16.1563 7.52436 17.5 8.43778 17.5 10C17.5 11.5623 16.1563 12.4757 13.469 14.3025C12.7272 14.8068 11.9914 15.2816 11.3153 15.6773C10.7221 16.0244 10.0503 16.3834 9.35484 16.7359C6.67383 18.0945 5.33332 18.7738 4.13104 18.0217C2.92875 17.2696 2.81949 15.6951 2.60095 12.5462C2.53915 11.6557 2.5 10.7827 2.5 10C2.5 9.2174 2.53915 8.3444 2.60095 7.45388C2.81949 4.30493 2.92875 2.73046 4.13104 1.97836C5.33332 1.22625 6.67383 1.90556 9.35484 3.26417C10.0503 3.61662 10.7221 3.97567 11.3153 4.32277C11.9914 4.71842 12.7272 5.19323 13.469 5.69754Z"
-            stroke="white"
-            strokeWidth={1.25}
-          />
-        </Svg>
-        <Text style={s.viewsText}>{item.views}</Text>
-      </View>
-    </View>
+    <GridItem key={item.id} item={item} />
   );
 
   return (

@@ -1,15 +1,29 @@
 import React from "react";
-import { View, Text, Pressable, StyleSheet, Platform } from "react-native";
+import { View, Text, Pressable, StyleSheet, Platform, type ViewProps } from "react-native";
+import Reanimated from "react-native-reanimated";
 import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PlusIcon } from "./FeedIcons";
 
-export function FeedHeader({ onProfilePress }: { onProfilePress?: () => void }) {
+type FeedHeaderProps = {
+  onProfilePress?: () => void;
+  /** Animated style (e.g. the sheet-driven opacity fade) applied to the root.
+   *  Applied here rather than to a wrapper because this container is
+   *  absolutely positioned — an extra wrapper would collapse to zero height
+   *  and Android would stop dispatching touches to the overflowing content. */
+  style?: ViewProps["style"];
+  pointerEvents?: ViewProps["pointerEvents"];
+};
+
+export function FeedHeader({ onProfilePress, style, pointerEvents }: FeedHeaderProps) {
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 9 }]}>
+    <Reanimated.View
+      style={[styles.container, { paddingTop: insets.top + 9 }, style]}
+      pointerEvents={pointerEvents}
+    >
       <View style={styles.leftGroup}>
         <Pressable 
           onPress={onProfilePress} 
@@ -38,7 +52,7 @@ export function FeedHeader({ onProfilePress }: { onProfilePress?: () => void }) 
           <Text style={styles.newPostText}>New Post</Text>
         </BlurView>
       </Pressable>
-    </View>
+    </Reanimated.View>
   );
 }
 

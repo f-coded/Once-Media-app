@@ -1,10 +1,6 @@
-import React, { useCallback } from "react";
-import { Text, Pressable, Platform } from "react-native";
-import Animated, { useSharedValue, useAnimatedStyle, withTiming } from "react-native-reanimated";
-import * as Haptics from "expo-haptics";
+import React from "react";
+import { Text, Pressable } from "react-native";
 import { font } from "@/features/auth/components/AuthUI";
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 type ActionButtonProps = {
   icon: React.ReactNode;
@@ -13,44 +9,44 @@ type ActionButtonProps = {
   onPress?: () => void;
 };
 
+const formatCount = (num?: number) => {
+  if (num === undefined) return null;
+  if (num >= 1000000) return (num / 1000000).toFixed(1) + "M";
+  if (num >= 1000) return (num / 1000).toFixed(1) + "K";
+  return num.toString();
+};
+
+/**
+ * A plain Pressable — deliberately.
+ *
+ * This used to be `Animated.createAnimatedComponent(Pressable)` with a
+ * `useSharedValue` + `useAnimatedStyle` press-scale. That put FOUR Reanimated
+ * animated views inside PostCard's overlay, which is the subtree the comment
+ * sheet scales and fades on open.
+ *
+ * That was the entire reason vertical-layout posts hitched while the
+ * horizontal ones (posts 3 & 5) were perfectly smooth: the horizontal action
+ * row is built from plain Pressables, so its overlay contains ZERO animated
+ * views. Same media, same sheet, same everything else — only this differed.
+ *
+ * It also explains why the earlier attempts missed:
+ *   - `renderToHardwareTextureAndroid` can't cache a subtree whose children
+ *     are animated views, so the rasterization bought nothing.
+ *   - Shortening the overlay fade window did nothing, because the cost was
+ *     spread across the whole transform, not just the fade.
+ *
+ * Press feedback is now a static `pressed` style: applied once on press-down
+ * and once on release, never per-frame, and it creates no animated node. Keep
+ * it that way — reintroducing Reanimated here brings the hitch back.
+ */
 export function ActionButton({ icon, count, label, onPress }: ActionButtonProps) {
-  const formatCount = (num?: number) => {
-    if (num === undefined) return null;
-    if (num >= 1000000) return (num / 1000000).toFixed(1) + "M";
-    if (num >= 1000) return (num / 1000).toFixed(1) + "K";
-    return num.toString();
-  };
-
-  const scale = useSharedValue(1);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  const handlePressIn = useCallback(() => {
-    scale.value = withTiming(0.85, { duration: 80 });
-  }, [scale]);
-
-  const handlePressOut = useCallback(() => {
-    scale.value = withTiming(1, { duration: 120 });
-  }, [scale]);
-
-  const handlePress = useCallback(() => {
-    if (Platform.OS !== "web") {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    onPress?.();
-  }, [onPress]);
-
   return (
-    <AnimatedPressable
-      onPress={handlePress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
+    <Pressable
+      onPress={onPress}
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-      style={[
+      style={({ pressed }) => [
         { alignItems: "center", gap: 2 },
-        animatedStyle,
+        pressed && { transform: [{ scale: 0.88 }] },
       ]}
     >
       {icon}
@@ -64,6 +60,6 @@ export function ActionButton({ icon, count, label, onPress }: ActionButtonProps)
           {label}
         </Text>
       )}
-    </AnimatedPressable>
+    </Pressable>
   );
 }

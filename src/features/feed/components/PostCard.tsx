@@ -25,6 +25,25 @@ import {
 
 const { width: SCREEN_W } = Dimensions.get("window");
 
+/* Progress at which the post overlays finish fading out (and, in reverse,
+   begin fading in).
+
+   Opacity is ONLY expensive while strictly between 0 and 1: at 1 Android skips
+   the layer entirely, at 0 it skips the view, but in between it must render the
+   whole subtree to an offscreen buffer and alpha-blend it every frame. The
+   vertical action rail makes that subtree costly — four Reanimated
+   ActionButtons, SVG icons, text shadows, and an elevation shadow on Clip —
+   which is exactly why vertical posts hitched on sheet-open while the much
+   lighter horizontal chrome stayed smooth.
+
+   Shortening this to ~1 frame was tried as a fix for the vertical layout's
+   hitch and made NO measurable difference — the real cause was a native
+   haptics call sitting in front of onPress in ActionButton, i.e. before the
+   animation started at all. Restored to the original 0.15 for the softer fade.
+
+   Raise it for a softer fade, lower it for less compositing. */
+export const OVERLAY_FADE_END = 0.15;
+
 /* Measured media aspect ratios, keyed by the media SOURCE rather than post.id —
    pagination re-emits the same media under fresh ids, and FlashList recycles
    cards, so keying by source lets both reuse a known ratio. Module-level on
@@ -182,7 +201,7 @@ export const PostCard = React.memo(function PostCard({
   // worklet on the UI thread from the shared sheet progress.
   const overlayAnimatedStyle = useAnimatedStyle(() => ({
     opacity: sheetProgress
-      ? interpolate(sheetProgress.value, [0, 0.15, 1], [1, 0, 0], Extrapolation.CLAMP)
+      ? interpolate(sheetProgress.value, [0, OVERLAY_FADE_END, 1], [1, 0, 0], Extrapolation.CLAMP)
       : 1,
   }), [sheetProgress]);
 

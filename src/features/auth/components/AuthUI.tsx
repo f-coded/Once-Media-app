@@ -20,7 +20,6 @@ import Animated, {
   withTiming,
   FadeInUp,
 } from "react-native-reanimated";
-import * as Haptics from "expo-haptics";
 
 import { colors } from "@/app/theme/colors";
 
@@ -566,9 +565,10 @@ export function PrimaryButton({ label, onPress, loading }: PrimaryButtonProps) {
 
   const handlePress = useCallback(() => {
     if (loading) return;
-    if (Platform.OS !== "web") {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+    // NO haptics — deliberately. Haptics.impactAsync is a native module call,
+    // and running it here put the vibrator on the critical path of navigation:
+    // on Login the route change waited for the buzz. Removed for consistency
+    // with the feed's action buttons, which no longer vibrate either.
     onPress?.();
   }, [loading, onPress]);
 

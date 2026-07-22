@@ -163,7 +163,7 @@ try to "fix" keyboard persistence in JS — look at the manifest first.
 
 ## Related
 
-- `comment-sheet-drag-physics.md` — ⚠️ **partly stale**. It still describes the
-  pre-Reanimated architecture (`Animated.Value`, `PanResponder`), the feed blur
-  that has since been removed, and the `isMinimized` state that no longer
-  exists.
+- `comment-sheet-drag-physics.md` — sheet architecture, drag/close physics,
+  overlay timing and docking. Rewritten for the Reanimated architecture.
+- `media-orientation-and-docking.md` — `layout` vs `aspectRatio`, and how
+  landscape posts dock differently.

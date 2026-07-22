@@ -1,186 +1,258 @@
-# Comment Sheet Drag-to-Close Physics & PostCard Overlay Timing
+# Comment Sheet Physics, Docking & PostCard Overlay Timing
 
-> **Status**: Working & Pushed to `staging` (June 29, 2026)
+> **Status**: Working (July 2026) — rewritten after the Reanimated migration
 > **Files**: `CommentSheet.tsx`, `PostCard.tsx`, `FeedScreen.tsx`
+> **See also**: `keyboard-composer-tracking.md`, `media-orientation-and-docking.md`
 
 ---
 
 ## Architecture Overview
 
-The comment sheet and post card are connected through a **single shared `Animated.Value`** called `sheetProgress` (owned by `FeedScreen`). Both components read the same value:
+The comment sheet and post card are connected through a **single shared
+Reanimated `SharedValue<number>`** called `sheetProgress`, owned by `FeedScreen`.
+`0` = closed, `1` = fully open.
 
-- **CommentSheet** drives it (mount animation 0→1, drag scrub, close animation →0)
-- **PostCard** reads it (scale/translate the post, fade overlays in/out)
-- **FeedScreen** reads it (blur/dim feed behind the sheet)
+| Component | Role |
+|---|---|
+| `FeedScreen` | **Owns** it. Fires the open spring. Reads it for the post-card dock transform. |
+| `CommentSheet` | Drives it during drag and close. Reads it for the sheet's `translateY`. |
+| `PostCard` | Reads it to fade the overlays. |
 
-This architecture means the post card and comment sheet always move **in lockstep** — no timers, no separate animations, just one shared native-driven value.
+Everything runs **on the UI thread** — the gesture handlers are worklets, and
+every consumer is a `useAnimatedStyle`. There is no JS-bridge hop per frame, no
+timer, and no second animation to keep in sync. The sheet and post card move in
+lockstep because they are literally reading the same number.
 
----
-
-## CommentSheet Drag Physics
-
-### Drag Sensitivity (1.4x multiplier)
-```typescript
-const next = 1 - (g.dy * 1.4) / SHEET_HEIGHT;
-```
-The raw gesture displacement `g.dy` is multiplied by `1.4` before mapping to progress. This makes the sheet feel **loose and light** — less finger travel is needed to drag it down. Without this, the sheet felt "stiff" and "heavy" to move on Android.
-
-### Release Threshold (progress-based, not pixel-based)
-```typescript
-if (currentProgressVal.current < 0.85 || g.vy > 0.5) {
-  closeSheet();
-}
-```
-**Why progress-based**: With the 1.4x multiplier, the actual gesture `g.dy` pixels don't map 1:1 to how far the sheet has moved. Testing `g.dy > 120` (the old approach) was unreliable — sometimes the sheet had moved far but the raw gesture hadn't crossed the pixel threshold. Using the actual progress value (`< 0.85` = dragged 15% down) makes the release feel consistently responsive.
-
-**Low velocity threshold**: `g.vy > 0.5` (lowered from 0.8) catches quick flicks even if the drag distance is small.
-
-### Spring-Back
-If the drag doesn't cross the threshold, the sheet springs back with `bounciness: 0` (no overshoot):
-```typescript
-Animated.spring(progress, { toValue: 1, bounciness: 0, useNativeDriver: true })
-```
+> Historical note: this was originally an RN `Animated.Value` driven by
+> `PanResponder`, with a JS-side mirror ref (`currentProgressVal`) so JS could
+> read the value. A SharedValue is readable from both threads, so that mirror
+> is gone.
 
 ---
 
-## Close Animation — The "Bottom Hang" Fix
+## Sheet position — LINEAR, deliberately
 
-### Root Cause 1: `setClosing(false)` layout flash
-
-**The bug**: In the animation completion callback, calling `setClosing(false)` before `onClose()` triggered a React re-render. This flipped `composerPadBottom` from the frozen keyboard height to `0` for **one single frame** before the component unmounted. That one-frame layout jump was the visible "hang" at the bottom edge.
-
-**The fix**: Don't call `setClosing(false)` or `isClosing.current = false` in the completion callback. The component is about to be unmounted by `onClose()` → `setShowComments(false)` anyway, so these resets are unnecessary.
-
-```typescript
-// ❌ BAD — causes layout flash
-.start(() => {
-  progress.setValue(0);
-  isClosing.current = false;  // unnecessary
-  setClosing(false);           // CAUSES THE HANG — composerPadBottom recalculates
-  onClose();                   // unmounts the component
-});
-
-// ✅ GOOD — clean exit
-.start(() => {
-  progress.setValue(0);
-  // Do NOT reset closing state here — component unmounts via onClose
-  onClose();
-});
+```tsx
+translateY: interpolate(progress.value, [0, 1], [initialHeight, 0])
 ```
 
-### Root Cause 2: `translateY` output range too small
+**Do not reintroduce a corner in this curve.** It was previously piecewise —
+`[0, 0.1, 1] → [initialHeight, SHEET_HEIGHT * 0.9 + 6, 0]` — which put a knee at
+`progress 0.1`:
 
-**The bug**: `outputRange: [SHEET_HEIGHT + 6, 0]` placed the sheet's top edge only 6px past the screen bottom at progress=0. With shadows, border radius, or safe-area mismatches, the rounded header could peek above the bottom edge.
+| Segment | progress | covers | speed |
+|---|---|---|---|
+| 1 | `0 → 0.1` | ~39% of the travel | ~`3.88H` per unit progress |
+| 2 | `0.1 → 1` | the other ~61% | ~`0.68H` per unit progress |
 
-**The fix**: Use `[initialHeight, 0]` — the full window height — to guarantee the sheet slides **way** offscreen:
+A **5.5× instantaneous velocity drop** at ~39% of the travel. It read as the
+sheet lurching up, hanging mid-rise, then continuing — and on close as a whoosh
+near the end, crossing the same corner in reverse.
 
-```typescript
-// ❌ BAD — barely offscreen, can peek
-outputRange: [SHEET_HEIGHT + 6, 0]
+It also **desynced the sheet from the post card**, because the card's dock
+transform is a plain `[0, 1]` map: the sheet lurched ahead, then stalled while
+the card kept gliding.
 
-// ✅ GOOD — fully offscreen with margin
-outputRange: [initialHeight, 0]
+**To make the entry punchier, raise `stiffness` in `SHEET_OPEN_SPRING`
+(FeedScreen) — never by adding stops to this interpolation.**
+
+---
+
+## Drag physics
+
+The pan is a single `Gesture.Pan()` whose `onBegin` / `onStart` / `onUpdate` /
+`onFinalize` are **worklets**. RNGH's lifecycle callbacks replaced the old
+manual `State.BEGAN/ACTIVE/END` machine; `onFinalize` covers END, CANCELLED and
+FAILED alike.
+
+### Zones
+
+On `onBegin` the touch is classified once into `header`, `body`, or `composer`:
+
+- **`composer`** — ignored entirely (you're typing, not dragging)
+- **`header`** — drags immediately
+- **`body`** — only drags under the conditions below
+
+The composer boundary is computed from `composerPadSV`, which tracks the
+keyboard (see `keyboard-composer-tracking.md`).
+
+### Body-drag guards (both intentional — do not remove)
+
+```tsx
+if (scrollOffsetSV.value > LIST_TOP_THRESHOLD) return;  // only from the top
+if (listMomentumActive.value) return;                    // not mid-fling
 ```
 
-### Proportional Duration Scaling
+The momentum guard exists because the list's own deceleration fought the pan at
+the top edge — that was the original "shaky/jittery" feel.
 
-The close animation duration scales linearly with the remaining distance:
-```typescript
+### Two-stage pull (`hasStretchedOnce`)
+
+The **first** pull-at-top of a session only shows the elastic wave cue and never
+drags the sheet, no matter how far you pull:
+
+- `pullDistance < BODY_PULL_DEAD_ZONE (18px)` → nothing
+- then bloom over `BODY_PULL_BLOOM_DISTANCE (44px)` → wave grows 0→1
+
+On release, `hasStretchedOnce` flips true and **every subsequent pull drags
+immediately**, with no stretch cue.
+
+> Caveat worth knowing: `hasStretchedOnce` lives on an always-mounted component,
+> so "first" means once per app session, not once per sheet open. First-time
+> users may read the non-dragging first pull as a broken dismiss.
+
+### Sensitivity & thresholds
+
+```tsx
+const DRAG_SENSITIVITY = 1.4;         // gesture px → progress multiplier
+const CLOSE_PROGRESS_THRESHOLD = 0.85;
+const CLOSE_VELOCITY_THRESHOLD = 500; // px/s
+```
+
+`1.4` makes the sheet feel loose — less finger travel to move it. Without it the
+sheet felt stiff and heavy on Android.
+
+**Release is progress-based, not pixel-based.** With a gesture multiplier, raw
+`translationY` desyncs from where the sheet visually is, so testing pixels was
+unreliable. Closing at `progress < 0.85` (dragged 15% down) is consistent.
+
+> ⚠️ **Unit change**: the old `PanResponder` implementation used
+> `g.vy > 0.5` — a normalised velocity. RNGH reports **px/s**, hence `500`.
+> Don't port the old number.
+
+### Springs
+
+RN's `bounciness`/`speed` were converted to Reanimated stiffness/damping via
+RN's own `fromBouncinessAndSpeed` → origami mapping, so the settle curves are
+unchanged from the pre-migration feel:
+
+| Spring | Params | Was |
+|---|---|---|
+| `SHEET_OPEN_SPRING` (FeedScreen) | stiffness 94.4, damping 13.4, mass 1 | `bounciness: 0, speed: 16` |
+| `REOPEN_SPRING` (drag released, stays open) | stiffness 70.9, damping 12.0, mass 1 | `bounciness: 0` (default speed 12) |
+| `WAVE_RELEASE_SPRING` | damping 16, stiffness 200, mass 0.5 | unchanged |
+
+---
+
+## Close animation
+
+```tsx
 const duration = Math.max(80, Math.round(remaining * 200));
+progress.value = withTiming(0, { duration, easing: Easing.in(Easing.quad) }, cb);
 ```
-- Dragged 70% down (remaining=0.3) → 60ms (min 80ms)
-- Dragged 50% down (remaining=0.5) → 100ms
-- Released from top (remaining=1.0) → 200ms
 
-This prevents the sheet from feeling sluggish when released near the bottom.
+- **Proportional duration** — released near the bottom, it doesn't feel sluggish.
+- **`Easing.in` (accelerating)** — an exit should speed up as it leaves.
+  `Easing.out` decelerates into the edge and reads as hanging.
+- **Instant bypass** — if `remaining <= 0.05`, skip the animation entirely.
 
-### Accelerating Exit Curve
+`onCloseStart` fires immediately so the post card starts expanding while the
+sheet is still animating out.
 
-```typescript
-easing: Easing.in(Easing.quad)
-```
-`Easing.in` means the animation **starts slow and accelerates**. For a close/exit gesture, this is critical:
-- ❌ `Easing.out` (decelerate) → slows down at the bottom → looks like it's "hanging"
-- ✅ `Easing.in` (accelerate) → speeds up as it exits → flies away cleanly
+### Do not `setState` in the completion callback
 
-### Instant Unmount Bypass
-
-If the user has already dragged the sheet 95%+ offscreen, skip the animation entirely:
-```typescript
-if (remaining <= 0.05) {
-  progress.setValue(0);
-  onClose();
-  return;
-}
-```
+The original "bottom hang" was `setClosing(false)` in the completion callback:
+it triggered one more render, flipping the composer's padding for a single
+frame before unmount. The component is about to be unmounted by `onClose()`
+anyway — reset nothing there.
 
 ---
 
-## PostCard Overlay Timing
+## Open animation
 
-### Delayed Fade-In (Post Lands First, Then Buttons Appear)
+Fired from **`FeedScreen.handleCommentPress`**, not from a mount effect inside
+the sheet:
 
-```typescript
-const overlayOpacity = sheetProgress
-  ? sheetProgress.interpolate({
-      inputRange: [0, 0.15, 1],
-      outputRange: [1, 0, 0],
-    })
-  : 1;
+```tsx
+setShowComments(true);
+setIsBlurActive(true);
+StatusBar.setHidden(true, "slide");
+sheetProgress.value = withSpring(1, SHEET_OPEN_SPRING);
 ```
 
-**How it works**:
-- `progress 1 → 0.15`: Overlays stay at opacity `0` (hidden)
-- `progress 0.15 → 0`: Overlays fade from `0` → `1` (visible)
-
-Since the post card's scale is driven by the same `sheetProgress`, by the time progress reaches `0.15`, the post card is already ~85% expanded. The action buttons then fade in during the final 15%, giving the visual impression that the post "lands" first, then the buttons "pop in."
-
-### `pointerEvents` Toggle
-```typescript
-pointerEvents={minimized ? "none" : "box-none"}
-```
-While the comment sheet is open (`minimized=true`), overlay touches are disabled so the transparent action buttons don't intercept taps meant for the sheet backdrop.
+Starting it in the same tick as the state flip removes the mount-lag that used
+to delay the post card's shrink. The sheet is also **kept mounted** after first
+use (`sheetWarm`), so opening never pays a mount cost.
 
 ---
 
-## FeedScreen Scroll Snapping
+## PostCard overlay timing
 
-### FlashList Configuration
-```typescript
-<FlashList
-  pagingEnabled={Platform.OS === "ios"}
-  disableIntervalMomentum={true}
-  decelerationRate="fast"
-  snapToInterval={POST_HEIGHT}
-  snapToAlignment="start"
-  estimatedItemSize={POST_HEIGHT}
-/>
+```tsx
+opacity: interpolate(sheetProgress.value, [0, 0.15, 1], [1, 0, 0], CLAMP)
 ```
 
-**Key props**:
-- `disableIntervalMomentum={true}` — prevents momentum from carrying the scroll past the snap point (fixes the "aggressive scrolling past multiple posts" issue on Android)
-- `decelerationRate="fast"` — scroll decelerates quickly, making snaps feel responsive
-- `snapToInterval={POST_HEIGHT}` — locks scroll positions to exact multiples of the post height
-- `estimatedItemSize={POST_HEIGHT}` — FlashList optimization for cell recycling performance
+- **Opening**: overlays fade out fast, over the first 15% of progress
+- **Closing**: they stay at `0` for the first 85%, then fade in over the final
+  15% — so the card **lands at full size first**, then the buttons appear
 
-### `isMinimized` State
+### Rasterization (required)
 
-Controls the postcard overlay visibility and feed blur independently from the sheet's mount lifecycle:
-
-```
-Comment open:   setIsMinimized(true)  → overlays fade out, feed blurs
-Close START:    setIsMinimized(false) → overlays start fading in, blur clears
-Close END:      setShowComments(false) → sheet unmounts
+```tsx
+renderToHardwareTextureAndroid={isActive}
+shouldRasterizeIOS={isActive}
 ```
 
-This separation ensures the post card starts expanding at close-START (smooth visual transition) while the sheet stays mounted until it finishes animating offscreen.
+Opacity only forces offscreen alpha compositing while it is **strictly between
+0 and 1** — i.e. only during `progress 0 → 0.15`. That subtree is expensive
+(two full-size gradients, four SVG action buttons, several `Text`s with large
+`textShadowRadius`), and re-compositing it every frame caused a hitch early in
+the open. Rasterizing caches it as one texture.
+
+This also explains why **dragging always felt smooth while opening didn't**:
+a drag sits near `progress 1`, where opacity is pinned at `0` and costs nothing.
+
+Gated on `isActive` so only the on-screen card holds a texture.
 
 ---
 
-## Key Lessons
+## FeedScreen docking
 
-1. **Never call `setState` in an animation completion callback if the component unmounts immediately after** — it causes a one-frame layout flash.
-2. **Use `Easing.in` for exit animations, `Easing.out` for entrance animations** — exit should accelerate away, entrance should decelerate to settle.
-3. **Test `translateY` output ranges on actual devices** — `SHEET_HEIGHT + 6` looks correct on paper but can peek on devices with edge-to-edge mode or non-standard safe areas.
-4. **Multiply gesture displacement for lighter feel** — raw `PanResponder` gesture values often feel too heavy/stiff on Android. A 1.2–1.5x multiplier makes drawers feel native.
-5. **Use progress-based thresholds instead of pixel-based** — especially when using gesture multipliers, the raw pixel values desync from the visual position.
+Portrait and landscape posts dock differently — see
+`media-orientation-and-docking.md` for the full rules. In summary:
+
+- **Portrait** — shrinks: `scaleY = dockHeight / POST_HEIGHT`, `scaleX = 0.45`
+  (a deliberately non-uniform "breath width")
+- **Landscape** — does **not** shrink: slides up into a full-width banner at
+  true proportions
+
+### The next-post mask (do not remove)
+
+`POST_HEIGHT = feedViewportHeight - NAV_HEIGHT`, so the feed container is always
+one nav-height taller than a single post and always renders the top of the
+*next* post. `BottomNav` covers that strip at rest — but not when docked, where
+it bled into the docked card as a visible band. An opaque strip pinned to the
+frame's bottom `NAV_HEIGHT` hides it.
+
+---
+
+## Changed since the first version of this doc
+
+| Then | Now |
+|---|---|
+| RN `Animated.Value` + `currentProgressVal` mirror ref | Reanimated `SharedValue`, readable on both threads |
+| `PanResponder`, `g.dy` / `g.vy` | `Gesture.Pan()` worklets, `translationY` / `velocityY` (px/s) |
+| Feed **blur** behind the sheet | **Removed** — it blurred the post media itself, unreadable with real video. Only the dim remains |
+| `isMinimized` state | **Removed** — it was set on every open/close but never read |
+| Piecewise sheet `translateY` | Linear |
+| `estimatedItemSize` on FlashList | Not present (FlashList v2) |
+
+---
+
+## Key lessons
+
+1. **Animating a layout prop is not the same as animating a transform.** Layout
+   props force shadow-tree commits that contend with other animations in the
+   same tree. This is the single highest-value lesson in this codebase — see
+   `keyboard-composer-tracking.md`.
+2. **Never put a corner in a curve two components share.** The knee at
+   `progress 0.1` desynced the sheet from the post card. Change the spring, not
+   the interpolation stops.
+3. **Use `Easing.in` for exits, `Easing.out` for entrances.**
+4. **Use progress-based thresholds, not pixel-based**, whenever a gesture
+   multiplier is involved.
+5. **Opacity between 0 and 1 costs offscreen compositing.** If a complex subtree
+   fades, rasterize it.
+6. **Never `setState` in an animation completion callback if the component
+   unmounts right after** — one-frame layout flash.
+7. **Check the units when porting thresholds between gesture systems.**
